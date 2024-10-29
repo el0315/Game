@@ -760,7 +760,7 @@ let allowEnemyRespawning = true;
 
 // Function to spawn the boss when player score reaches 15
 function checkBossSpawn() {
-    if (!boss.active && player.score >= 1) {
+    if (!boss.active && player.score >= 15) {
         boss.active = true;
         boss.x = player.x + 100;
         boss.y = groundLevel - boss.height;
