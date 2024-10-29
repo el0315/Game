@@ -630,6 +630,195 @@ class Enemy {
 
     
 }
+
+
+// Updated Boss class with correct sprite transition and animation flipping
+class Boss {
+    constructor(x, y, freezeSprites, walkFrames) {
+        this.x = x;
+        this.y = y;
+        this.width = 100;
+        this.height = 100;
+        this.freezeSprites = freezeSprites;  // Array of sprites for freeze progression
+        this.walkFrames = walkFrames;  // Array of walk animation frames
+        this.currentFreezeSpriteIndex = 0;  // Index for freeze progression sprites
+        this.currentWalkFrameIndex = 0;  // Track current walk frame
+        this.frameCounter = 0;  // Frame counter for timing animations
+        this.sprite = this.freezeSprites[this.currentFreezeSpriteIndex];  // Initial freeze sprite
+        this.frozen = true;  // Start in frozen state
+        this.shotsReceived = 0;  // Track shots per sprite update
+        this.shotsPerSpriteUpdate = 5;  // Shots required for each sprite update in frozen state
+        this.health = 100;  // Boss health after unfreezing
+        this.active = false;  // Boss starts inactive
+        this.walking = false;  // Set to true once the boss starts moving
+        this.facingRight = false;  // Direction tracking for sprite flipping
+    }
+
+    // Draw the boss with correct sprite based on current state
+    draw(ctx) {
+        ctx.save();
+        
+        if (!this.frozen && this.walking) {
+            // Display the walk animation frames if the boss is unfrozen and walking
+            const walkFrame = this.walkFrames[this.currentWalkFrameIndex];
+            
+            if (this.facingRight) {
+                ctx.translate(this.x + this.width - cameraOffsetX, this.y - cameraOffsetY);
+                ctx.scale(-1, 1);  // Flip horizontally when facing right
+                ctx.drawImage(walkFrame, 0, 0, this.width, this.height);
+            } else {
+                ctx.drawImage(walkFrame, this.x - cameraOffsetX, this.y - cameraOffsetY, this.width, this.height);
+            }
+            
+            // Animation cycling for walk frames
+            this.frameCounter++;
+            if (this.frameCounter >= 10) {  // Adjust for speed of animation
+                this.currentWalkFrameIndex = (this.currentWalkFrameIndex + 1) % this.walkFrames.length;
+                this.frameCounter = 0;
+            }
+        } else {
+            // Use the freeze sprites if still frozen
+            ctx.drawImage(this.sprite, this.x - cameraOffsetX, this.y - cameraOffsetY, this.width, this.height);
+        }
+        
+        ctx.restore();
+
+        // Display health bar once unfrozen
+        if (!this.frozen) {
+            this.drawHealthBar(ctx);
+        }
+    }
+
+    // Draw boss health bar
+    drawHealthBar(ctx) {
+        const barWidth = 80;
+        ctx.fillStyle = 'red';
+        ctx.fillRect(this.x - cameraOffsetX, this.y - 10 - cameraOffsetY, barWidth, 8);
+        ctx.fillStyle = 'green';
+        ctx.fillRect(this.x - cameraOffsetX, this.y - 10 - cameraOffsetY, barWidth * (this.health / 100), 8);
+    }
+
+    // Handle boss shot impact
+    handleShot() {
+        if (this.frozen && this.currentFreezeSpriteIndex < this.freezeSprites.length - 1) {
+            this.shotsReceived++;  // Increment shots per sprite
+            
+            // Update sprite once enough shots are received
+            if (this.shotsReceived >= this.shotsPerSpriteUpdate) {
+                this.shotsReceived = 0;  // Reset shots counter
+                this.currentFreezeSpriteIndex++;
+                this.sprite = this.freezeSprites[this.currentFreezeSpriteIndex];
+
+                // Unfreeze when reaching final freeze sprite
+                if (this.currentFreezeSpriteIndex === this.freezeSprites.length - 1) {
+                    this.frozen = false;
+                    this.walking = true;  // Start the walking animation
+                }
+            }
+        } else if (!this.frozen) {
+            // Boss begins moving if hit while unfrozen
+            this.walking = true;
+        }
+    }
+
+    // Boss follows player when unfrozen
+    followPlayer(player) {
+        if (!this.frozen) {
+            const speed = 2;
+            const dx = player.x - this.x;
+            const dy = player.y - this.y;
+            const distance = Math.hypot(dx, dy);
+
+            if (distance > 1) {
+                this.facingRight = dx > 0;  // Update direction for frame flipping
+                this.x += (dx / distance) * speed;
+                this.y += (dy / distance) * speed;
+            }
+        }
+    }
+}
+
+// Load boss freeze sprites
+const bossFreezeSprites = [];
+for (let i = 1; i <= 10; i++) {
+    bossFreezeSprites.push(loadImage(`assets/Nuc_map${i}.png`));
+}
+
+// Load boss walk animation frames
+const bossWalkFrames = [];
+for (let i = 1; i <= 8; i++) {
+    bossWalkFrames.push(loadImage(`assets/Nuc_tails${i}.png`));
+}
+
+// Instantiate the boss with freeze and walk frames
+const boss = new Boss(0, 0, bossFreezeSprites, bossWalkFrames);
+
+
+
+// Variable to track enemy respawning status
+let allowEnemyRespawning = true;
+
+// Function to spawn the boss when player score reaches 15
+function checkBossSpawn() {
+    if (!boss.active && player.score >= 1) {
+        boss.active = true;
+        boss.x = player.x + 100;
+        boss.y = groundLevel - boss.height;
+
+        // Clear all enemies and disable further spawning
+        enemies = [];
+        allowEnemyRespawning = false;  // Disable enemy respawning
+    }
+}
+
+// Update the player's shooting mechanism to check for boss hit
+Character.prototype.shoot = function() {
+    const projectileX = this.facingDirection === 'right' ? this.x + this.width : this.x;
+    const projectile = new Projectile(projectileX, this.y + this.height / 2, 10, this.facingDirection);
+    this.projectiles.push(projectile);
+};
+
+// Update projectile collision detection to include the boss
+Character.prototype.checkProjectileCollision = function(proj, enemies) {
+    // Check collision with enemies
+    for (let i = 0; i < enemies.length; i++) {
+        const enemy = enemies[i];
+        if (
+            proj.x < enemy.x + enemy.width &&
+            proj.x + proj.width > enemy.x &&
+            proj.y < enemy.y + enemy.height &&
+            proj.y + proj.height > enemy.y
+        ) {
+            enemy.health -= projectileDamage;
+
+            if (enemy.health <= 0) {
+                hitSound.play();
+                flowers.push(new Flower(enemy.x, enemy.y));
+                enemies.splice(i, 1);
+            }
+
+            return true;  // Projectile hit
+        }
+    }
+
+    // Check collision with the boss if active
+    if (boss.active && proj.x < boss.x + boss.width && proj.x + proj.width > boss.x &&
+        proj.y < boss.y + boss.height && proj.y + proj.height > boss.y) {
+        
+        if (boss.frozen) {
+            boss.handleShot();  // Update boss if frozen
+        } else {
+            boss.health -= projectileDamage;  // Decrease health if unfrozen
+        }
+
+        return true;  // Projectile hit
+    }
+
+    return false;
+};
+
+
+
 // Constants for column colors
 const RED_COLOR = 'rgba(255, 0, 0, 0.5)';  // Transparent red for freezing enemies
 const BLUE_COLOR = 'rgba(0, 0, 255, 0.3)';  // Transparent blue (lighter for healing)
@@ -954,9 +1143,8 @@ function drawGround() {
     ctx.fillRect(0 - cameraOffsetX, groundLevel - cameraOffsetY, worldLength, canvas.height - (groundLevel - cameraOffsetY));
 }
 
-// Spawn new enemies if needed
 function spawnNewEnemies() {
-    if (enemies.length < enemySpawnLimit) {
+    if (allowEnemyRespawning && enemies.length < enemySpawnLimit) {
         const newEnemyX = player.x + (Math.random() > 0.5 ? 200 : -200);
         enemies.push(new Enemy(newEnemyX, groundLevel - 50));
     }
@@ -1007,6 +1195,17 @@ function gameLoop(currentTime) {
     drawGround();  // Ensure ground is drawn in the correct position
     handleCameraScrolling();  // Update camera based on player movement
 
+    // Check for boss spawn based on score
+    checkBossSpawn();
+
+    // Update and render boss behavior
+    if (boss.active) {
+        if (!boss.frozen) {
+            boss.followPlayer(player);  // Boss follows player once unfrozen
+        }
+        boss.draw(ctx);
+    }
+
     // Update and draw the sweeping column
     sweepingColumn.update();
     sweepingColumn.draw(ctx, cameraOffsetX, cameraOffsetY);
@@ -1015,12 +1214,30 @@ function gameLoop(currentTime) {
     restoreHealthIfInBlueColumn(player);
     restoreHealthIfInBlueColumn(npc);
 
-
     // Freeze enemies and update sprite if inside a red column
     enemies.forEach(enemy => {
         freezeEnemiesAndUpdateSprite(enemy);
     });
 
+    // Check if the column is inactive (offscreen) and start the timer to respawn it
+    if (!sweepingColumn.active) {
+        columnSpawnTimer += deltaTime * 1000;  // Count up the timer in milliseconds
+        if (columnSpawnTimer >= columnSpawnDelay) {
+            sweepingColumn.reset(cameraOffsetX);  // Reset the column to the right edge of the visible window
+            columnSpawnTimer = 0;    // Reset the timer
+        }
+    }
+
+    // Restore health if player or NPC are inside a blue column
+    restoreHealthIfInBlueColumn(player);
+    restoreHealthIfInBlueColumn(npc);
+
+
+    // Enemy logic: Move enemies and draw them
+    enemies.forEach(enemy => {
+        enemy.moveTowardTarget(player, platforms);
+        enemy.draw(ctx);
+    });
 
 
     // Check if the column is inactive (offscreen) and start the timer to respawn it
