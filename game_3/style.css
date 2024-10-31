@@ -53,15 +53,15 @@ html, body {
     position: absolute;
     bottom: 20px;
     left: 20px;
-    width: 150px;
-    height: 150px;
+    width: 180px; /* Increased container width */
+    height: 180px; /* Increased container height */
 }
 
-/* Hide the individual buttons since we're handling touch on the container */
+/* Directional Buttons */
 #directionalButtons .control-button {
     position: absolute;
-    width: 50px;
-    height: 50px;
+    width: 60px; /* Increased button size */
+    height: 60px; /* Increased button size */
     background-color: rgba(0, 0, 0, 0.7);
     color: white;
     font-size: 24px;
@@ -74,23 +74,23 @@ html, body {
 
 /* Positioning directional buttons */
 #upButton {
-    left: 50px;
+    left: 60px;   /* Centered horizontally */
     top: 0;
 }
 
 #leftButton {
     left: 0;
-    top: 50px;
+    top: 60px;    /* Centered vertically */
 }
 
 #downButton {
-    left: 50px;
-    top: 100px;
+    left: 60px;   /* Centered horizontally */
+    top: 120px;
 }
 
 #rightButton {
-    left: 100px;
-    top: 50px;
+    left: 120px;
+    top: 60px;    /* Centered vertically */
 }
 
 /* Action Buttons Container */
