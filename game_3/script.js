@@ -2,13 +2,9 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// Adjusted game dimensions for portrait mode
-let groundLevel = 400;  // Adjusted ground level for new canvas size
-let worldLength = 450;  // Adjusted world length for portrait mode
-
-// Scaling factors to handle different screen sizes
-let xScale = 1;
-let yScale = 1;
+// Game world dimensions
+const worldWidth = 450;
+const worldHeight = 400;
 
 // Game state variables
 let isRight = false;
@@ -19,7 +15,7 @@ let gameOver = false;
 let lastTime = 0; // Store the last frame time
 let currentMode = 'blue'; // Player's current mode ('blue' or 'red')
 
-// Resize canvas to fill the game container and update scaling factors
+// Resize canvas to fill the game container
 function resizeCanvas() {
     const container = document.getElementById('gameContainer');
     const containerWidth = container.clientWidth;
@@ -28,10 +24,6 @@ function resizeCanvas() {
     // Set canvas dimensions to fill the container
     canvas.width = containerWidth;
     canvas.height = containerHeight;
-
-    // Update scaling factors
-    xScale = canvas.width / worldLength;
-    yScale = canvas.height / groundLevel;
 }
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
@@ -54,26 +46,29 @@ class Character {
         if (isUp) this.y -= this.speed;
         if (isDown) this.y += this.speed;
 
-        // Ensure the player stays within the game window
+        // Ensure the player stays within the game world
         if (this.x - this.radius < 0) this.x = this.radius;
-        if (this.x + this.radius > worldLength) this.x = worldLength - this.radius;
+        if (this.x + this.radius > worldWidth) this.x = worldWidth - this.radius;
         if (this.y - this.radius < 0) this.y = this.radius;
-        if (this.y + this.radius > groundLevel) this.y = groundLevel - this.radius;
+        if (this.y + this.radius > worldHeight) this.y = worldHeight - this.radius;
     }
 
     draw() {
+        const xRatio = canvas.width / worldWidth;
+        const yRatio = canvas.height / worldHeight;
+
         ctx.fillStyle = this.color;
         ctx.beginPath();
-        ctx.arc(this.x * xScale, this.y * yScale, this.radius * xScale, 0, Math.PI * 2);
+        ctx.arc(this.x * xRatio, this.y * yRatio, this.radius * xRatio, 0, Math.PI * 2);
         ctx.fill();
 
         // Draw the distance to the nearest target on the player's circle
         if (this.distanceToNearestTarget !== Infinity) {
             ctx.fillStyle = 'white'; // Text color
-            ctx.font = `${(this.radius / 2) * xScale}px Arial`;
+            ctx.font = `${(this.radius / 2) * xRatio}px Arial`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(Math.round(this.distanceToNearestTarget), this.x * xScale, this.y * yScale);
+            ctx.fillText(Math.round(this.distanceToNearestTarget), this.x * xRatio, this.y * yRatio);
         }
     }
 }
@@ -134,7 +129,7 @@ bButton.addEventListener('touchstart', (e) => { e.preventDefault(); /* Future fu
 bButton.addEventListener('mousedown', (e) => { e.preventDefault(); /* Future functionality */ });
 
 // Initialize player
-let player = new Character(100, groundLevel - 30, 15, 3, 'blue'); // Start as player 1 (blue)
+let player = new Character(100, worldHeight - 30, 15, 3, 'blue'); // Start as player 1 (blue)
 
 // Function to switch the player's mode
 function switchMode() {
@@ -147,7 +142,7 @@ function switchMode() {
     }
 }
 
-// Updated Enemy class with movement logic and speed adjustments based on RGB sum
+// Enemy class
 class Enemy {
     constructor(x, y, width, height, color) {
         this.x = x;
@@ -173,9 +168,9 @@ class Enemy {
         // Adjust speed if within the first column
         let adjustedSpeed = this.speed;
         if (
-            this.x + this.width > columnX && 
+            this.x + this.width > columnX &&
             this.x < columnX + columnWidth &&
-            this.y + this.height >= columnY && 
+            this.y + this.height >= columnY &&
             this.y <= columnY + columnHeight
         ) {
             // Speed reduction proportional to normalized RGB sum
@@ -207,17 +202,17 @@ class Enemy {
 
         // Ensure enemies remain within bounds
         if (this.x < 0) this.x = 0;
-        if (this.x + this.width > worldLength) this.x = worldLength - this.width;
+        if (this.x + this.width > worldWidth) this.x = worldWidth - this.width;
         if (this.y < 0) this.y = 0;
-        if (this.y + this.height > groundLevel) this.y = groundLevel - this.height;
+        if (this.y + this.height > worldHeight) this.y = worldHeight - this.height;
     }
 
     randomMove(adjustedSpeed) {
         // Adjust speed if within the second column
         if (
-            this.x + this.width > columnX && 
+            this.x + this.width > columnX &&
             this.x < columnX + columnWidth &&
-            this.y + this.height >= secondColumnY && 
+            this.y + this.height >= secondColumnY &&
             this.y <= secondColumnY + secondColumnHeight
         ) {
             adjustedSpeed *= 0.5 + (0.5 * this.affinity); // Further reduce speed based on affinity
@@ -245,9 +240,9 @@ class Enemy {
 
             // Ensure enemies remain within bounds
             if (this.x < 0) this.x = 0;
-            if (this.x + this.width > worldLength) this.x = worldLength - this.width;
+            if (this.x + this.width > worldWidth) this.x = worldWidth - this.width;
             if (this.y < 0) this.y = 0;
-            if (this.y + this.height > groundLevel) this.y = groundLevel - this.height;
+            if (this.y + this.height > worldHeight) this.y = worldHeight - this.height;
 
             // Reset the random move cooldown
             this.randomMoveCooldown = Math.random() * 100;
@@ -257,8 +252,16 @@ class Enemy {
     }
 
     draw() {
+        const xRatio = canvas.width / worldWidth;
+        const yRatio = canvas.height / worldHeight;
+
         ctx.fillStyle = this.color;
-        ctx.fillRect(this.x * xScale, this.y * yScale, this.width * xScale, this.height * yScale);
+        ctx.fillRect(
+            this.x * xRatio,
+            this.y * yRatio,
+            this.width * xRatio,
+            this.height * yRatio
+        );
     }
 }
 
@@ -277,8 +280,8 @@ const targetClassCount = 10;  // Adjusted number of targets
 // Generate enemies with random colors and specific targets with identical properties
 let enemies = [];
 for (let i = 0; i < 100 + targetClassCount; i++) {
-    const enemyX = Math.random() * (worldLength - 30);
-    const enemyY = Math.random() * (groundLevel - 30);
+    const enemyX = Math.random() * (worldWidth - 30);
+    const enemyY = Math.random() * (worldHeight - 30);
 
     if (i < targetClassCount) {
         // Create targets with identical color (black)
@@ -291,8 +294,8 @@ for (let i = 0; i < 100 + targetClassCount; i++) {
 
 // Column properties (Centered columns)
 const columnWidth = 100;
-const columnX = (worldLength - columnWidth) / 2;
-const columnY = groundLevel / 5;
+const columnX = (worldWidth - columnWidth) / 2;
+const columnY = worldHeight / 5;
 const columnHeight = 50;
 
 // Second column properties (for speed reduction)
@@ -301,19 +304,34 @@ const secondColumnHeight = 50; // Height of the second column
 
 // Draw the columns
 function drawColumn() {
+    const xRatio = canvas.width / worldWidth;
+    const yRatio = canvas.height / worldHeight;
+
     // Draw the first column
     ctx.fillStyle = 'rgba(0, 0, 255, 0.3)';
-    ctx.fillRect(columnX * xScale, columnY * yScale, columnWidth * xScale, columnHeight * yScale);
+    ctx.fillRect(
+        columnX * xRatio,
+        columnY * yRatio,
+        columnWidth * xRatio,
+        columnHeight * yRatio
+    );
 
     // Draw the second column
     ctx.fillStyle = 'rgba(255, 165, 0, 0.3)'; // Semi-transparent orange color
-    ctx.fillRect(columnX * xScale, secondColumnY * yScale, columnWidth * xScale, secondColumnHeight * yScale);
+    ctx.fillRect(
+        columnX * xRatio,
+        secondColumnY * yRatio,
+        columnWidth * xRatio,
+        secondColumnHeight * yRatio
+    );
 }
 
 // Draw ground function
 function drawGround() {
+    const yRatio = canvas.height / worldHeight;
+
     ctx.fillStyle = 'green';
-    ctx.fillRect(0, groundLevel * yScale, canvas.width, canvas.height - (groundLevel * yScale));
+    ctx.fillRect(0, worldHeight * yRatio, canvas.width, canvas.height - (worldHeight * yRatio));
 }
 
 // Game loop
