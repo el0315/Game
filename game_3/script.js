@@ -133,26 +133,26 @@ function handleDirectionTouchEnd(event) {
     resetMovement();
 }
 
-// Function to update movement variables based on touch position
 function updateDirection(touch) {
     const rect = directionalButtons.getBoundingClientRect();
     const x = touch.clientX - rect.left;
     const y = touch.clientY - rect.top;
 
-    // Dimensions of the buttons within the directional pad
-    const buttonSize = 50; // As per CSS
-    const gap = 0; // No gap between buttons
-
+    const buttonSize = 60; // Updated button size
     resetMovement();
 
     // Determine which button the touch is over
     if (x >= buttonSize && x <= buttonSize * 2 && y >= 0 && y <= buttonSize) {
+        // Up button
         isUp = true;
     } else if (x >= 0 && x <= buttonSize && y >= buttonSize && y <= buttonSize * 2) {
+        // Left button
         isLeft = true;
     } else if (x >= buttonSize && x <= buttonSize * 2 && y >= buttonSize * 2 && y <= buttonSize * 3) {
+        // Down button
         isDown = true;
     } else if (x >= buttonSize * 2 && x <= buttonSize * 3 && y >= buttonSize && y <= buttonSize * 2) {
+        // Right button
         isRight = true;
     }
 }
