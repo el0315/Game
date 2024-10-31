@@ -11,6 +11,9 @@ let isRight = false;
 let isLeft = false;
 let isUp = false;
 let isDown = false;
+let isShooting = false; // Indicates if the player is holding down the "B" button
+let lastShotTime = 0;   // Time when the last shot was fired
+const shootDelay = 50; // Delay between shots in milliseconds
 let gameOver = false;
 let lastTime = 0; // Store the last frame time
 let currentMode = 'blue'; // Player's current mode ('blue' or 'red')
@@ -83,6 +86,10 @@ document.addEventListener('keydown', (e) => {
         switchMode();  // Switch player mode when 's' is pressed
         e.preventDefault();
     }
+    if (e.code === 'KeyB') {
+        isShooting = true; // Start shooting when 'B' key is pressed
+        e.preventDefault();
+    }
 });
 
 document.addEventListener('keyup', (e) => {
@@ -90,14 +97,14 @@ document.addEventListener('keyup', (e) => {
     if (e.code === 'ArrowLeft') { isLeft = false; e.preventDefault(); }
     if (e.code === 'ArrowUp') { isUp = false; e.preventDefault(); }
     if (e.code === 'ArrowDown') { isDown = false; e.preventDefault(); }
+    if (e.code === 'KeyB') {
+        isShooting = false; // Stop shooting when 'B' key is released
+        e.preventDefault();
+    }
 });
 
 // Get control buttons and containers
 const directionalButtons = document.getElementById('directionalButtons');
-const upButton = document.getElementById('upButton');
-const downButton = document.getElementById('downButton');
-const leftButton = document.getElementById('leftButton');
-const rightButton = document.getElementById('rightButton');
 const aButton = document.getElementById('aButton');
 const bButton = document.getElementById('bButton');
 
@@ -110,18 +117,12 @@ function resetMovement() {
 }
 
 // Directional Buttons Touch Event Listeners
-directionalButtons.addEventListener('touchstart', handleDirectionTouchStart, false);
-directionalButtons.addEventListener('touchmove', handleDirectionTouchMove, false);
+directionalButtons.addEventListener('touchstart', handleDirectionTouch, false);
+directionalButtons.addEventListener('touchmove', handleDirectionTouch, false);
 directionalButtons.addEventListener('touchend', handleDirectionTouchEnd, false);
 
-// Function to handle touchstart and touchmove events on the directional buttons
-function handleDirectionTouchStart(event) {
-    event.preventDefault();
-    const touch = event.changedTouches[0];
-    updateDirection(touch);
-}
-
-function handleDirectionTouchMove(event) {
+// Function to handle touch events on the directional buttons
+function handleDirectionTouch(event) {
     event.preventDefault();
     const touch = event.changedTouches[0];
     updateDirection(touch);
@@ -133,6 +134,7 @@ function handleDirectionTouchEnd(event) {
     resetMovement();
 }
 
+// Function to update movement variables based on touch position
 function updateDirection(touch) {
     const rect = directionalButtons.getBoundingClientRect();
     const x = touch.clientX - rect.left;
@@ -161,8 +163,10 @@ function updateDirection(touch) {
 aButton.addEventListener('touchstart', (e) => { e.preventDefault(); switchMode(); });
 aButton.addEventListener('mousedown', (e) => { e.preventDefault(); switchMode(); });
 
-bButton.addEventListener('touchstart', (e) => { e.preventDefault(); /* Future functionality */ });
-bButton.addEventListener('mousedown', (e) => { e.preventDefault(); /* Future functionality */ });
+bButton.addEventListener('touchstart', (e) => { e.preventDefault(); isShooting = true; });
+bButton.addEventListener('touchend', (e) => { e.preventDefault(); isShooting = false; });
+bButton.addEventListener('mousedown', (e) => { e.preventDefault(); isShooting = true; });
+bButton.addEventListener('mouseup', (e) => { e.preventDefault(); isShooting = false; });
 
 // Initialize player
 let player = new Character(100, worldHeight - 30, 15, 3, 'blue'); // Start as player 1 (blue)
@@ -181,6 +185,7 @@ function switchMode() {
 // Enemy class
 class Enemy {
     constructor(x, y, width, height, color) {
+        // Existing properties
         this.x = x;
         this.y = y;
         this.width = width;   // Width in game units
@@ -196,47 +201,192 @@ class Enemy {
         const rgbValues = color.match(/\d+/g).map(Number); // Extract R, G, B values
         this.rgbSum = rgbValues[0] + rgbValues[1] + rgbValues[2]; // Sum of RGB values
         this.normalizedRgbSum = this.rgbSum / 765; // Normalize between 0 and 1 (max sum is 765)
+
+        // Properties for shooting mechanism
+        this.isShot = false;   // Indicates if the enemy is being shot downward
+        this.shotSpeed = 0;    // Speed at which the enemy is being shot downward
+
+        // Properties for column logic
+        this.inColumn = false;         // Is enemy inside a column?
+        this.columnEntrySide = null;   // Side from which enemy entered
+        this.exitTarget = { x: this.x, y: this.y }; // Target exit point
     }
 
     update(player) {
-        let moved = false;
+        if (this.isShot) {
+            // Move downward at high speed
+            this.y += this.shotSpeed;
 
-        // Adjust speed if within the first column
-        let adjustedSpeed = this.speed;
-        if (
-            this.x + this.width > columnX &&
-            this.x < columnX + columnWidth &&
-            this.y + this.height >= columnY &&
-            this.y <= columnY + columnHeight
-        ) {
-            // Speed reduction proportional to normalized RGB sum
-            adjustedSpeed *= (1 - this.normalizedRgbSum);
+            // Check for collision with bottom boundary or columns
+            if (this.y + this.height >= worldHeight || this.collidesWithColumn()) {
+                this.isShot = false;
+                this.shotSpeed = 0;
+
+                // Ensure enemy stays within bounds
+                if (this.y + this.height >= worldHeight) {
+                    this.y = worldHeight - this.height;
+                }
+            }
+            return; // Skip other behaviors
         }
+
+        // Check if enemy is inside a column
+        if (this.isInsideColumn()) {
+            if (!this.inColumn) {
+                // Enemy just entered the column
+                this.inColumn = true;
+                this.columnEntrySide = this.getColumnEntrySide();
+                this.setExitTarget();
+            }
+
+            // Move towards the exit target
+            this.moveTowardsExit();
+            return; // Override other behaviors
+        } else if (this.inColumn) {
+            // Enemy has exited the column
+            this.inColumn = false;
+            this.columnEntrySide = null;
+        }
+
+        // Normal behavior when not in a column
+        this.normalBehavior(player);
+    }
+
+    // Method to handle normal behavior
+    normalBehavior(player) {
+        let moved = false;
+        let adjustedSpeed = this.speed;
 
         const dx = player.x - this.x;
         const dy = player.y - this.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        const distance = Math.hypot(dx, dy);
 
         if (currentMode === 'blue' && distance < this.evadeThreshold) {
-            // Evade player in blue mode
+            // Evade player
             const angle = Math.atan2(dy, dx);
             this.x -= adjustedSpeed * Math.cos(angle);
             this.y -= adjustedSpeed * Math.sin(angle);
             moved = true;
         } else if (currentMode === 'red' && distance < this.followThreshold) {
-            // Follow player in red mode
+            // Follow player
             const angle = Math.atan2(dy, dx);
             this.x += adjustedSpeed * Math.cos(angle);
             this.y += adjustedSpeed * Math.sin(angle);
             moved = true;
         }
 
-        // If not moved yet, proceed with random movement
         if (!moved) {
             this.randomMove(adjustedSpeed);
         }
 
-        // Ensure enemies remain within bounds
+        // Keep within bounds
+        this.constrainPosition();
+    }
+
+    // Method to move towards the exit point
+    moveTowardsExit() {
+        const dx = this.exitTarget.x - this.x;
+        const dy = this.exitTarget.y - this.y;
+        const distance = Math.hypot(dx, dy);
+
+        if (distance > 0) {
+            const moveX = (dx / distance) * this.speed;
+            const moveY = (dy / distance) * this.speed;
+            this.x += moveX;
+            this.y += moveY;
+        } else {
+            // Reached exit target
+            this.inColumn = false;
+            this.columnEntrySide = null;
+        }
+
+        // Keep within bounds
+        this.constrainPosition();
+    }
+
+    // Determine if the enemy is inside any column
+    isInsideColumn() {
+        return this.isInsideFirstColumn() || this.isInsideSecondColumn();
+    }
+
+    isInsideFirstColumn() {
+        return (
+            this.x + this.width > columnX &&
+            this.x < columnX + columnWidth &&
+            this.y + this.height > columnY &&
+            this.y < columnY + columnHeight
+        );
+    }
+
+    isInsideSecondColumn() {
+        return (
+            this.x + this.width > columnX &&
+            this.x < columnX + columnWidth &&
+            this.y + this.height > secondColumnY &&
+            this.y < secondColumnY + secondColumnHeight
+        );
+    }
+
+    // Determine the side from which the enemy entered the column
+    getColumnEntrySide() {
+        // We'll estimate the entry side based on the enemy's position relative to the center of the column
+        let entrySide = null;
+
+        const columnCenterX = columnX + columnWidth / 2;
+        const columnCenterYFirst = columnY + columnHeight / 2;
+        const columnCenterYSecond = secondColumnY + secondColumnHeight / 2;
+
+        const distToLeft = this.x + this.width - columnX;
+        const distToRight = columnX + columnWidth - this.x;
+        const distToTop = this.y + this.height - (this.isInsideFirstColumn() ? columnY : secondColumnY);
+        const distToBottom = (this.isInsideFirstColumn() ? columnY + columnHeight : secondColumnY + secondColumnHeight) - this.y;
+
+        const minDist = Math.min(distToLeft, distToRight, distToTop, distToBottom);
+
+        if (minDist === distToLeft) {
+            entrySide = 'left';
+        } else if (minDist === distToRight) {
+            entrySide = 'right';
+        } else if (minDist === distToTop) {
+            entrySide = 'top';
+        } else if (minDist === distToBottom) {
+            entrySide = 'bottom';
+        }
+
+        return entrySide;
+    }
+
+    // Set the target exit point based on entry side
+    setExitTarget() {
+        if (this.columnEntrySide === 'left') {
+            this.exitTarget.x = columnX + columnWidth + 10;
+            this.exitTarget.y = this.y;
+        } else if (this.columnEntrySide === 'right') {
+            this.exitTarget.x = columnX - this.width - 10;
+            this.exitTarget.y = this.y;
+        } else if (this.columnEntrySide === 'top') {
+            this.exitTarget.x = this.x;
+            if (this.isInsideFirstColumn()) {
+                this.exitTarget.y = columnY + columnHeight + 10;
+            } else {
+                this.exitTarget.y = secondColumnY + secondColumnHeight + 10;
+            }
+        } else if (this.columnEntrySide === 'bottom') {
+            this.exitTarget.x = this.x;
+            if (this.isInsideFirstColumn()) {
+                this.exitTarget.y = columnY - this.height - 10;
+            } else {
+                this.exitTarget.y = secondColumnY - this.height - 10;
+            }
+        } else {
+            // Default to moving down if entry side is unknown
+            this.exitTarget.x = this.x;
+            this.exitTarget.y = worldHeight + 10;
+        }
+    }
+
+    // Constrain enemy position within world bounds
+    constrainPosition() {
         if (this.x < 0) this.x = 0;
         if (this.x + this.width > worldWidth) this.x = worldWidth - this.width;
         if (this.y < 0) this.y = 0;
@@ -244,17 +394,7 @@ class Enemy {
     }
 
     randomMove(adjustedSpeed) {
-        // Adjust speed if within the second column
-        if (
-            this.x + this.width > columnX &&
-            this.x < columnX + columnWidth &&
-            this.y + this.height >= secondColumnY &&
-            this.y <= secondColumnY + secondColumnHeight
-        ) {
-            adjustedSpeed *= 0.5 + (0.5 * this.affinity); // Further reduce speed based on affinity
-        }
-
-        // Move randomly left, right, up, or down
+        // Existing random movement logic
         if (this.randomMoveCooldown <= 0) {
             const directions = ['left', 'right', 'up', 'down'];
             const chosenDirection = directions[Math.floor(Math.random() * directions.length)];
@@ -274,17 +414,36 @@ class Enemy {
                     break;
             }
 
-            // Ensure enemies remain within bounds
-            if (this.x < 0) this.x = 0;
-            if (this.x + this.width > worldWidth) this.x = worldWidth - this.width;
-            if (this.y < 0) this.y = 0;
-            if (this.y + this.height > worldHeight) this.y = worldHeight - this.height;
+            // Keep within bounds
+            this.constrainPosition();
 
             // Reset the random move cooldown
             this.randomMoveCooldown = Math.random() * 100;
         } else {
             this.randomMoveCooldown -= 1;
         }
+    }
+
+    collidesWithColumn() {
+        // Check collision with the first column
+        if (
+            this.x + this.width > columnX &&
+            this.x < columnX + columnWidth &&
+            this.y + this.height >= columnY &&
+            this.y <= columnY + columnHeight
+        ) {
+            return true;
+        }
+        // Check collision with the second column
+        if (
+            this.x + this.width > columnX &&
+            this.x < columnX + columnWidth &&
+            this.y + this.height >= secondColumnY &&
+            this.y <= secondColumnY + secondColumnHeight
+        ) {
+            return true;
+        }
+        return false;
     }
 
     draw() {
@@ -370,6 +529,32 @@ function drawGround() {
     ctx.fillRect(0, worldHeight * yRatio, canvas.width, canvas.height - (worldHeight * yRatio));
 }
 
+// Function to shoot an enemy
+function shootEnemy() {
+    const thresholdDistance = 10; // Distance threshold for shooting
+    let nearestEnemy = null;
+    let minDistance = Infinity;
+
+    for (let enemy of enemies) {
+        if (!enemy.isShot && !enemy.inColumn) {
+            const dx = enemy.x - player.x;
+            const dy = enemy.y - player.y;
+            const distance = Math.hypot(dx, dy);
+
+            if (distance <= thresholdDistance && distance < minDistance) {
+                minDistance = distance;
+                nearestEnemy = enemy;
+            }
+        }
+    }
+
+    if (nearestEnemy) {
+        // Shoot the enemy downward
+        nearestEnemy.isShot = true;
+        nearestEnemy.shotSpeed = player.speed * 5; // 5x player's speed
+    }
+}
+
 // Game loop
 function gameLoop(currentTime) {
     if (gameOver) return;
@@ -386,6 +571,14 @@ function gameLoop(currentTime) {
     player.move();
     player.draw();
 
+    // Handle shooting mechanism
+    if (isShooting && currentMode === 'red') {
+        if (currentTime - lastShotTime >= shootDelay) {
+            shootEnemy();
+            lastShotTime = currentTime;
+        }
+    }
+
     // Find the nearest target for the player
     let minDistance = Infinity;
     let nearestTarget = null;
@@ -394,7 +587,7 @@ function gameLoop(currentTime) {
         if (enemy.color === targetColor) {
             const dx = enemy.x - player.x;
             const dy = enemy.y - player.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
+            const distance = Math.hypot(dx, dy);
 
             if (distance < minDistance) {
                 minDistance = distance;
@@ -406,8 +599,9 @@ function gameLoop(currentTime) {
     // Assign the distance to the player
     player.distanceToNearestTarget = minDistance;
 
+    // Update and draw enemies
     enemies.forEach((enemy) => {
-        enemy.update(player); // Use the updated movement logic with speed adjustments
+        enemy.update(player);
         enemy.draw();
     });
 
