@@ -57,6 +57,7 @@ html, body {
     height: 150px;
 }
 
+/* Hide the individual buttons since we're handling touch on the container */
 #directionalButtons .control-button {
     position: absolute;
     width: 50px;
