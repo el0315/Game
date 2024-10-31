@@ -2,10 +2,13 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// Constants
-const aspectRatio = 16 / 9;
-let groundLevel = 1100;  // Fixed ground level
-let worldLength = 2490; // World length equals canvas width for simplicity
+// Adjusted game dimensions for portrait mode
+let groundLevel = 400;  // Adjusted ground level for new canvas size
+let worldLength = 450;  // Adjusted world length for portrait mode
+
+// Scaling factors to handle different screen sizes
+let xScale = 1;
+let yScale = 1;
 
 // Game state variables
 let isRight = false;
@@ -16,27 +19,19 @@ let gameOver = false;
 let lastTime = 0; // Store the last frame time
 let currentMode = 'blue'; // Player's current mode ('blue' or 'red')
 
-// Resize canvas to maintain aspect ratio
+// Resize canvas to fill the game container and update scaling factors
 function resizeCanvas() {
-    const windowWidth = window.innerWidth;
-    const windowHeight = window.innerHeight;
-    let newWidth, newHeight;
+    const container = document.getElementById('gameContainer');
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
 
-    if (windowWidth / windowHeight > aspectRatio) {
-        newHeight = windowHeight;
-        newWidth = newHeight * aspectRatio;
-    } else {
-        newWidth = windowWidth;
-        newHeight = newWidth / aspectRatio;
-    }
+    // Set canvas dimensions to fill the container
+    canvas.width = containerWidth;
+    canvas.height = containerHeight;
 
-    canvas.width = newWidth * window.devicePixelRatio;
-    canvas.height = newHeight * window.devicePixelRatio;
-    canvas.style.width = `${newWidth}px`;
-    canvas.style.height = `${newHeight}px`;
-    canvas.style.position = 'absolute';
-    canvas.style.left = `${(windowWidth - newWidth) / 2}px`;
-    canvas.style.top = `${(windowHeight - newHeight) / 2}px`;
+    // Update scaling factors
+    xScale = canvas.width / worldLength;
+    yScale = canvas.height / groundLevel;
 }
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
@@ -69,16 +64,16 @@ class Character {
     draw() {
         ctx.fillStyle = this.color;
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.arc(this.x * xScale, this.y * yScale, this.radius * xScale, 0, Math.PI * 2);
         ctx.fill();
 
         // Draw the distance to the nearest target on the player's circle
         if (this.distanceToNearestTarget !== Infinity) {
             ctx.fillStyle = 'white'; // Text color
-            ctx.font = `${this.radius / 2}px Arial`;
+            ctx.font = `${(this.radius / 2) * xScale}px Arial`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(Math.round(this.distanceToNearestTarget), this.x, this.y);
+            ctx.fillText(Math.round(this.distanceToNearestTarget), this.x * xScale, this.y * yScale);
         }
     }
 }
@@ -139,7 +134,7 @@ bButton.addEventListener('touchstart', (e) => { e.preventDefault(); /* Future fu
 bButton.addEventListener('mousedown', (e) => { e.preventDefault(); /* Future functionality */ });
 
 // Initialize player
-let player = new Character(100, groundLevel - 30, 30, 5, 'blue'); // Start as player 1 (blue)
+let player = new Character(100, groundLevel - 30, 15, 3, 'blue'); // Start as player 1 (blue)
 
 // Function to switch the player's mode
 function switchMode() {
@@ -152,25 +147,19 @@ function switchMode() {
     }
 }
 
-// Draw ground function
-function drawGround() {
-    ctx.fillStyle = 'green';
-    ctx.fillRect(0, groundLevel, canvas.width, canvas.height - groundLevel);
-}
-
 // Updated Enemy class with movement logic and speed adjustments based on RGB sum
 class Enemy {
     constructor(x, y, width, height, color) {
         this.x = x;
         this.y = y;
-        this.width = width;
-        this.height = height;
+        this.width = width;   // Width in game units
+        this.height = height; // Height in game units
         this.color = color;
         this.speed = (Math.random() * 2 + 1) * 2; // Increased base speed
         this.affinity = parseInt(color.split('(')[1].split(',')[1]) / 255; // Affinity based on green channel
         this.randomMoveCooldown = Math.random() * 100; // Random timer for random movement
-        this.followThreshold = 200; // Threshold to follow player in red mode
-        this.evadeThreshold = 200;  // Threshold to evade player in blue mode
+        this.followThreshold = 100; // Adjusted threshold to follow player in red mode
+        this.evadeThreshold = 100;  // Adjusted threshold to evade player in blue mode
 
         // Calculate RGB sum and normalize
         const rgbValues = color.match(/\d+/g).map(Number); // Extract R, G, B values
@@ -269,7 +258,7 @@ class Enemy {
 
     draw() {
         ctx.fillStyle = this.color;
-        ctx.fillRect(this.x, this.y, this.width, this.height);
+        ctx.fillRect(this.x * xScale, this.y * yScale, this.width * xScale, this.height * yScale);
     }
 }
 
@@ -283,42 +272,48 @@ function getRandomColor() {
 
 // Define the target class properties
 const targetColor = 'rgb(0, 0, 0)';  // Black color for target class
-const targetClassCount = 20;  // Number of targets with identical properties
+const targetClassCount = 10;  // Adjusted number of targets
 
 // Generate enemies with random colors and specific targets with identical properties
 let enemies = [];
-for (let i = 0; i < 500 + targetClassCount; i++) {
-    const enemyX = Math.random() * (worldLength - 50);
-    const enemyY = Math.random() * canvas.height;
+for (let i = 0; i < 100 + targetClassCount; i++) {
+    const enemyX = Math.random() * (worldLength - 30);
+    const enemyY = Math.random() * (groundLevel - 30);
 
     if (i < targetClassCount) {
         // Create targets with identical color (black)
-        enemies.push(new Enemy(enemyX, enemyY, 25, 25, targetColor));
+        enemies.push(new Enemy(enemyX, enemyY, 15, 15, targetColor));
     } else {
         // Create normal enemies with random colors
-        enemies.push(new Enemy(enemyX, enemyY, 25, 25, getRandomColor()));
+        enemies.push(new Enemy(enemyX, enemyY, 15, 15, getRandomColor()));
     }
 }
 
-// Column properties (1/3 width of the canvas and centered)
-const columnWidth = canvas.width / 3;
-const columnX = (canvas.width - columnWidth) / 2;
-const columnY = canvas.height / 5;
-const columnHeight = 100;
+// Column properties (Centered columns)
+const columnWidth = 100;
+const columnX = (worldLength - columnWidth) / 2;
+const columnY = groundLevel / 5;
+const columnHeight = 50;
 
 // Second column properties (for speed reduction)
-const secondColumnY = columnY + columnHeight + 50; // Position below the first column
-const secondColumnHeight = 100; // Height of the second column
+const secondColumnY = columnY + columnHeight + 20; // Position below the first column
+const secondColumnHeight = 50; // Height of the second column
 
-// Draw the columns with 1/3 width and centered
+// Draw the columns
 function drawColumn() {
     // Draw the first column
     ctx.fillStyle = 'rgba(0, 0, 255, 0.3)';
-    ctx.fillRect(columnX, columnY, columnWidth, columnHeight);
+    ctx.fillRect(columnX * xScale, columnY * yScale, columnWidth * xScale, columnHeight * yScale);
 
     // Draw the second column
     ctx.fillStyle = 'rgba(255, 165, 0, 0.3)'; // Semi-transparent orange color
-    ctx.fillRect(columnX, secondColumnY, columnWidth, secondColumnHeight);
+    ctx.fillRect(columnX * xScale, secondColumnY * yScale, columnWidth * xScale, secondColumnHeight * yScale);
+}
+
+// Draw ground function
+function drawGround() {
+    ctx.fillStyle = 'green';
+    ctx.fillRect(0, groundLevel * yScale, canvas.width, canvas.height - (groundLevel * yScale));
 }
 
 // Game loop
