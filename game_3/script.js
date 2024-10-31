@@ -73,7 +73,7 @@ class Character {
     }
 }
 
-// Event listeners for player movement
+// Event listeners for player movement using keyboard
 document.addEventListener('keydown', (e) => {
     if (e.code === 'ArrowRight') { isRight = true; e.preventDefault(); }
     if (e.code === 'ArrowLeft') { isLeft = true; e.preventDefault(); }
@@ -92,7 +92,8 @@ document.addEventListener('keyup', (e) => {
     if (e.code === 'ArrowDown') { isDown = false; e.preventDefault(); }
 });
 
-// Get control buttons
+// Get control buttons and containers
+const directionalButtons = document.getElementById('directionalButtons');
 const upButton = document.getElementById('upButton');
 const downButton = document.getElementById('downButton');
 const leftButton = document.getElementById('leftButton');
@@ -100,26 +101,61 @@ const rightButton = document.getElementById('rightButton');
 const aButton = document.getElementById('aButton');
 const bButton = document.getElementById('bButton');
 
-// Directional Buttons Event Listeners
-upButton.addEventListener('touchstart', (e) => { e.preventDefault(); isUp = true; });
-upButton.addEventListener('touchend', (e) => { e.preventDefault(); isUp = false; });
-upButton.addEventListener('mousedown', (e) => { e.preventDefault(); isUp = true; });
-upButton.addEventListener('mouseup', (e) => { e.preventDefault(); isUp = false; });
+// Helper function to reset movement variables
+function resetMovement() {
+    isUp = false;
+    isDown = false;
+    isLeft = false;
+    isRight = false;
+}
 
-downButton.addEventListener('touchstart', (e) => { e.preventDefault(); isDown = true; });
-downButton.addEventListener('touchend', (e) => { e.preventDefault(); isDown = false; });
-downButton.addEventListener('mousedown', (e) => { e.preventDefault(); isDown = true; });
-downButton.addEventListener('mouseup', (e) => { e.preventDefault(); isDown = false; });
+// Directional Buttons Touch Event Listeners
+directionalButtons.addEventListener('touchstart', handleDirectionTouchStart, false);
+directionalButtons.addEventListener('touchmove', handleDirectionTouchMove, false);
+directionalButtons.addEventListener('touchend', handleDirectionTouchEnd, false);
 
-leftButton.addEventListener('touchstart', (e) => { e.preventDefault(); isLeft = true; });
-leftButton.addEventListener('touchend', (e) => { e.preventDefault(); isLeft = false; });
-leftButton.addEventListener('mousedown', (e) => { e.preventDefault(); isLeft = true; });
-leftButton.addEventListener('mouseup', (e) => { e.preventDefault(); isLeft = false; });
+// Function to handle touchstart and touchmove events on the directional buttons
+function handleDirectionTouchStart(event) {
+    event.preventDefault();
+    const touch = event.changedTouches[0];
+    updateDirection(touch);
+}
 
-rightButton.addEventListener('touchstart', (e) => { e.preventDefault(); isRight = true; });
-rightButton.addEventListener('touchend', (e) => { e.preventDefault(); isRight = false; });
-rightButton.addEventListener('mousedown', (e) => { e.preventDefault(); isRight = true; });
-rightButton.addEventListener('mouseup', (e) => { e.preventDefault(); isRight = false; });
+function handleDirectionTouchMove(event) {
+    event.preventDefault();
+    const touch = event.changedTouches[0];
+    updateDirection(touch);
+}
+
+// Function to handle touchend event on the directional buttons
+function handleDirectionTouchEnd(event) {
+    event.preventDefault();
+    resetMovement();
+}
+
+// Function to update movement variables based on touch position
+function updateDirection(touch) {
+    const rect = directionalButtons.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+
+    // Dimensions of the buttons within the directional pad
+    const buttonSize = 50; // As per CSS
+    const gap = 0; // No gap between buttons
+
+    resetMovement();
+
+    // Determine which button the touch is over
+    if (x >= buttonSize && x <= buttonSize * 2 && y >= 0 && y <= buttonSize) {
+        isUp = true;
+    } else if (x >= 0 && x <= buttonSize && y >= buttonSize && y <= buttonSize * 2) {
+        isLeft = true;
+    } else if (x >= buttonSize && x <= buttonSize * 2 && y >= buttonSize * 2 && y <= buttonSize * 3) {
+        isDown = true;
+    } else if (x >= buttonSize * 2 && x <= buttonSize * 3 && y >= buttonSize && y <= buttonSize * 2) {
+        isRight = true;
+    }
+}
 
 // Action Buttons Event Listeners
 aButton.addEventListener('touchstart', (e) => { e.preventDefault(); switchMode(); });
