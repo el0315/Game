@@ -206,7 +206,7 @@ class Enemy {
         this.isShot = false;   // Indicates if the enemy is being shot downward
         this.shotSpeed = 0;    // Speed at which the enemy is being shot downward
 
-        // Properties for column logic
+        // Properties for column logic (only for shot enemies)
         this.inColumn = false;         // Is enemy inside a column?
         this.columnEntrySide = null;   // Side from which enemy entered
         this.exitTarget = { x: this.x, y: this.y }; // Target exit point
@@ -217,38 +217,31 @@ class Enemy {
             // Move downward at high speed
             this.y += this.shotSpeed;
 
-            // Check for collision with bottom boundary or columns
-            if (this.y + this.height >= worldHeight || this.collidesWithColumn()) {
+            // Check if enemy enters a column
+            if (this.isInsideColumn()) {
+                if (!this.inColumn) {
+                    // Enemy just entered the column
+                    this.inColumn = true;
+                    this.columnEntrySide = this.getColumnEntrySide();
+                    this.setExitTarget();
+                }
+
+                // Move towards the exit target
+                this.moveTowardsExit();
+                return; // Override other behaviors
+            }
+
+            // Check for collision with bottom boundary
+            if (this.y + this.height >= worldHeight) {
                 this.isShot = false;
                 this.shotSpeed = 0;
-
-                // Ensure enemy stays within bounds
-                if (this.y + this.height >= worldHeight) {
-                    this.y = worldHeight - this.height;
-                }
+                this.y = worldHeight - this.height;
             }
+
             return; // Skip other behaviors
         }
 
-        // Check if enemy is inside a column
-        if (this.isInsideColumn()) {
-            if (!this.inColumn) {
-                // Enemy just entered the column
-                this.inColumn = true;
-                this.columnEntrySide = this.getColumnEntrySide();
-                this.setExitTarget();
-            }
-
-            // Move towards the exit target
-            this.moveTowardsExit();
-            return; // Override other behaviors
-        } else if (this.inColumn) {
-            // Enemy has exited the column
-            this.inColumn = false;
-            this.columnEntrySide = null;
-        }
-
-        // Normal behavior when not in a column
+        // Normal behavior when not shot
         this.normalBehavior(player);
     }
 
@@ -283,21 +276,23 @@ class Enemy {
         this.constrainPosition();
     }
 
-    // Method to move towards the exit point
+    // Method to move towards the exit point (only for shot enemies in columns)
     moveTowardsExit() {
         const dx = this.exitTarget.x - this.x;
         const dy = this.exitTarget.y - this.y;
         const distance = Math.hypot(dx, dy);
 
         if (distance > 0) {
-            const moveX = (dx / distance) * this.speed;
-            const moveY = (dy / distance) * this.speed;
+            const moveX = (dx / distance) * this.shotSpeed;
+            const moveY = (dy / distance) * this.shotSpeed;
             this.x += moveX;
             this.y += moveY;
         } else {
             // Reached exit target
             this.inColumn = false;
             this.columnEntrySide = null;
+            this.isShot = false;
+            this.shotSpeed = 0;
         }
 
         // Keep within bounds
@@ -329,28 +324,23 @@ class Enemy {
 
     // Determine the side from which the enemy entered the column
     getColumnEntrySide() {
-        // We'll estimate the entry side based on the enemy's position relative to the center of the column
+        // We'll estimate the entry side based on the enemy's position relative to the column
         let entrySide = null;
 
-        const columnCenterX = columnX + columnWidth / 2;
-        const columnCenterYFirst = columnY + columnHeight / 2;
-        const columnCenterYSecond = secondColumnY + secondColumnHeight / 2;
+        const column = this.isInsideFirstColumn()
+            ? { x: columnX, y: columnY, width: columnWidth, height: columnHeight }
+            : { x: columnX, y: secondColumnY, width: columnWidth, height: secondColumnHeight };
 
-        const distToLeft = this.x + this.width - columnX;
-        const distToRight = columnX + columnWidth - this.x;
-        const distToTop = this.y + this.height - (this.isInsideFirstColumn() ? columnY : secondColumnY);
-        const distToBottom = (this.isInsideFirstColumn() ? columnY + columnHeight : secondColumnY + secondColumnHeight) - this.y;
+        const centerX = column.x + column.width / 2;
+        const centerY = column.y + column.height / 2;
 
-        const minDist = Math.min(distToLeft, distToRight, distToTop, distToBottom);
+        const dx = this.x + this.width / 2 - centerX;
+        const dy = this.y + this.height / 2 - centerY;
 
-        if (minDist === distToLeft) {
-            entrySide = 'left';
-        } else if (minDist === distToRight) {
-            entrySide = 'right';
-        } else if (minDist === distToTop) {
-            entrySide = 'top';
-        } else if (minDist === distToBottom) {
-            entrySide = 'bottom';
+        if (Math.abs(dx) > Math.abs(dy)) {
+            entrySide = dx > 0 ? 'right' : 'left';
+        } else {
+            entrySide = dy > 0 ? 'bottom' : 'top';
         }
 
         return entrySide;
@@ -536,7 +526,7 @@ function shootEnemy() {
     let minDistance = Infinity;
 
     for (let enemy of enemies) {
-        if (!enemy.isShot && !enemy.inColumn) {
+        if (!enemy.isShot) {
             const dx = enemy.x - player.x;
             const dy = enemy.y - player.y;
             const distance = Math.hypot(dx, dy);
