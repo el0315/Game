@@ -29,8 +29,38 @@ html, body {
 
 /* Canvas styling */
 #gameCanvas {
-    /* Remove width and height set here to avoid CSS scaling */
+    width: 100%;
+    height: 100%;
     display: block;
+}
+
+/* Joystick Container */
+#joystickContainer {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    width: 150px;
+    height: 150px;
+    z-index: 100;
+}
+
+#joystickBase {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.5);
+    position: relative;
+}
+
+#joystickHandle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: rgba(255, 0, 0, 0.7);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
 }
 
 /* Controls container */
@@ -38,54 +68,12 @@ html, body {
     width: 100%;
     height: 50vh; /* Bottom 50% of the screen */
     background-color: #444;
+    position: fixed;
+    bottom: 0;
+    left: 0;
     display: flex;
     justify-content: center;
     align-items: center;
-}
-
-/* Directional Buttons Container */
-#directionalButtons {
-    position: absolute;
-    bottom: 20px;
-    left: 20px;
-    width: 180px;
-    height: 180px;
-}
-
-/* Directional Buttons */
-#directionalButtons .control-button {
-    position: absolute;
-    width: 60px;
-    height: 60px;
-    background-color: rgba(0, 0, 0, 0.7);
-    color: white;
-    font-size: 24px;
-    text-align: center;
-    border-radius: 5px;
-    padding: 0;
-    border: none;
-    z-index: 10;
-}
-
-/* Positioning directional buttons */
-#upButton {
-    left: 60px;
-    top: 0;
-}
-
-#leftButton {
-    left: 0;
-    top: 60px;
-}
-
-#downButton {
-    left: 60px;
-    top: 120px;
-}
-
-#rightButton {
-    left: 120px;
-    top: 60px;
 }
 
 /* Action Buttons Container */
@@ -97,7 +85,6 @@ html, body {
     height: 150px;
 }
 
-/* Action Buttons */
 .action-button {
     position: absolute;
     width: 60px;
@@ -121,28 +108,4 @@ html, body {
 #bButton {
     right: 80px;
     bottom: 20px;
-
-/* Game over screen */
-#gameOverScreen {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.7);
-    display: none;
-    justify-content: center;
-    align-items: center;
-    flex-direction: column;
-    color: white;
-    font-size: 2rem;
-    z-index: 100;
-}
-
-#restartButton {
-    margin-top: 20px;
-    padding: 10px 20px;
-    font-size: 1.2rem;
-    cursor: pointer;
-}
 }
