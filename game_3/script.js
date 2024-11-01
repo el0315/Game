@@ -29,118 +29,95 @@ const bufferZone = 80;
 let offsetX = 0;
 let offsetY = 0;
 
-// Barriers
-let barriers = [
-    {
-        x: 300,
-        y: 300,
-        width: 100,
-        height: 100,
-        color: 'gray'
-    }
-];
+// Barriers (placeholder)
+let barriers = [];
 
-// Movement state variables
-let isRight = false;
-let isLeft = false;
-let isUp = false;
-let isDown = false;
+// Joystick state
+let joystickActive = false;
+let centerX, centerY;
 
-// Event listeners for keyboard movement
-document.addEventListener('keydown', (e) => {
-    if (e.code === 'ArrowRight') { isRight = true; e.preventDefault(); }
-    if (e.code === 'ArrowLeft') { isLeft = true; e.preventDefault(); }
-    if (e.code === 'ArrowUp') { isUp = true; e.preventDefault(); }
-    if (e.code === 'ArrowDown') { isDown = true; e.preventDefault(); }
+// Get joystick elements
+const joystickContainer = document.getElementById('joystickContainer');
+const joystickBase = document.getElementById('joystickBase');
+const joystickHandle = document.getElementById('joystickHandle');
+
+// Add event listeners for the joystick
+joystickContainer.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    joystickActive = true;
+    const touch = e.touches[0];
+    centerX = joystickBase.offsetLeft + joystickBase.offsetWidth / 2;
+    centerY = joystickBase.offsetTop + joystickBase.offsetHeight / 2;
+    moveJoystick(touch.clientX, touch.clientY);
 });
 
-document.addEventListener('keyup', (e) => {
-    if (e.code === 'ArrowRight') { isRight = false; e.preventDefault(); }
-    if (e.code === 'ArrowLeft') { isLeft = false; e.preventDefault(); }
-    if (e.code === 'ArrowUp') { isUp = false; e.preventDefault(); }
-    if (e.code === 'ArrowDown') { isDown = false; e.preventDefault(); }
+joystickContainer.addEventListener('touchmove', (e) => {
+    if (!joystickActive) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    moveJoystick(touch.clientX, touch.clientY);
 });
 
-// Get control buttons from the DOM
-const upButton = document.getElementById('upButton');
-const downButton = document.getElementById('downButton');
-const leftButton = document.getElementById('leftButton');
-const rightButton = document.getElementById('rightButton');
+joystickContainer.addEventListener('touchend', () => {
+    joystickActive = false;
+    resetJoystick();
+});
 
-// Add touch and mouse event listeners for directional buttons
-upButton.addEventListener('touchstart', () => { isUp = true; });
-upButton.addEventListener('touchend', () => { isUp = false; });
-upButton.addEventListener('mousedown', () => { isUp = true; });
-upButton.addEventListener('mouseup', () => { isUp = false; });
+// Function to move the joystick handle and calculate movement direction
+function moveJoystick(clientX, clientY) {
+    const dx = clientX - centerX;
+    const dy = clientY - centerY;
+    const distance = Math.min(Math.sqrt(dx * dx + dy * dy), joystickBase.offsetWidth / 2);
+    const angle = Math.atan2(dy, dx);
 
-downButton.addEventListener('touchstart', () => { isDown = true; });
-downButton.addEventListener('touchend', () => { isDown = false; });
-downButton.addEventListener('mousedown', () => { isDown = true; });
-downButton.addEventListener('mouseup', () => { isDown = false; });
+    const handleX = Math.cos(angle) * distance;
+    const handleY = Math.sin(angle) * distance;
 
-leftButton.addEventListener('touchstart', () => { isLeft = true; });
-leftButton.addEventListener('touchend', () => { isLeft = false; });
-leftButton.addEventListener('mousedown', () => { isLeft = true; });
-leftButton.addEventListener('mouseup', () => { isLeft = false; });
+    joystickHandle.style.transform = `translate(${handleX}px, ${handleY}px)`;
 
-rightButton.addEventListener('touchstart', () => { isRight = true; });
-rightButton.addEventListener('touchend', () => { isRight = false; });
-rightButton.addEventListener('mousedown', () => { isRight = true; });
-rightButton.addEventListener('mouseup', () => { isRight = false; });
+    // Calculate normalized direction vector
+    const normalizedX = handleX / (joystickBase.offsetWidth / 2);
+    const normalizedY = handleY / (joystickBase.offsetHeight / 2);
 
-// Ensure buttons work on click as well (useful for desktop testing)
-upButton.addEventListener('click', () => { isUp = true; setTimeout(() => { isUp = false; }, 100); });
-downButton.addEventListener('click', () => { isDown = true; setTimeout(() => { isDown = false; }, 100); });
-leftButton.addEventListener('click', () => { isLeft = true; setTimeout(() => { isLeft = false; }, 100); });
-rightButton.addEventListener('click', () => { isRight = true; setTimeout(() => { isRight = false; }, 100); });
-
-// Function to check collision between player and barriers
-function checkCollisionWithBarriers(newX, newY) {
-    for (let barrier of barriers) {
-        if (
-            newX + player.radius > barrier.x &&
-            newX - player.radius < barrier.x + barrier.width &&
-            newY + player.radius > barrier.y &&
-            newY - player.radius < barrier.y + barrier.height
-        ) {
-            return true; // Collision detected
-        }
-    }
-    return false; // No collision
+    // Apply movement based on joystick input
+    playerMovement(normalizedX, normalizedY);
 }
 
-// Function to move the player and adjust scrolling
-function updatePlayerPosition() {
-    let newX = player.x;
-    let newY = player.y;
-
-    if (isRight && player.x + player.radius + player.speed < mapWidth) {
-        newX += player.speed;
-    }
-    if (isLeft && player.x - player.radius - player.speed > 0) {
-        newX -= player.speed;
-    }
-    if (isUp && player.y - player.radius - player.speed > 0) {
-        newY -= player.speed;
-    }
-    if (isDown && player.y + player.radius + player.speed < mapHeight) {
-        newY += player.speed;
+// Function to apply player movement based on joystick input
+function playerMovement(normalizedX, normalizedY) {
+    if (normalizedX > 0.2) {
+        player.x += player.speed * normalizedX;
+    } else if (normalizedX < -0.2) {
+        player.x += player.speed * normalizedX;
     }
 
-    // Check for collision with barriers before updating position
-    if (!checkCollisionWithBarriers(newX, newY)) {
-        player.x = newX;
-        player.y = newY;
+    if (normalizedY > 0.2) {
+        player.y += player.speed * normalizedY;
+    } else if (normalizedY < -0.2) {
+        player.y += player.speed * normalizedY;
     }
 
-    // Adjust horizontal scrolling
+    // Constrain the player within the map boundaries
+    player.x = Math.max(player.radius, Math.min(mapWidth - player.radius, player.x));
+    player.y = Math.max(player.radius, Math.min(mapHeight - player.radius, player.y));
+
+    // Update scroll offset
+    updateScrollOffset();
+}
+
+// Reset joystick handle position
+function resetJoystick() {
+    joystickHandle.style.transform = 'translate(-50%, -50%)';
+}
+
+// Function to update the scroll offset based on player position
+function updateScrollOffset() {
     if (player.x - offsetX < bufferZone) {
         offsetX = Math.max(0, player.x - bufferZone);
     } else if (player.x - offsetX > viewportWidth - bufferZone) {
         offsetX = Math.min(mapWidth - viewportWidth, player.x - (viewportWidth - bufferZone));
     }
 
-    // Adjust vertical scrolling
     if (player.y - offsetY < bufferZone) {
         offsetY = Math.max(0, player.y - bufferZone);
     } else if (player.y - offsetY > viewportHeight - bufferZone) {
@@ -148,7 +125,7 @@ function updatePlayerPosition() {
     }
 }
 
-// Function to draw the map, player, and barriers
+// Function to draw the scene, including player and barriers
 function drawScene() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -158,15 +135,6 @@ function drawScene() {
     ctx.strokeStyle = 'red';
     ctx.lineWidth = 10;
     ctx.strokeRect(0, 0, mapWidth, mapHeight);
-    ctx.restore();
-
-    // Draw barriers
-    ctx.save();
-    ctx.translate(-offsetX, -offsetY);
-    for (let barrier of barriers) {
-        ctx.fillStyle = barrier.color;
-        ctx.fillRect(barrier.x, barrier.y, barrier.width, barrier.height);
-    }
     ctx.restore();
 
     // Draw the player
@@ -181,7 +149,6 @@ function drawScene() {
 
 // Game loop
 function gameLoop() {
-    updatePlayerPosition();
     drawScene();
     requestAnimationFrame(gameLoop);
 }
