@@ -4,7 +4,7 @@ const ctx = canvas.getContext('2d');
 
 // Game world dimensions
 const worldWidth = 450;
-const worldHeight = 400;
+const worldHeight = 200; // Adjusted to reflect top 50% play area
 
 // Game state variables
 let isRight = false;
@@ -18,15 +18,23 @@ let gameOver = false;
 let lastTime = 0; // Store the last frame time
 let currentMode = 'blue'; // Player's current mode ('blue' or 'red')
 
-// Resize canvas to fill the game container
+// Resize canvas to fill the game container without distortion
 function resizeCanvas() {
     const container = document.getElementById('gameContainer');
     const containerWidth = container.clientWidth;
     const containerHeight = container.clientHeight;
 
-    // Set canvas dimensions to fill the container
-    canvas.width = containerWidth;
-    canvas.height = containerHeight;
+    // Maintain aspect ratio without stretching
+    const aspectRatio = worldWidth / worldHeight;
+    if (containerWidth / containerHeight > aspectRatio) {
+        canvas.height = containerHeight;
+        canvas.width = containerHeight * aspectRatio;
+    } else {
+        canvas.width = containerWidth;
+        canvas.height = containerWidth / aspectRatio;
+    }
+
+    ctx.scale(canvas.width / worldWidth, canvas.height / worldHeight);
 }
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
@@ -49,7 +57,7 @@ class Character {
         if (isUp) this.y -= this.speed;
         if (isDown) this.y += this.speed;
 
-        // Ensure the player stays within the game world
+        // Ensure the player stays within the play window (top 50% of the screen)
         if (this.x - this.radius < 0) this.x = this.radius;
         if (this.x + this.radius > worldWidth) this.x = worldWidth - this.radius;
         if (this.y - this.radius < 0) this.y = this.radius;
@@ -57,26 +65,23 @@ class Character {
     }
 
     draw() {
-        const xRatio = canvas.width / worldWidth;
-        const yRatio = canvas.height / worldHeight;
-
         ctx.fillStyle = this.color;
         ctx.beginPath();
-        ctx.arc(this.x * xRatio, this.y * yRatio, this.radius * xRatio, 0, Math.PI * 2);
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
         ctx.fill();
 
         // Draw the distance to the nearest target on the player's circle
         if (this.distanceToNearestTarget !== Infinity) {
-            ctx.fillStyle = 'white'; // Text color
-            ctx.font = `${(this.radius / 2) * xRatio}px Arial`;
+            ctx.fillStyle = 'white';
+            ctx.font = `${(this.radius / 2)}px Arial`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(Math.round(this.distanceToNearestTarget), this.x * xRatio, this.y * yRatio);
+            ctx.fillText(Math.round(this.distanceToNearestTarget), this.x, this.y);
         }
     }
 }
 
-// Event listeners for player movement using keyboard
+// Event listeners for keyboard control
 document.addEventListener('keydown', (e) => {
     if (e.code === 'ArrowRight') { isRight = true; e.preventDefault(); }
     if (e.code === 'ArrowLeft') { isLeft = true; e.preventDefault(); }
@@ -140,22 +145,18 @@ function updateDirection(touch) {
     const x = touch.clientX - rect.left;
     const y = touch.clientY - rect.top;
 
-    const buttonSize = 60; // Updated button size
+    const buttonSize = 60; // Button size as per layout
     resetMovement();
 
     // Determine which button the touch is over
     if (x >= buttonSize && x <= buttonSize * 2 && y >= 0 && y <= buttonSize) {
-        // Up button
-        isUp = true;
+        isUp = true; // Up button
     } else if (x >= 0 && x <= buttonSize && y >= buttonSize && y <= buttonSize * 2) {
-        // Left button
-        isLeft = true;
+        isLeft = true; // Left button
     } else if (x >= buttonSize && x <= buttonSize * 2 && y >= buttonSize * 2 && y <= buttonSize * 3) {
-        // Down button
-        isDown = true;
+        isDown = true; // Down button
     } else if (x >= buttonSize * 2 && x <= buttonSize * 3 && y >= buttonSize && y <= buttonSize * 2) {
-        // Right button
-        isRight = true;
+        isRight = true; // Right button
     }
 }
 
@@ -185,67 +186,56 @@ function switchMode() {
 // Enemy class
 class Enemy {
     constructor(x, y, width, height, color) {
-        // Existing properties
         this.x = x;
         this.y = y;
-        this.width = width;   // Width in game units
-        this.height = height; // Height in game units
+        this.width = width;
+        this.height = height;
         this.color = color;
-        this.speed = (Math.random() * 2 + 1) * 2; // Increased base speed
-        this.affinity = parseInt(color.split('(')[1].split(',')[1]) / 255; // Affinity based on green channel
-        this.randomMoveCooldown = Math.random() * 100; // Random timer for random movement
-        this.followThreshold = 100; // Adjusted threshold to follow player in red mode
-        this.evadeThreshold = 100;  // Adjusted threshold to evade player in blue mode
+        this.speed = (Math.random() * 2 + 1) * 2;
+        this.affinity = parseInt(color.split('(')[1].split(',')[1]) / 255;
+        this.randomMoveCooldown = Math.random() * 100;
+        this.followThreshold = 100;
+        this.evadeThreshold = 100;
 
-        // Calculate RGB sum and normalize
-        const rgbValues = color.match(/\d+/g).map(Number); // Extract R, G, B values
-        this.rgbSum = rgbValues[0] + rgbValues[1] + rgbValues[2]; // Sum of RGB values
-        this.normalizedRgbSum = this.rgbSum / 765; // Normalize between 0 and 1 (max sum is 765)
+        const rgbValues = color.match(/\d+/g).map(Number);
+        this.rgbSum = rgbValues[0] + rgbValues[1] + rgbValues[2];
+        this.normalizedRgbSum = this.rgbSum / 765;
 
-        // Properties for shooting mechanism
-        this.isShot = false;   // Indicates if the enemy is being shot downward
-        this.shotSpeed = 0;    // Speed at which the enemy is being shot downward
+        this.isShot = false;
+        this.shotSpeed = 0;
 
-        // Properties for column logic (only for shot enemies)
-        this.inColumn = false;         // Is enemy inside a column?
-        this.columnEntrySide = null;   // Side from which enemy entered
-        this.exitTarget = { x: this.x, y: this.y }; // Target exit point
+        this.inColumn = false;
+        this.columnEntrySide = null;
+        this.exitTarget = { x: this.x, y: this.y };
     }
 
     update(player) {
         if (this.isShot) {
-            // Move downward at high speed
             this.y += this.shotSpeed;
 
-            // Check if enemy enters a column
             if (this.isInsideColumn()) {
                 if (!this.inColumn) {
-                    // Enemy just entered the column
                     this.inColumn = true;
                     this.columnEntrySide = this.getColumnEntrySide();
                     this.setExitTarget();
                 }
 
-                // Move towards the exit target
                 this.moveTowardsExit();
-                return; // Override other behaviors
+                return;
             }
 
-            // Check for collision with bottom boundary
             if (this.y + this.height >= worldHeight) {
                 this.isShot = false;
                 this.shotSpeed = 0;
                 this.y = worldHeight - this.height;
             }
 
-            return; // Skip other behaviors
+            return;
         }
 
-        // Normal behavior when not shot
         this.normalBehavior(player);
     }
 
-    // Method to handle normal behavior
     normalBehavior(player) {
         let moved = false;
         let adjustedSpeed = this.speed;
@@ -255,13 +245,11 @@ class Enemy {
         const distance = Math.hypot(dx, dy);
 
         if (currentMode === 'blue' && distance < this.evadeThreshold) {
-            // Evade player
             const angle = Math.atan2(dy, dx);
             this.x -= adjustedSpeed * Math.cos(angle);
             this.y -= adjustedSpeed * Math.sin(angle);
             moved = true;
         } else if (currentMode === 'red' && distance < this.followThreshold) {
-            // Follow player
             const angle = Math.atan2(dy, dx);
             this.x += adjustedSpeed * Math.cos(angle);
             this.y += adjustedSpeed * Math.sin(angle);
@@ -272,11 +260,9 @@ class Enemy {
             this.randomMove(adjustedSpeed);
         }
 
-        // Keep within bounds
         this.constrainPosition();
     }
 
-    // Method to move towards the exit point (only for shot enemies in columns)
     moveTowardsExit() {
         const dx = this.exitTarget.x - this.x;
         const dy = this.exitTarget.y - this.y;
@@ -288,18 +274,15 @@ class Enemy {
             this.x += moveX;
             this.y += moveY;
         } else {
-            // Reached exit target
             this.inColumn = false;
             this.columnEntrySide = null;
             this.isShot = false;
             this.shotSpeed = 0;
         }
 
-        // Keep within bounds
         this.constrainPosition();
     }
 
-    // Determine if the enemy is inside any column
     isInsideColumn() {
         return this.isInsideFirstColumn() || this.isInsideSecondColumn();
     }
@@ -322,9 +305,7 @@ class Enemy {
         );
     }
 
-    // Determine the side from which the enemy entered the column
     getColumnEntrySide() {
-        // We'll estimate the entry side based on the enemy's position relative to the column
         let entrySide = null;
 
         const column = this.isInsideFirstColumn()
@@ -346,7 +327,6 @@ class Enemy {
         return entrySide;
     }
 
-    // Set the target exit point based on entry side
     setExitTarget() {
         if (this.columnEntrySide === 'left') {
             this.exitTarget.x = columnX + columnWidth + 10;
@@ -356,26 +336,16 @@ class Enemy {
             this.exitTarget.y = this.y;
         } else if (this.columnEntrySide === 'top') {
             this.exitTarget.x = this.x;
-            if (this.isInsideFirstColumn()) {
-                this.exitTarget.y = columnY + columnHeight + 10;
-            } else {
-                this.exitTarget.y = secondColumnY + secondColumnHeight + 10;
-            }
+            this.exitTarget.y = this.isInsideFirstColumn() ? columnY + columnHeight + 10 : secondColumnY + secondColumnHeight + 10;
         } else if (this.columnEntrySide === 'bottom') {
             this.exitTarget.x = this.x;
-            if (this.isInsideFirstColumn()) {
-                this.exitTarget.y = columnY - this.height - 10;
-            } else {
-                this.exitTarget.y = secondColumnY - this.height - 10;
-            }
+            this.exitTarget.y = this.isInsideFirstColumn() ? columnY - this.height - 10 : secondColumnY - this.height - 10;
         } else {
-            // Default to moving down if entry side is unknown
             this.exitTarget.x = this.x;
             this.exitTarget.y = worldHeight + 10;
         }
     }
 
-    // Constrain enemy position within world bounds
     constrainPosition() {
         if (this.x < 0) this.x = 0;
         if (this.x + this.width > worldWidth) this.x = worldWidth - this.width;
@@ -384,7 +354,6 @@ class Enemy {
     }
 
     randomMove(adjustedSpeed) {
-        // Existing random movement logic
         if (this.randomMoveCooldown <= 0) {
             const directions = ['left', 'right', 'up', 'down'];
             const chosenDirection = directions[Math.floor(Math.random() * directions.length)];
@@ -404,48 +373,20 @@ class Enemy {
                     break;
             }
 
-            // Keep within bounds
             this.constrainPosition();
-
-            // Reset the random move cooldown
             this.randomMoveCooldown = Math.random() * 100;
         } else {
             this.randomMoveCooldown -= 1;
         }
     }
 
-    collidesWithColumn() {
-        // Check collision with the first column
-        if (
-            this.x + this.width > columnX &&
-            this.x < columnX + columnWidth &&
-            this.y + this.height >= columnY &&
-            this.y <= columnY + columnHeight
-        ) {
-            return true;
-        }
-        // Check collision with the second column
-        if (
-            this.x + this.width > columnX &&
-            this.x < columnX + columnWidth &&
-            this.y + this.height >= secondColumnY &&
-            this.y <= secondColumnY + secondColumnHeight
-        ) {
-            return true;
-        }
-        return false;
-    }
-
     draw() {
-        const xRatio = canvas.width / worldWidth;
-        const yRatio = canvas.height / worldHeight;
-
         ctx.fillStyle = this.color;
         ctx.fillRect(
-            this.x * xRatio,
-            this.y * yRatio,
-            this.width * xRatio,
-            this.height * yRatio
+            this.x * (canvas.width / worldWidth),
+            this.y * (canvas.height / worldHeight),
+            this.width * (canvas.width / worldWidth),
+            this.height * (canvas.height / worldHeight)
         );
     }
 }
@@ -458,70 +399,41 @@ function getRandomColor() {
     return `rgb(${r}, ${g}, ${b})`;
 }
 
-// Define the target class properties
-const targetColor = 'rgb(0, 0, 0)';  // Black color for target class
-const targetClassCount = 10;  // Adjusted number of targets
-
-// Generate enemies with random colors and specific targets with identical properties
-let enemies = [];
-for (let i = 0; i < 100 + targetClassCount; i++) {
-    const enemyX = Math.random() * (worldWidth - 30);
-    const enemyY = Math.random() * (worldHeight - 30);
-
-    if (i < targetClassCount) {
-        // Create targets with identical color (black)
-        enemies.push(new Enemy(enemyX, enemyY, 15, 15, targetColor));
-    } else {
-        // Create normal enemies with random colors
-        enemies.push(new Enemy(enemyX, enemyY, 15, 15, getRandomColor()));
-    }
-}
-
-// Column properties (Centered columns)
+// Define columns and their properties
 const columnWidth = 100;
 const columnX = (worldWidth - columnWidth) / 2;
 const columnY = worldHeight / 5;
 const columnHeight = 50;
+const secondColumnY = columnY + columnHeight + 20;
+const secondColumnHeight = 50;
 
-// Second column properties (for speed reduction)
-const secondColumnY = columnY + columnHeight + 20; // Position below the first column
-const secondColumnHeight = 50; // Height of the second column
-
-// Draw the columns
 function drawColumn() {
-    const xRatio = canvas.width / worldWidth;
-    const yRatio = canvas.height / worldHeight;
-
-    // Draw the first column
     ctx.fillStyle = 'rgba(0, 0, 255, 0.3)';
     ctx.fillRect(
-        columnX * xRatio,
-        columnY * yRatio,
-        columnWidth * xRatio,
-        columnHeight * yRatio
+        columnX * (canvas.width / worldWidth),
+        columnY * (canvas.height / worldHeight),
+        columnWidth * (canvas.width / worldWidth),
+        columnHeight * (canvas.height / worldHeight)
     );
 
-    // Draw the second column
-    ctx.fillStyle = 'rgba(255, 165, 0, 0.3)'; // Semi-transparent orange color
+    ctx.fillStyle = 'rgba(255, 165, 0, 0.3)';
     ctx.fillRect(
-        columnX * xRatio,
-        secondColumnY * yRatio,
-        columnWidth * xRatio,
-        secondColumnHeight * yRatio
+        columnX * (canvas.width / worldWidth),
+        secondColumnY * (canvas.height / worldHeight),
+        columnWidth * (canvas.width / worldWidth),
+        secondColumnHeight * (canvas.height / worldHeight)
     );
 }
 
 // Draw ground function
 function drawGround() {
-    const yRatio = canvas.height / worldHeight;
-
     ctx.fillStyle = 'green';
-    ctx.fillRect(0, worldHeight * yRatio, canvas.width, canvas.height - (worldHeight * yRatio));
+    ctx.fillRect(0, worldHeight * (canvas.height / worldHeight), canvas.width, canvas.height - (worldHeight * (canvas.height / worldHeight)));
 }
 
 // Function to shoot an enemy
 function shootEnemy() {
-    const thresholdDistance = 10; // Distance threshold for shooting
+    const thresholdDistance = 10;
     let nearestEnemy = null;
     let minDistance = Infinity;
 
@@ -539,9 +451,24 @@ function shootEnemy() {
     }
 
     if (nearestEnemy) {
-        // Shoot the enemy downward
         nearestEnemy.isShot = true;
-        nearestEnemy.shotSpeed = player.speed * 5; // 5x player's speed
+        nearestEnemy.shotSpeed = player.speed * 5;
+    }
+}
+
+// Generate enemies
+const targetColor = 'rgb(0, 0, 0)';
+const targetClassCount = 10;
+let enemies = [];
+
+for (let i = 0; i < 100 + targetClassCount; i++) {
+    const enemyX = Math.random() * (worldWidth - 30);
+    const enemyY = Math.random() * (worldHeight - 30);
+
+    if (i < targetClassCount) {
+        enemies.push(new Enemy(enemyX, enemyY, 15, 15, targetColor));
+    } else {
+        enemies.push(new Enemy(enemyX, enemyY, 15, 15, getRandomColor()));
     }
 }
 
@@ -553,15 +480,12 @@ function gameLoop(currentTime) {
     lastTime = currentTime;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
     drawGround();
     drawColumn();
 
-    // Update and draw the player
     player.move();
     player.draw();
 
-    // Handle shooting mechanism
     if (isShooting && currentMode === 'red') {
         if (currentTime - lastShotTime >= shootDelay) {
             shootEnemy();
@@ -569,7 +493,6 @@ function gameLoop(currentTime) {
         }
     }
 
-    // Find the nearest target for the player
     let minDistance = Infinity;
     let nearestTarget = null;
 
@@ -586,11 +509,9 @@ function gameLoop(currentTime) {
         }
     });
 
-    // Assign the distance to the player
     player.distanceToNearestTarget = minDistance;
 
-    // Update and draw enemies
-    enemies.forEach((enemy) => {
+    enemies.forEach(enemy => {
         enemy.update(player);
         enemy.draw();
     });
