@@ -3,39 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Turtle Platformer</title>
+    <title>Turtle Platformer with Joystick</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Game Container (Play Window) -->
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
     </div>
 
-    <!-- Control Window -->
-    <div id="controls">
-        <!-- Directional Buttons Container -->
-        <div id="directionalButtons">
-            <button id="upButton" class="control-button">▲</button>
-            <button id="leftButton" class="control-button">◀</button>
-            <button id="downButton" class="control-button">▼</button>
-            <button id="rightButton" class="control-button">▶</button>
+    <!-- Joystick Control -->
+    <div id="joystickContainer">
+        <div id="joystickBase">
+            <div id="joystickHandle"></div>
         </div>
+    </div>
 
-        <!-- Action Buttons Container -->
+    <!-- Action Buttons -->
+    <div id="controls">
         <div id="actionButtons">
             <button id="bButton" class="control-button action-button">B</button>
             <button id="aButton" class="control-button action-button">A</button>
         </div>
     </div>
 
-    <!-- Game Over Screen -->
-    <div id="gameOverScreen">
-        <h1>Game Over</h1>
-        <button id="restartButton">Restart</button>
-    </div>
-
-    <!-- External JavaScript File -->
+    <!-- Link to the external JavaScript file -->
     <script src="script.js"></script>
 </body>
 </html>
