@@ -3,8 +3,8 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 // Map dimensions
-const mapWidth = 1000;
-const mapHeight = 1000;
+const mapWidth = 5000;
+const mapHeight = 5000;
 
 // Viewport dimensions (canvas size)
 canvas.width = window.innerWidth;
@@ -15,99 +15,72 @@ const viewportHeight = canvas.height;
 
 // Player state
 let player = {
-    x: mapWidth / 2,
-    y: mapHeight / 2,
+    x: viewportWidth / 2,
+    y: viewportHeight / 2,
     radius: 15,
     speed: 3,
-    color: 'blue'
+    color: 'blue',
+    angle: 0 // Angle in radians
 };
-
-// Buffer zone for scrolling
-const bufferZone = 80;
 
 // Scroll offsets to track the visible portion of the map
 let offsetX = 0;
 let offsetY = 0;
 
-// Barriers (placeholder)
-let barriers = [];
+// Buffer zone for scrolling
+const bufferZone = 200;
 
-// Joystick state
-let joystickActive = false;
+// Scroll Wheel state
+let isRotating = false;
 let centerX, centerY;
 
-// Get joystick elements
-const joystickContainer = document.getElementById('joystickContainer');
-const joystickBase = document.getElementById('joystickBase');
-const joystickHandle = document.getElementById('joystickHandle');
+// Get scroll wheel element
+const scrollWheel = document.getElementById('scrollWheel');
 
-// Add event listeners for the joystick
-joystickContainer.addEventListener('touchstart', (e) => {
+// Add event listeners for the scroll wheel
+scrollWheel.addEventListener('touchstart', (e) => {
     e.preventDefault();
-    joystickActive = true;
+    isRotating = true;
     const touch = e.touches[0];
-    centerX = joystickBase.offsetLeft + joystickBase.offsetWidth / 2;
-    centerY = joystickBase.offsetTop + joystickBase.offsetHeight / 2;
-    moveJoystick(touch.clientX, touch.clientY);
+    centerX = scrollWheel.offsetLeft + scrollWheel.offsetWidth / 2;
+    centerY = scrollWheel.offsetTop + scrollWheel.offsetHeight / 2;
+    calculateAngle(touch.clientX, touch.clientY);
 });
 
-joystickContainer.addEventListener('touchmove', (e) => {
-    if (!joystickActive) return;
+scrollWheel.addEventListener('touchmove', (e) => {
+    if (!isRotating) return;
     e.preventDefault();
     const touch = e.touches[0];
-    moveJoystick(touch.clientX, touch.clientY);
+    calculateAngle(touch.clientX, touch.clientY);
 });
 
-joystickContainer.addEventListener('touchend', () => {
-    joystickActive = false;
-    resetJoystick();
+scrollWheel.addEventListener('touchend', () => {
+    isRotating = false;
 });
 
-// Function to move the joystick handle and calculate movement direction
-function moveJoystick(clientX, clientY) {
+// Function to calculate the angle of rotation and set player direction
+function calculateAngle(clientX, clientY) {
     const dx = clientX - centerX;
     const dy = clientY - centerY;
-    const distance = Math.min(Math.sqrt(dx * dx + dy * dy), joystickBase.offsetWidth / 2);
-    const angle = Math.atan2(dy, dx);
+    const angle = Math.atan2(dy, dx); // Calculate angle in radians
 
-    const handleX = Math.cos(angle) * distance;
-    const handleY = Math.sin(angle) * distance;
-
-    joystickHandle.style.transform = `translate(${handleX}px, ${handleY}px)`;
-
-    // Calculate normalized direction vector
-    const normalizedX = handleX / (joystickBase.offsetWidth / 2);
-    const normalizedY = handleY / (joystickBase.offsetHeight / 2);
-
-    // Apply movement based on joystick input
-    playerMovement(normalizedX, normalizedY);
+    // Update player's angle
+    player.angle = angle;
 }
 
-// Function to apply player movement based on joystick input
-function playerMovement(normalizedX, normalizedY) {
-    if (normalizedX > 0.2) {
-        player.x += player.speed * normalizedX;
-    } else if (normalizedX < -0.2) {
-        player.x += player.speed * normalizedX;
+// Function to update player position based on angle
+function updatePlayerPosition() {
+    if (isRotating) {
+        player.x += player.speed * Math.cos(player.angle);
+        player.y += player.speed * Math.sin(player.angle);
+
+        // Constrain the player within the map boundaries
+        player.x = Math.max(player.radius, Math.min(mapWidth - player.radius, player.x));
+        player.y = Math.max(player.radius, Math.min(mapHeight - player.radius, player.y));
+
+        // Update scroll offset
+        updateScrollOffset();
     }
-
-    if (normalizedY > 0.2) {
-        player.y += player.speed * normalizedY;
-    } else if (normalizedY < -0.2) {
-        player.y += player.speed * normalizedY;
-    }
-
-    // Constrain the player within the map boundaries
-    player.x = Math.max(player.radius, Math.min(mapWidth - player.radius, player.x));
-    player.y = Math.max(player.radius, Math.min(mapHeight - player.radius, player.y));
-
-    // Update scroll offset
-    updateScrollOffset();
-}
-
-// Reset joystick handle position
-function resetJoystick() {
-    joystickHandle.style.transform = 'translate(-50%, -50%)';
 }
 
 // Function to update the scroll offset based on player position
@@ -125,7 +98,7 @@ function updateScrollOffset() {
     }
 }
 
-// Function to draw the scene, including player and barriers
+// Function to draw the scene, including player
 function drawScene() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -149,6 +122,7 @@ function drawScene() {
 
 // Game loop
 function gameLoop() {
+    updatePlayerPosition();
     drawScene();
     requestAnimationFrame(gameLoop);
 }
