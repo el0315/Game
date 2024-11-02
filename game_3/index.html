@@ -3,28 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Scroll Wheel Player Control</title>
+    <title>Turtle Platformer</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- Game Container (Play Window) -->
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
     </div>
 
-    <!-- Scroll Wheel Control -->
-    <div id="scrollWheelContainer">
-        <div id="scrollWheel"></div>
-    </div>
-
-    <!-- Action Buttons -->
+    <!-- Control Window -->
     <div id="controls">
-        <div id="actionButtons">
-            <button id="bButton" class="control-button action-button">B</button>
-            <button id="aButton" class="control-button action-button">A</button>
+        <!-- Joystick Container for Movement (Left Side) -->
+        <div id="joystickContainerMove">
+            <div id="joystickKnobMove"></div>
         </div>
+
+        <!-- Joystick Container for Firing (Right Side) -->
+        <div id="joystickContainerFire">
+            <div id="joystickKnobFire"></div>
+        </div>
+
+        <!-- Action Buttons (Above the Firing Joystick) -->
+        <button id="bButton" class="control-button action-button">B</button>
+        <button id="aButton" class="control-button action-button">A</button>
     </div>
 
-    <!-- Link to the external JavaScript file -->
+    <!-- External JavaScript File -->
     <script src="script.js"></script>
 </body>
 </html>
