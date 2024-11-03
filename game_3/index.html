@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Turtle Platformer</title>
+    <title>Collect and kill!</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -17,19 +17,77 @@
         <!-- Joystick Container for Movement (Left Side) -->
         <div id="joystickContainerMove">
             <div id="joystickKnobMove"></div>
+            <div class="joystick-label">Move</div> <!-- Label for Move -->
         </div>
 
         <!-- Joystick Container for Firing (Right Side) -->
         <div id="joystickContainerFire">
             <div id="joystickKnobFire"></div>
+            <div class="joystick-label">Shoot</div> <!-- Label for Shoot -->
         </div>
 
-        <!-- Action Buttons (Above the Firing Joystick) -->
-        <button id="bButton" class="control-button action-button">B</button>
-        <button id="aButton" class="control-button action-button">A</button>
+        <!-- Legend for Cell Effects -->
+        <div id="legend-container">
+            <div class="legend-item">
+                <span class="cell-icon" style="background-color: red;"></span>
+                <span>Enables shooting</span>
+            </div>
+            <div class="legend-item">
+                <span class="cell-icon" style="background-color: orange;"></span>
+                <span>Speed boost</span>
+            </div>
+            <div class="legend-item">
+                <span class="cell-icon" style="background-color: yellow;"></span>
+                <span>Replenishes health</span>
+            </div>
+            <div class="legend-item">
+                <span class="cell-icon" style="background-color: green;"></span>
+                <span>Accuracy boost</span>
+            </div>
+            <div class="legend-item">
+                <span class="cell-icon" style="background-color: #9666ba;"></span> <!-- Enemy color -->
+                <span>Enemy</span>
+            </div>
+        </div>
+
+        <!-- Hidden Action Buttons -->
+        <button id="bButton" class="control-button action-button" style="display: none;">B</button>
+        <button id="aButton" class="control-button action-button" style="display: none;">A</button>
     </div>
+
+    <!-- Restart Button -->
+    <button id="restartButton" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 10px 20px; font-size: 20px;">Restart</button>
 
     <!-- External JavaScript File -->
     <script src="script.js"></script>
+
+    <!-- CSS for styling the legend -->
+    <style>
+        #legend-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr; /* Two columns */
+            gap: 10px; /* Space between items */
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: white;
+            font-family: sans-serif;
+            font-size: 14px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+        }
+        .cell-icon {
+            display: inline-block;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .joystick-label {
+            color: white; /* Ensure joystick labels match the text color */
+        }
+    </style>
 </body>
 </html>
