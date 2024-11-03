@@ -613,6 +613,20 @@ function followPlayer() {
 }
 
 
+// Variable to set the minimum number of attachable cells on the map
+const minAttachableCellsOnMap = 15; // Adjust this value as needed
+
+function maintainMinimumAttachableCells() {
+    // Filter and count only cells that are not attached and are still on the map
+    let attachableCellsCount = cells.filter(cell => !cell.attached).length;
+
+    // Add new cells until the minimum number of attachable cells is met
+    while (attachableCellsCount < minAttachableCellsOnMap) {
+        addRandomCell();
+        attachableCellsCount++;
+    }
+}
+// Modify the detachExpiredCells function to include a call to maintainMinimumAttachableCells
 function detachExpiredCells(attachedCells, character) {
     const currentTime = Date.now();
     let detachedCell = null;
@@ -635,19 +649,34 @@ function detachExpiredCells(attachedCells, character) {
     }
 
     if (detachedCell) {
-        addRandomCell();
+        respawnCell(detachedCell);
+        maintainMinimumAttachableCells(); // Ensure the minimum number of attachable cells is maintained
     }
 }
 
 
-// Function to respawn a cell at a random location
+// Function to respawn a cell at a random location and change its type randomly
 function respawnCell(cell) {
+    // Randomly select a new type for the cell
+    const cellTypes = ['yellow', 'orange', 'red', 'green'];
+    const newType = cellTypes[Math.floor(Math.random() * cellTypes.length)];
+    
+    // Update the cell's properties based on the new type
+    cell.type = newType;
+    cell.color = newType === 'yellow' ? 'yellow' :
+                 newType === 'orange' ? 'orange' :
+                 newType === 'red' ? 'red' :
+                 'green'; // Assign color for green type
+
+    // Generate a new random position within the map boundaries
     cell.x = Math.random() * (mapWidth - 2 * cell.radius) + cell.radius;
     cell.y = Math.random() * (mapHeight - 2 * cell.radius) + cell.radius;
     cell.directionAngle = Math.random() * 2 * Math.PI;
     cell.lastDirectionChangeTime = Date.now();
+
     console.log(`${cell.type} cell respawned at (${cell.x}, ${cell.y})`);
 }
+
 
 // Function to move cells in a consistent natural direction
 function moveCellRandomly(cell) {
@@ -720,34 +749,22 @@ function handleCellInteraction(attachedCells, character) {
 }
 
 
+// Ensure `addRandomCell()` correctly pushes cells into the array
 function addRandomCell() {
     if (cells.length >= maxCells) {
-        return;
+        return; // Prevent exceeding the maximum allowed cells
     }
 
-    // Ensure equal probability by using an array of types and picking one at random
     const cellTypes = ['yellow', 'orange', 'red', 'green'];
     const type = cellTypes[Math.floor(Math.random() * cellTypes.length)];
-    
-    // Assign the color based on the type
-    let color;
-    if (type === 'yellow') {
-        color = 'yellow';
-    } else if (type === 'orange') {
-        color = 'orange';
-    } else if (type === 'red') {
-        color = 'red';
-    } else if (type === 'green') {
-        color = 'green'; // Ensure green cells get the correct color
-    }
+    const color = type === 'yellow' ? 'yellow' :
+                  type === 'orange' ? 'orange' :
+                  type === 'red' ? 'red' : 'green';
 
-    let newCell;
-    do {
-        const x = Math.random() * (mapWidth - 2 * player.radius) + player.radius;
-        const y = Math.random() * (mapHeight - 2 * player.radius) + player.radius;
-        newCell = createCell(x, y, color, type);
-    } while (isOverlappingWithExistingCells(newCell));
+    const x = Math.random() * (mapWidth - 2 * player.radius) + player.radius;
+    const y = Math.random() * (mapHeight - 2 * player.radius) + player.radius;
 
+    const newCell = createCell(x, y, color, type);
     cells.push(newCell);
 }
 
@@ -780,6 +797,7 @@ function drawScene() {
     ctx.strokeRect(0, 0, mapWidth, mapHeight);
     ctx.restore();
 
+    // Draw the player
     ctx.save();
     ctx.translate(player.x - offsetX, player.y - offsetY);
     ctx.fillStyle = player.color;
@@ -788,7 +806,8 @@ function drawScene() {
     ctx.fill();
     ctx.restore();
 
-    if (enemy) { // Ensure enemy is not null before drawing
+    // Draw the enemy if it exists
+    if (enemy) {
         ctx.save();
         ctx.translate(enemy.x - offsetX, enemy.y - offsetY);
         ctx.fillStyle = enemy.color;
@@ -798,9 +817,12 @@ function drawScene() {
         ctx.restore();
     }
 
+    // Draw all attachable cells
     cells.forEach(drawCell);
     drawAttachedCells(player, player.attachedCells);
     if (enemy) drawAttachedCells(enemy, enemy.attachedCells);
+
+    // Update projectiles
     updateProjectiles();
     drawHealthBar(player.x, player.y, player.health, player.maxHealth);
     if (enemy) drawHealthBar(enemy.x, enemy.y, enemy.health, enemy.maxHealth);
@@ -809,6 +831,7 @@ function drawScene() {
     // Draw the "Enemies Killed" display
     drawEnemiesKilled();
 }
+
 
 
 // Get the restart button element
@@ -934,6 +957,7 @@ function drawEnemiesKilled() {
 }
 
 
+// Call maintainMinimumAttachableCells periodically (e.g., in the game loop or after cell detachment)
 function gameLoop() {
     // Check if the player's health reaches 0
     if (player.health <= 0) {
@@ -967,6 +991,9 @@ function gameLoop() {
 
     // Move cells in their natural random directions
     cells.forEach(moveCellRandomly);
+
+    // Ensure there are always at least `minAttachableCellsOnMap` attachable cells
+    maintainMinimumAttachableCells();
 
     // Draw the updated scene
     drawScene();
