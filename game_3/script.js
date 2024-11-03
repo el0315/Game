@@ -453,10 +453,9 @@ function updatePlayerPosition() {
     }
 }
 
-// Function to determine if the enemy should follow its movement logic based on enemies killed
 function shouldFollowLogic(enemiesKilled) {
-    // Increase by 5% for each enemy killed, capping at 100%
-    const followPercentage = Math.min(enemiesKilled * 10, 100);
+    // Start at 5% and increase by 5% for each enemy killed, capping at 100%
+    const followPercentage = Math.min(15 + enemiesKilled * 2.5, 100);
     const randomValue = Math.random() * 100; // Generate a random number between 0 and 100
 
     return randomValue < followPercentage; // Return true if the random value is within the followPercentage
