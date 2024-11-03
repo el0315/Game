@@ -91,28 +91,15 @@ html, body {
     touch-action: none;
 }
 
-/* Action Buttons */
-.action-button {
+/* Joystick Labels */
+.joystick-label {
     position: absolute;
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    background-color: rgba(200, 0, 0, 0.8);
-    color: white;
-    border: none;
-    font-size: 20px;
-    cursor: pointer;
-    z-index: 10;
-}
-
-/* A Button */
-#aButton {
-    bottom: 300px; /* Positioned above the firing joystick */
-    right: 50px;   /* Aligned to be above the joystick */
-}
-
-/* B Button */
-#bButton {
-    bottom: 300px; /* Positioned above the firing joystick */
-    right: 140px;  /* Positioned next to the A button */
+    width: 100%;
+    text-align: center;
+    bottom: 125px; /* Adjust as necessary for spacing */
+    font-size: 14px; /* Adjust size as needed */
+    color: white; /* Label color */
+    font-family: sans-serif;
+    user-select: none; /* Prevent text selection */
+    pointer-events: none; /* Ensure clicks pass through */
 }
