@@ -108,7 +108,7 @@ let cells = [];
 
 for (let i = 0; i < initialCellCount; i++) {
     // Randomly select a cell type and color
-    const cellTypes = ['yellow', 'orange', 'red', 'green','blue'];
+    const cellTypes = ['yellow', 'orange', 'red', 'green'];
     const type = cellTypes[Math.floor(Math.random() * cellTypes.length)];
     let color;
 
@@ -258,32 +258,29 @@ function fireContinuously() {
         if (activeRedCell && currentTime - lastShotTime >= shootingCooldown) {
             lastShotTime = currentTime;
 
-            // Create and add a new homing projectile if a green cell is attached
-            projectiles.push({
-                x: player.x,
-                y: player.y,
-                size: projectileSize,
-                direction: { x: Math.cos(joystickFireAngle), y: Math.sin(joystickFireAngle) },
-                distanceTraveled: 0,
-                color: getProjectileColor(player.attachedCells),
-                isHoming: hasGreenCell, // Set to true if a green cell is attached for missile behavior
-                origin: 'player',
-                originX: player.x,
-                originY: player.y,
-                isDeflected: false // Ensure new projectiles are not deflected by default
-            });
+            if (activeRedCell.attachTime > 0) {
+                // Create and add a new projectile with homing capability if a green cell is attached
+                projectiles.push({
+                    x: player.x,
+                    y: player.y,
+                    size: projectileSize,
+                    direction: { x: Math.cos(joystickFireAngle), y: Math.sin(joystickFireAngle) },
+                    distanceTraveled: 0,
+                    color: getProjectileColor(player.attachedCells),
+                    isHoming: hasGreenCell // Set to true if a green cell is attached
+                });
 
-            // Deplete the red cell's attach time
-            activeRedCell.attachTime -= DEPLETION_RATE_PER_SHOT;
-            console.log(`Red cell attach time remaining: ${activeRedCell.attachTime}`);
+                activeRedCell.attachTime -= DEPLETION_RATE_PER_SHOT;
+                console.log(`Red cell attach time remaining: ${activeRedCell.attachTime}`);
 
-            if (activeRedCell.attachTime <= 0) {
-                detachRedCell(player, activeRedCell);
-                isFiring = false; // Stop firing if no active red cell remains
-                console.log('Red cell detached - depleted');
+                if (activeRedCell.attachTime <= 0) {
+                    detachRedCell(player, activeRedCell);
+                    isFiring = false;
+                    console.log('Red cell detached - depleted');
+                }
             }
         } else if (!activeRedCell) {
-            isFiring = false; // Stop firing if no red cell is attached
+            isFiring = false;
         }
     }
 
@@ -291,9 +288,6 @@ function fireContinuously() {
         setTimeout(fireContinuously, shootingCooldown);
     }
 }
-
-
-
 
 function fireEnemyProjectile() {
     const currentTime = Date.now();
@@ -304,34 +298,28 @@ function fireEnemyProjectile() {
         enemy.lastShotTime = currentTime;
 
         if (activeRedCell.attachTime > 0) {
-            // Create a new enemy projectile
             enemyProjectiles.push({
                 x: enemy.x,
                 y: enemy.y,
                 size: projectileSize,
-                direction: hasGreenCell ? calculateHomingDirection(enemy, player) : normalizeVector({ x: player.x - enemy.x, y: player.y - enemy.y }),
+                direction: normalizeVector({ x: player.x - enemy.x, y: player.y - enemy.y }),
                 distanceTraveled: 0,
                 color: 'white',
-                isHoming: hasGreenCell, // Set to true if a green cell is attached for homing behavior
-                origin: 'enemy', // Indicate the projectile is from the enemy
-                originX: enemy.x,
-                originY: enemy.y,
-                isDeflected: false // Ensure this property is added to manage deflections
+                isHoming: hasGreenCell // Set to true if a green cell is attached
             });
 
-            // Deplete the active red cell's time
             activeRedCell.attachTime -= DEPLETION_RATE_PER_SHOT;
             console.log(`Enemy red cell attach time remaining: ${activeRedCell.attachTime}`);
 
-            // Detach the red cell if it is depleted
             if (activeRedCell.attachTime <= 0) {
                 detachRedCell(enemy, activeRedCell);
-                enemy.isFiring = false; // Stop firing when the red cell is depleted
+                enemy.isFiring = false;
                 console.log('Enemy red cell detached - depleted');
             }
         }
     }
 }
+
 
 
 
@@ -341,75 +329,36 @@ function normalizeVector(vector) {
     return { x: vector.x / length, y: vector.y / length };
 }
 
-// Additional property for deflection radius
-const deflectionRingRadiusMultiplier = 1.5; // Adjust this as needed for ring size
-
-function drawDeflectionRing(character) {
-    const blueCellAttached = character.attachedCells.some(cell => cell.type === 'blue' && cell.attached);
-    if (blueCellAttached) {
-        ctx.save();
-        ctx.translate(character.x - offsetX, character.y - offsetY);
-        ctx.strokeStyle = 'rgba(0, 255, 255, 0.5)'; // Semi-transparent cyan color
-        ctx.lineWidth = 3;
-        
-        const pulseSize = 1 + 0.05 * Math.sin(Date.now() / 200); // Pulsing effect
-        ctx.beginPath();
-        ctx.arc(0, 0, character.radius * deflectionRingRadiusMultiplier * pulseSize, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-    }
-}
-
-
 function updateProjectiles() {
-    [...projectiles, ...enemyProjectiles].forEach(projectile => {
-        const distanceToPlayer = Math.sqrt(Math.pow(projectile.x - player.x, 2) + Math.pow(projectile.y - player.y, 2));
-        const distanceToEnemy = Math.sqrt(Math.pow(projectile.x - enemy.x, 2) + Math.pow(projectile.y - enemy.y, 2));
-
-        const playerHasBlueCell = player.attachedCells.some(cell => cell.type === 'blue');
-        const enemyHasBlueCell = enemy.attachedCells.some(cell => cell.type === 'blue');
-
-        // Handle deflection for player
-        if (!projectile.isDeflected && playerHasBlueCell && projectile.origin === 'enemy' && distanceToPlayer < player.radius * deflectionRingRadiusMultiplier) {
-            console.log('Projectile deflected by player!');
-            deflectProjectile(projectile, player.x, player.y, 'enemy');
-            projectile.isDeflected = true;
-            return;
-        }
-
-        // Handle deflection for enemy
-        if (!projectile.isDeflected && enemyHasBlueCell && projectile.origin === 'player' && distanceToEnemy < enemy.radius * deflectionRingRadiusMultiplier) {
-            console.log('Projectile deflected by enemy!');
-            deflectProjectile(projectile, enemy.x, enemy.y, 'player');
-            projectile.isDeflected = true;
-            return;
-        }
-
+    projectiles = projectiles.filter(projectile => {
+        // Check if the projectile should have homing behavior
         if (projectile.isHoming) {
-            const target = projectile.origin === 'enemy' ? player : enemy;
-            const angleToTarget = Math.atan2(target.y - projectile.y, target.x - projectile.x);
-            projectile.direction.x += Math.cos(angleToTarget) * 0.1;
-            projectile.direction.y += Math.sin(angleToTarget) * 0.1;
+            // Adjust the direction gradually to home in on the enemy
+            const angleToEnemy = Math.atan2(enemy.y - projectile.y, enemy.x - projectile.x);
+            const adjustmentFactor = 0.5; // Determines how fast the projectile turns (tweakable)
+
+            // Gradually adjust the direction towards the enemy
+            projectile.direction.x += Math.cos(angleToEnemy) * adjustmentFactor;
+            projectile.direction.y += Math.sin(angleToEnemy) * adjustmentFactor;
+
+            // Normalize the new direction to keep a consistent speed
             const length = Math.sqrt(projectile.direction.x ** 2 + projectile.direction.y ** 2);
             projectile.direction.x /= length;
             projectile.direction.y /= length;
         }
 
+        // Update the projectile's position
         projectile.x += projectile.direction.x * projectileSpeed;
         projectile.y += projectile.direction.y * projectileSpeed;
         projectile.distanceTraveled += projectileSpeed;
 
-        // Collision checks
-        if (projectile.origin === 'enemy' && distanceToPlayer < player.radius + projectile.size) {
-            player.health -= 5;
-            console.log('Player hit by enemy projectile!');
-            return false;
-        }
-
-        if (projectile.origin === 'player' && distanceToEnemy < enemy.radius + projectile.size) {
+        // Check collision with the enemy
+        const distanceToEnemy = Math.sqrt(Math.pow(projectile.x - enemy.x, 2) + Math.pow(projectile.y - enemy.y, 2));
+        if (distanceToEnemy < enemy.radius + projectile.size) {
+            // Deal damage to the enemy
             enemy.health -= 5;
-            console.log('Enemy hit by player projectile!');
-            return false;
+            //console.log('Enemy hit! Health:', enemy.health);
+            return false; // Remove the projectile after collision
         }
 
         // Draw the projectile
@@ -421,14 +370,40 @@ function updateProjectiles() {
         ctx.fill();
         ctx.restore();
 
+        // Keep the projectile if it hasn't traveled beyond its range
         return projectile.distanceTraveled < 500;
     });
 
-    // Filter projectiles to remove those that exceeded their range or collided
-    projectiles = projectiles.filter(p => p.distanceTraveled < 500);
-    enemyProjectiles = enemyProjectiles.filter(p => p.distanceTraveled < 500);
-}
+    // Handle enemy projectiles (no changes needed for homing behavior)
+    enemyProjectiles = enemyProjectiles.filter(projectile => {
+        // Update projectile position
+        const normalizedDirection = normalizeVector(projectile.direction);
+        projectile.x += normalizedDirection.x * projectileSpeed;
+        projectile.y += normalizedDirection.y * projectileSpeed;
+        projectile.distanceTraveled += projectileSpeed;
 
+        // Check collision with the player
+        const distanceToPlayer = Math.sqrt(Math.pow(projectile.x - player.x, 2) + Math.pow(projectile.y - player.y, 2));
+        if (distanceToPlayer < player.radius + projectile.size) {
+            // Deal damage to the player
+            player.health -= 5;
+            //console.log('Player hit! Health:', player.health);
+            return false; // Remove the projectile after collision
+        }
+
+        // Draw the enemy projectile
+        ctx.save();
+        ctx.translate(projectile.x - offsetX, projectile.y - offsetY);
+        ctx.fillStyle = projectile.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, projectile.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // Keep the enemy projectile if it hasn't traveled beyond its range
+        return projectile.distanceTraveled < 500;
+    });
+}
 
 
 
@@ -488,24 +463,6 @@ function drawAttachedCells(character, attachedCells) {
         ctx.restore();
     });
 }
-
-function deflectProjectile(projectile, deflectorX, deflectorY, newOrigin) {
-    // Ensure that the projectile has valid origin coordinates for deflection
-    if (projectile.originX == null || projectile.originY == null) {
-        projectile.originX = deflectorX;
-        projectile.originY = deflectorY;
-    }
-
-    const angleToOrigin = Math.atan2(projectile.originY - deflectorY, projectile.originX - deflectorX);
-    projectile.direction.x = Math.cos(angleToOrigin);
-    projectile.direction.y = Math.sin(angleToOrigin);
-    projectile.origin = newOrigin; // Update origin so it can damage the original shooter
-    projectile.isDeflected = true; // Mark as deflected to prevent further deflections
-
-    console.log(`Projectile deflected by ${newOrigin === 'enemy' ? 'enemy' : 'player'} and can now damage: ${newOrigin}`);
-}
-
-
 
 
 
@@ -815,33 +772,33 @@ function detachRedCell(character, cell) {
 
 
 
+
 function detachExpiredCells(attachedCells, character) {
     const currentTime = Date.now();
     let detachedCells = [];
 
+    // Filter out expired cells and detach them based on their type
     let remainingAttachedCells = attachedCells.filter(cell => {
-        // Detach cells when their duration expires
+        if (cell.type === 'red') {
+            // Skip automatic detachment for red cells; they detach only when depleted through shooting
+            return true;
+        }
+
+        // For non-red cells, detach when their duration expires
         if (currentTime - cell.attachTime >= cellDuration) {
-            console.log(`${cell.type} cell detached from ${character.color === 'blue' ? 'player' : 'enemy'}`);
+            //console.log(`${cell.type} cell detached from ${character.color === 'blue' ? 'player' : 'enemy'}`);
             cell.attached = false;
             detachedCells.push(cell); // Collect detached cell for potential respawn
-
-            // If it's a blue cell, trigger deflection ring removal
-            if (cell.type === 'blue') {
-                if (character.color === 'blue') {
-                    console.log('Player deflection ring removed');
-                } else {
-                    console.log('Enemy deflection ring removed');
-                }
-            }
             return false; // Exclude this cell from the remaining attached cells
         }
 
         return true; // Keep the cell if it hasn't expired
     });
 
+    // Update character's attached cells to exclude detached ones
     character.attachedCells = remainingAttachedCells;
 
+    // Respawn detached cells if necessary
     detachedCells.forEach(cell => {
         respawnCell(cell);
     });
@@ -849,17 +806,24 @@ function detachExpiredCells(attachedCells, character) {
 
 
 
+
+// Function to respawn a cell at a new random position with updated properties
 function respawnCell(cell) {
     // Generate a new random position within the map boundaries
     cell.x = Math.random() * (mapWidth - 2 * cell.radius) + cell.radius;
     cell.y = Math.random() * (mapHeight - 2 * cell.radius) + cell.radius;
 
-    // Randomly change the type and color of the cell
-    const cellTypes = ['yellow', 'orange', 'red', 'green', 'blue'];
-    const newType = cellTypes[Math.floor(Math.random() * cellTypes.length)];
-    cell.type = newType;
+    // Ensure the new position does not overlap with other cells or the player
+    while (isOverlappingWithExistingCells(cell) || isCollidingWithCell(player.x, player.y, cell)) {
+        cell.x = Math.random() * (mapWidth - 2 * cell.radius) + cell.radius;
+        cell.y = Math.random() * (mapHeight - 2 * cell.radius) + cell.radius;
+    }
 
-    // Assign color based on the new type
+    // Randomly assign a new type and color for the respawned cell
+    const cellTypes = ['yellow', 'orange', 'red', 'green'];
+    const newType = cellTypes[Math.floor(Math.random() * cellTypes.length)];
+
+    cell.type = newType;
     switch (newType) {
         case 'yellow':
             cell.color = 'yellow';
@@ -873,16 +837,14 @@ function respawnCell(cell) {
         case 'green':
             cell.color = 'green';
             break;
-        case 'blue':
-            cell.color = '#00FFFF'; // Cyan color for blue type
-            break;
     }
 
     cell.attached = false; // Mark the cell as attachable
     cell.directionAngle = Math.random() * 2 * Math.PI; // Reset movement direction
     cell.lastDirectionChangeTime = Date.now(); // Reset timing for direction change
-}
 
+    //console.log(`${cell.type} cell respawned at (${cell.x.toFixed(2)}, ${cell.y.toFixed(2)})`);
+}
 
 
 
@@ -892,7 +854,7 @@ function respawnCell(cell) {
     cell.y = Math.random() * (mapHeight - 2 * cell.radius) + cell.radius;
 
     // Randomly change the type and color of the cell
-    const cellTypes = ['yellow', 'orange', 'red', 'green','blue'];
+    const cellTypes = ['yellow', 'orange', 'red', 'green'];
     const newType = cellTypes[Math.floor(Math.random() * cellTypes.length)];
 
     cell.type = newType;
@@ -1025,36 +987,17 @@ let seed = Date.now(); // Initialize with current time or any number for consist
 
 function addRandomCell() {
     if (cells.length >= maxCells) {
-        console.log(`Max cells limit reached. Current count: ${cells.length}, Max allowed: ${maxCells}`);
+        //console.log(`Max cells limit reached. Current count: ${cells.length}, Max allowed: ${maxCells}`);
         return;
     }
 
     // Array of possible cell types with equal probability
-    const cellTypes = ['yellow', 'orange', 'red', 'green', 'blue']; // Include 'blue' for cyan cells
+    const cellTypes = ['yellow', 'orange', 'red', 'green'];
 
     // Use seeded random function for consistent results
     seed += 1; // Increment seed for next generation
     const type = cellTypes[Math.floor(seededRandom(seed) * cellTypes.length)];
-    let color;
-
-    // Assign color based on type
-    switch (type) {
-        case 'yellow':
-            color = 'yellow';
-            break;
-        case 'orange':
-            color = 'orange';
-            break;
-        case 'red':
-            color = 'red';
-            break;
-        case 'green':
-            color = 'green';
-            break;
-        case 'blue':
-            color = '#00FFFF'; // Cyan color for blue type
-            break;
-    }
+    const color = type; // Use type directly as color for simplicity
 
     // Create and position the cell at a random location within the map boundaries
     let newCell;
@@ -1067,9 +1010,8 @@ function addRandomCell() {
     } while (isOverlappingWithExistingCells(newCell));
 
     cells.push(newCell);
-    console.log(`Added a ${type} cell at (${newCell.x.toFixed(2)}, ${newCell.y.toFixed(2)})`);
+    //console.log(`Added a ${type} cell at (${newCell.x.toFixed(2)}, ${newCell.y.toFixed(2)})`);
 }
-
 
 
 
@@ -1147,12 +1089,6 @@ function drawScene() {
     if (enemy) drawHealthBar(enemy.x, enemy.y, enemy.health, enemy.maxHealth);
     drawMiniMap();
 
-
-    drawDeflectionRing(player);
-    if (enemy) drawDeflectionRing(enemy);
-
-    updateProjectiles();
-
     // Draw the "Enemies Killed" display
     drawEnemiesKilled();
 }
@@ -1178,6 +1114,7 @@ function showGameOver() {
     restartButton.style.display = 'block';
 }
 
+// Function to restart the game
 restartButton.addEventListener('click', () => {
     // Reset player state
     player.x = 100;
@@ -1202,31 +1139,23 @@ restartButton.addEventListener('click', () => {
     // Reset enemies killed counter
     enemiesKilled = 0;
 
-    // Clear and respawn cells with equivalent probability for all types, including blue
+    // Clear and respawn cells with equivalent probability for all types
     cells = [];
     for (let i = 0; i < initialCellCount; i++) {
-        // Updated array to include 'blue'
-        const cellTypes = ['yellow', 'orange', 'red', 'green', 'blue']; // Include blue cells
+        // Randomly select a cell type and color
+        const cellTypes = ['yellow', 'orange', 'red', 'green'];
         const type = cellTypes[Math.floor(Math.random() * cellTypes.length)];
         let color;
 
         // Assign the color based on the type
-        switch (type) {
-            case 'yellow':
-                color = 'yellow';
-                break;
-            case 'orange':
-                color = 'orange';
-                break;
-            case 'red':
-                color = 'red';
-                break;
-            case 'green':
-                color = 'green';
-                break;
-            case 'blue':
-                color = '#00FFFF'; // Cyan color for blue type
-                break;
+        if (type === 'yellow') {
+            color = 'yellow';
+        } else if (type === 'orange') {
+            color = 'orange';
+        } else if (type === 'red') {
+            color = 'red';
+        } else if (type === 'green') {
+            color = 'green'; // Green color for the homing missile cell
         }
 
         // Generate a random position within the map boundaries
@@ -1243,7 +1172,6 @@ restartButton.addEventListener('click', () => {
     // Resume the game loop
     requestAnimationFrame(gameLoop);
 });
-
 
 
 
