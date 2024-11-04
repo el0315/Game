@@ -511,7 +511,7 @@ function shouldContinueCurrentBehavior() {
 // Function to determine if the enemy should seek the nearest cell based on enemies killed
 function shouldFindNearestCell(enemiesKilled) {
     // Start at 25% and increase by 5% for each enemy killed, capping at 100%
-    const seekCellPercentage = Math.min(75 + (enemiesKilled * 5), 100);
+    const seekCellPercentage = Math.min(45 + (enemiesKilled * 5), 100);
     const randomValue = Math.random() * 100; // Generate a random number between 0 and 100
 
     return randomValue < seekCellPercentage; // Return true if the random value is within the seekCellPercentage
