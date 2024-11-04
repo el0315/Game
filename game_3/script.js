@@ -628,15 +628,21 @@ function updateEnemyPosition() {
 // Function for the enemy to follow the player and shoot if a red cell is attached
 function followPlayerAndShoot() {
     const angleToPlayer = Math.atan2(player.y - enemy.y, player.x - enemy.x);
-    enemy.x += Math.cos(angleToPlayer) * enemy.speed;
-    enemy.y += Math.sin(angleToPlayer) * enemy.speed;
+    const distanceToPlayer = Math.sqrt(Math.pow(player.x - enemy.x, 2) + Math.pow(player.y - enemy.y, 2));
+    const minFollowDistance = 30; // Minimum distance the enemy should maintain from the player
+
+    // Only move the enemy if it is further than the minimum follow distance
+    if (distanceToPlayer > minFollowDistance) {
+        enemy.x += Math.cos(angleToPlayer) * enemy.speed;
+        enemy.y += Math.sin(angleToPlayer) * enemy.speed;
+    }
 
     // Check if the enemy is within the attack range and shoot if it has a red cell
-    const distanceToPlayer = Math.sqrt(Math.pow(player.x - enemy.x, 2) + Math.pow(player.y - enemy.y, 2));
     if (distanceToPlayer <= attackDistance && enemy.attachedCells.some(cell => cell.type === 'red')) {
         fireEnemyProjectile();
     }
 }
+
 
 
 // Function to check collision between a player and a cell
