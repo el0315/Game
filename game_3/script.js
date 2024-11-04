@@ -352,8 +352,7 @@ function drawDeflectionRing(character) {
         ctx.strokeStyle = 'rgba(0, 255, 255, 0.5)'; // Semi-transparent cyan color
         ctx.lineWidth = 3;
         
-        // Create a pulsing effect
-        const pulseSize = 1 + 0.05 * Math.sin(Date.now() / 200); // Pulsing factor
+        const pulseSize = 1 + 0.05 * Math.sin(Date.now() / 200); // Pulsing effect
         ctx.beginPath();
         ctx.arc(0, 0, character.radius * deflectionRingRadiusMultiplier * pulseSize, 0, Math.PI * 2);
         ctx.stroke();
@@ -361,59 +360,56 @@ function drawDeflectionRing(character) {
     }
 }
 
+
 function updateProjectiles() {
-    projectiles = projectiles.filter(projectile => {
-        // Calculate distances to the player and the enemy
+    [...projectiles, ...enemyProjectiles].forEach(projectile => {
         const distanceToPlayer = Math.sqrt(Math.pow(projectile.x - player.x, 2) + Math.pow(projectile.y - player.y, 2));
         const distanceToEnemy = Math.sqrt(Math.pow(projectile.x - enemy.x, 2) + Math.pow(projectile.y - enemy.y, 2));
 
-        // Check for attached cells affecting behavior
         const playerHasBlueCell = player.attachedCells.some(cell => cell.type === 'blue');
         const enemyHasBlueCell = enemy.attachedCells.some(cell => cell.type === 'blue');
 
-        // Deflection logic
+        // Handle deflection for player
         if (!projectile.isDeflected && playerHasBlueCell && projectile.origin === 'enemy' && distanceToPlayer < player.radius * deflectionRingRadiusMultiplier) {
             console.log('Projectile deflected by player!');
             deflectProjectile(projectile, player.x, player.y, 'enemy');
             projectile.isDeflected = true;
-            return true;
+            return;
         }
 
+        // Handle deflection for enemy
         if (!projectile.isDeflected && enemyHasBlueCell && projectile.origin === 'player' && distanceToEnemy < enemy.radius * deflectionRingRadiusMultiplier) {
             console.log('Projectile deflected by enemy!');
             deflectProjectile(projectile, enemy.x, enemy.y, 'player');
             projectile.isDeflected = true;
-            return true;
+            return;
         }
 
-        // Homing behavior for projectiles with green cells attached
         if (projectile.isHoming) {
             const target = projectile.origin === 'enemy' ? player : enemy;
             const angleToTarget = Math.atan2(target.y - projectile.y, target.x - projectile.x);
-            projectile.direction.x += Math.cos(angleToTarget) * 0.1; // Adjust homing factor for smooth turning
+            projectile.direction.x += Math.cos(angleToTarget) * 0.1;
             projectile.direction.y += Math.sin(angleToTarget) * 0.1;
             const length = Math.sqrt(projectile.direction.x ** 2 + projectile.direction.y ** 2);
             projectile.direction.x /= length;
             projectile.direction.y /= length;
         }
 
-        // Move the projectile
         projectile.x += projectile.direction.x * projectileSpeed;
         projectile.y += projectile.direction.y * projectileSpeed;
         projectile.distanceTraveled += projectileSpeed;
 
-        // Collision with the player (for enemy projectiles)
+        // Collision checks
         if (projectile.origin === 'enemy' && distanceToPlayer < player.radius + projectile.size) {
             player.health -= 5;
             console.log('Player hit by enemy projectile!');
-            return false; // Remove projectile after collision
+            return false;
         }
 
-        // Collision with the enemy (for player projectiles)
         if (projectile.origin === 'player' && distanceToEnemy < enemy.radius + projectile.size) {
             enemy.health -= 5;
             console.log('Enemy hit by player projectile!');
-            return false; // Remove projectile after collision
+            return false;
         }
 
         // Draw the projectile
@@ -425,10 +421,14 @@ function updateProjectiles() {
         ctx.fill();
         ctx.restore();
 
-        // Keep the projectile if it hasn't exceeded its range
         return projectile.distanceTraveled < 500;
     });
+
+    // Filter projectiles to remove those that exceeded their range or collided
+    projectiles = projectiles.filter(p => p.distanceTraveled < 500);
+    enemyProjectiles = enemyProjectiles.filter(p => p.distanceTraveled < 500);
 }
+
 
 
 
@@ -815,39 +815,37 @@ function detachRedCell(character, cell) {
 
 
 
-
 function detachExpiredCells(attachedCells, character) {
     const currentTime = Date.now();
     let detachedCells = [];
 
-    // Filter out expired cells and detach them based on their type
     let remainingAttachedCells = attachedCells.filter(cell => {
-        if (cell.type === 'red') {
-            // Red cells detach only when depleted through shooting
-            return true;
-        }
-
-        // Detach other cells when their duration expires
+        // Detach cells when their duration expires
         if (currentTime - cell.attachTime >= cellDuration) {
             console.log(`${cell.type} cell detached from ${character.color === 'blue' ? 'player' : 'enemy'}`);
             cell.attached = false;
             detachedCells.push(cell); // Collect detached cell for potential respawn
+
+            // If it's a blue cell, trigger deflection ring removal
+            if (cell.type === 'blue') {
+                if (character.color === 'blue') {
+                    console.log('Player deflection ring removed');
+                } else {
+                    console.log('Enemy deflection ring removed');
+                }
+            }
             return false; // Exclude this cell from the remaining attached cells
         }
 
         return true; // Keep the cell if it hasn't expired
     });
 
-    // Update character's attached cells to exclude detached ones
     character.attachedCells = remainingAttachedCells;
 
-    // Respawn detached cells if necessary
     detachedCells.forEach(cell => {
         respawnCell(cell);
     });
 }
-
-
 
 
 
