@@ -249,30 +249,19 @@ function fireContinuously() {
         if (activeRedCell && currentTime - lastShotTime >= shootingCooldown) {
             lastShotTime = currentTime;
 
-            projectiles.push({
-                x: player.x,
-                y: player.y,
-                size: projectileSize,
-                direction: { x: Math.cos(joystickFireAngle), y: Math.sin(joystickFireAngle) },
-                distanceTraveled: 0,
-                color: 'white',
-                isHoming: false
-            });
-
-            // Reduce attachTime only when shooting
+            // Deplete red cell only during shooting
             activeRedCell.attachTime -= DEPLETION_RATE_PER_SHOT;
-
-            if (cellDuration - activeRedCell.attachTime <= 0) {
+            if (activeRedCell.attachTime <= 0) {
                 console.log(`Red cell depleted and detached from player`);
                 detachRedCell(player, activeRedCell);
             }
         }
     }
-    
     if (isFiring) {
         setTimeout(fireContinuously, shootingCooldown);
     }
 }
+
 
 
 
@@ -662,23 +651,17 @@ function handleBoundaryCollision(character) {
 function attachCell(cell, attachedCells, character) {
     if (!cell.attached) {
         cell.attached = true;
-        cell.attachTime = Date.now();
+        cell.attachTime = cell.type === 'red' ? cellDuration : Date.now(); // Special handling for red cells
         attachedCells.push(cell);
         console.log(`${cell.type} cell attached to ${character.color === 'blue' ? 'player' : 'enemy'}`);
 
-        // Print number of attached cells for the character
-        console.log(`Number of cells attached to ${character.color === 'blue' ? 'player' : 'enemy'}: ${attachedCells.length}`);
-        
-        // Print number of attachable cells remaining
-        const attachableCells = cells.filter(c => !c.attached).length;
-        console.log(`Number of attachable cells remaining on the map: ${attachableCells}`);
-
-        // Apply special effects for different cell types
+        // Handle specific cell effects
         if (cell.type === 'orange') {
             character.speed = character.baseSpeed * speedBoostMultiplier;
         }
     }
 }
+
 
 
 // Main function to check all collisions and update positions accordingly
@@ -730,18 +713,18 @@ function followPlayer() {
 }
 
 function detachRedCell(character, cell) {
-    cell.attached = false; // Mark cell as detached
+    cell.attached = false;
+    cell.attachTime = null; // Reset the attach time
     character.attachedCells = character.attachedCells.filter(c => c !== cell);
-
-    // Respawn or recycle the cell as needed
     respawnCell(cell);
 
-    // If another red cell exists and shooting continues, start depleting the next one
+    // Continue shooting if there are more red cells
     const nextRedCell = character.attachedCells.find(c => c.type === 'red');
     if (nextRedCell && isFiring) {
         console.log(`Switching to next red cell for ${character.color === 'blue' ? 'player' : 'enemy'}`);
     }
 }
+
 
 
 function detachExpiredCells(attachedCells, character) {
