@@ -253,11 +253,12 @@ function fireContinuously() {
     if (isFiring && joystickFireAngle !== null) {
         const currentTime = Date.now();
         const activeRedCell = player.attachedCells.find(cell => cell.type === 'red');
+        const hasGreenCell = player.attachedCells.some(cell => cell.type === 'green');
 
         if (activeRedCell && currentTime - lastShotTime >= shootingCooldown) {
             lastShotTime = currentTime;
 
-            // Ensure that blue cells (deflection rings) don't interfere with firing
+            // Create and add a new homing projectile if a green cell is attached
             projectiles.push({
                 x: player.x,
                 y: player.y,
@@ -265,13 +266,14 @@ function fireContinuously() {
                 direction: { x: Math.cos(joystickFireAngle), y: Math.sin(joystickFireAngle) },
                 distanceTraveled: 0,
                 color: getProjectileColor(player.attachedCells),
-                isHoming: player.attachedCells.some(cell => cell.type === 'green'),
-                origin: 'player', // Ensure this is marked as a player's projectile
+                isHoming: hasGreenCell, // Set to true if a green cell is attached for missile behavior
+                origin: 'player',
                 originX: player.x,
                 originY: player.y,
-                isDeflected: false // Reset deflection status for new projectiles
+                isDeflected: false // Ensure new projectiles are not deflected by default
             });
 
+            // Deplete the red cell's attach time
             activeRedCell.attachTime -= DEPLETION_RATE_PER_SHOT;
             console.log(`Red cell attach time remaining: ${activeRedCell.attachTime}`);
 
@@ -289,6 +291,7 @@ function fireContinuously() {
         setTimeout(fireContinuously, shootingCooldown);
     }
 }
+
 
 
 
@@ -364,31 +367,34 @@ function updateProjectiles() {
         const distanceToPlayer = Math.sqrt(Math.pow(projectile.x - player.x, 2) + Math.pow(projectile.y - player.y, 2));
         const distanceToEnemy = Math.sqrt(Math.pow(projectile.x - enemy.x, 2) + Math.pow(projectile.y - enemy.y, 2));
 
+        // Check for attached cells affecting behavior
         const playerHasBlueCell = player.attachedCells.some(cell => cell.type === 'blue');
         const enemyHasBlueCell = enemy.attachedCells.some(cell => cell.type === 'blue');
 
-        // Handle deflection logic (ensure it doesn't prevent normal firing)
+        // Deflection logic
         if (!projectile.isDeflected && playerHasBlueCell && projectile.origin === 'enemy' && distanceToPlayer < player.radius * deflectionRingRadiusMultiplier) {
             console.log('Projectile deflected by player!');
             deflectProjectile(projectile, player.x, player.y, 'enemy');
-            projectile.isDeflected = true; // Mark projectile as deflected
-            return true; // Keep the projectile in play after deflection
+            projectile.isDeflected = true;
+            return true;
         }
 
         if (!projectile.isDeflected && enemyHasBlueCell && projectile.origin === 'player' && distanceToEnemy < enemy.radius * deflectionRingRadiusMultiplier) {
             console.log('Projectile deflected by enemy!');
             deflectProjectile(projectile, enemy.x, enemy.y, 'player');
-            projectile.isDeflected = true; // Mark projectile as deflected
-            return true; // Keep the projectile in play after deflection
+            projectile.isDeflected = true;
+            return true;
         }
 
-        // Prevent projectiles from being repeatedly deflected
-        if (projectile.isDeflected && (
-            (projectile.origin === 'enemy' && distanceToPlayer < player.radius * deflectionRingRadiusMultiplier) ||
-            (projectile.origin === 'player' && distanceToEnemy < enemy.radius * deflectionRingRadiusMultiplier)
-        )) {
-            console.log('Projectile removed after second deflection to prevent further conflicts');
-            return false; // Remove the projectile after it was deflected once
+        // Homing behavior for projectiles with green cells attached
+        if (projectile.isHoming) {
+            const target = projectile.origin === 'enemy' ? player : enemy;
+            const angleToTarget = Math.atan2(target.y - projectile.y, target.x - projectile.x);
+            projectile.direction.x += Math.cos(angleToTarget) * 0.1; // Adjust homing factor for smooth turning
+            projectile.direction.y += Math.sin(angleToTarget) * 0.1;
+            const length = Math.sqrt(projectile.direction.x ** 2 + projectile.direction.y ** 2);
+            projectile.direction.x /= length;
+            projectile.direction.y /= length;
         }
 
         // Move the projectile
@@ -396,20 +402,21 @@ function updateProjectiles() {
         projectile.y += projectile.direction.y * projectileSpeed;
         projectile.distanceTraveled += projectileSpeed;
 
-        // Collision logic for the player and the enemy
+        // Collision with the player (for enemy projectiles)
         if (projectile.origin === 'enemy' && distanceToPlayer < player.radius + projectile.size) {
-            player.health -= 5; // Damage the player
+            player.health -= 5;
             console.log('Player hit by enemy projectile!');
-            return false; // Remove the projectile
+            return false; // Remove projectile after collision
         }
 
+        // Collision with the enemy (for player projectiles)
         if (projectile.origin === 'player' && distanceToEnemy < enemy.radius + projectile.size) {
-            enemy.health -= 5; // Damage the enemy
+            enemy.health -= 5;
             console.log('Enemy hit by player projectile!');
-            return false; // Remove the projectile
+            return false; // Remove projectile after collision
         }
 
-        // Draw the projectile on the canvas
+        // Draw the projectile
         ctx.save();
         ctx.translate(projectile.x - offsetX, projectile.y - offsetY);
         ctx.fillStyle = projectile.color;
@@ -422,6 +429,7 @@ function updateProjectiles() {
         return projectile.distanceTraveled < 500;
     });
 }
+
 
 
 // Function to draw the health bar above the player
