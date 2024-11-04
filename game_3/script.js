@@ -240,7 +240,7 @@ function handleFireJoystick(event) {
 // Function to determine projectile color based on attached cells
 function getProjectileColor(attachedCells) {
     if (attachedCells.some(cell => cell.type === 'green')) {
-        return 'green'; // Example color for homing projectiles
+        return 'white'; // Example color for homing projectiles
     }
     if (attachedCells.some(cell => cell.type === 'red')) {
         return 'white'; // Example color for normal projectiles
