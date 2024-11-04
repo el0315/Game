@@ -418,6 +418,43 @@ function drawAttachedCells(player, attachedCells) {
     });
 }
 
+// Arrow configuration
+const arrowOffsetY = -player.radius * 2.1; // Position above the player
+const arrowSize = player.radius * 0.8; // Slightly smaller than the player
+
+// Updated function to draw the directional arrow with correct orientation
+function drawArrowToEnemy() {
+    if (!enemy) return; // Exit if the enemy doesn't exist
+
+    const distanceToEnemy = Math.sqrt(Math.pow(enemy.x - player.x, 2) + Math.pow(enemy.y - player.y, 2));
+    if (distanceToEnemy > 0) {
+        // Calculate the angle to the enemy
+        const angleToEnemy = Math.atan2(enemy.y - player.y, enemy.x - player.x);
+
+        // Position the arrow above the player
+        const arrowX = player.x - offsetX;
+        const arrowY = player.y - offsetY + arrowOffsetY;
+
+        // Draw the arrow with the correct orientation pointing toward the enemy
+        ctx.save();
+        ctx.translate(arrowX, arrowY);
+        ctx.rotate(angleToEnemy + Math.PI / 2); // Adjusted by adding Math.PI / 2 to flip the direction
+
+        // Draw arrowhead shape
+        ctx.fillStyle = 'black';
+        ctx.beginPath();
+        ctx.moveTo(0, -arrowSize); // Tip of the arrow
+        ctx.lineTo(-arrowSize / 2, arrowSize / 2); // Bottom left
+        ctx.lineTo(arrowSize / 2, arrowSize / 2); // Bottom right
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+    }
+}
+
+
+
 // Function to move the player based on joystick input
 function updatePlayerPosition() {
     if (joystickMoveAngle !== null) {
@@ -732,10 +769,6 @@ function respawnCell(cell) {
 
     console.log(`${cell.type} cell respawned at (${cell.x.toFixed(2)}, ${cell.y.toFixed(2)})`);
 }
-
-
-
-
 
 
 
@@ -1158,6 +1191,9 @@ function gameLoop() {
     ensureMinimumCellCount(); // Ensures cells are added if needed
 
     drawScene();
+
+    // Draw the directional arrow to the enemy
+    drawArrowToEnemy();
 
     requestAnimationFrame(gameLoop);
 }
