@@ -244,14 +244,11 @@ function getProjectileColor(attachedCells) {
 function fireContinuously() {
     if (isFiring && joystickFireAngle !== null) {
         const currentTime = Date.now();
-
-        // Check if the player has any red cells attached and deplete the active one
         const activeRedCell = player.attachedCells.find(cell => cell.type === 'red');
 
         if (activeRedCell && currentTime - lastShotTime >= shootingCooldown) {
             lastShotTime = currentTime;
 
-            // Fire a projectile
             projectiles.push({
                 x: player.x,
                 y: player.y,
@@ -262,22 +259,21 @@ function fireContinuously() {
                 isHoming: false
             });
 
-            // Deplete the active red cell's timer
+            // Reduce attachTime only when shooting
             activeRedCell.attachTime -= DEPLETION_RATE_PER_SHOT;
 
-            // Check if the red cell is fully depleted and detach it if necessary
             if (cellDuration - activeRedCell.attachTime <= 0) {
                 console.log(`Red cell depleted and detached from player`);
                 detachRedCell(player, activeRedCell);
             }
         }
     }
-
-    // Recursively call for continuous firing
+    
     if (isFiring) {
         setTimeout(fireContinuously, shootingCooldown);
     }
 }
+
 
 
 
@@ -414,21 +410,28 @@ function drawCell(cell) {
     }
 }
 
-// Function to draw attached cells within a player
-function drawAttachedCells(player, attachedCells) {
-    const currentTime = Date.now();
+function drawAttachedCells(character, attachedCells) {
     attachedCells.forEach((cell, index) => {
-        const timeLeftRatio = Math.max(0, 1 - (currentTime - cell.attachTime) / cellDuration);
-        const adjustedRadius = (player.radius / 2) * timeLeftRatio;
+        let timeLeftRatio;
+        if (cell.type === 'red') {
+            // For red cells, calculate based on depletion
+            timeLeftRatio = (cellDuration - Math.max(0, cell.attachTime)) / cellDuration;
+        } else {
+            // For other cells, calculate based on time elapsed
+            const currentTime = Date.now();
+            timeLeftRatio = Math.max(0, 1 - (currentTime - cell.attachTime) / cellDuration);
+        }
+        
+        const adjustedRadius = (character.radius / 2) * timeLeftRatio;
 
         const angleIncrement = (Math.PI * 2) / attachedCells.length;
         const angle = angleIncrement * index;
 
-        const cellOffsetX = Math.cos(angle) * (player.radius / 2);
-        const cellOffsetY = Math.sin(angle) * (player.radius / 2);
+        const cellOffsetX = Math.cos(angle) * (character.radius / 2);
+        const cellOffsetY = Math.sin(angle) * (character.radius / 2);
 
         ctx.save();
-        ctx.translate(player.x - offsetX + cellOffsetX, player.y - offsetY + cellOffsetY);
+        ctx.translate(character.x - offsetX + cellOffsetX, character.y - offsetY + cellOffsetY);
         ctx.fillStyle = cell.color;
         ctx.beginPath();
         ctx.arc(0, 0, adjustedRadius, 0, Math.PI * 2);
@@ -436,6 +439,7 @@ function drawAttachedCells(player, attachedCells) {
         ctx.restore();
     });
 }
+
 
 // Arrow configuration
 const arrowOffsetY = -player.radius * 2.1; // Position above the player
