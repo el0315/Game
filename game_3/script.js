@@ -926,6 +926,24 @@ bButton.addEventListener('pointerdown', () => {
 function drawScene() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Create a radial gradient centered in the middle of the map
+    const centerX = mapWidth / 2;
+    const centerY = mapHeight / 2;
+    const maxRadius = Math.max(mapWidth, mapHeight) / 2; // Ensure the gradient reaches the edges of the map
+
+    const gradient = ctx.createRadialGradient(centerX - offsetX, centerY - offsetY, 0, centerX - offsetX, centerY - offsetY, maxRadius);
+    
+    gradient.addColorStop(0.4, '#90caf9'); // Softer light blue
+    gradient.addColorStop(0.6, '#42a5f5'); // Light blue
+    gradient.addColorStop(0.8, '#1976d2'); // Medium blue
+    gradient.addColorStop(0.9, '#1565c0'); // Slightly darker blue
+    gradient.addColorStop(1, '#0d47a1'); // Dark blue (perimeter)
+
+    // Fill the canvas with the gradient
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw the map boundary
     ctx.save();
     ctx.translate(-offsetX, -offsetY);
     ctx.strokeStyle = 'black';
@@ -933,6 +951,7 @@ function drawScene() {
     ctx.strokeRect(0, 0, mapWidth, mapHeight);
     ctx.restore();
 
+    // Draw the player
     ctx.save();
     ctx.translate(player.x - offsetX, player.y - offsetY);
     ctx.fillStyle = player.color;
@@ -941,7 +960,8 @@ function drawScene() {
     ctx.fill();
     ctx.restore();
 
-    if (enemy) { // Ensure enemy is not null before drawing
+    // Draw the enemy if it exists
+    if (enemy) {
         ctx.save();
         ctx.translate(enemy.x - offsetX, enemy.y - offsetY);
         ctx.fillStyle = enemy.color;
@@ -951,6 +971,7 @@ function drawScene() {
         ctx.restore();
     }
 
+    // Draw cells and other elements
     cells.forEach(drawCell);
     drawAttachedCells(player, player.attachedCells);
     if (enemy) drawAttachedCells(enemy, enemy.attachedCells);
@@ -962,6 +983,8 @@ function drawScene() {
     // Draw the "Enemies Killed" display
     drawEnemiesKilled();
 }
+
+
 
 
 // Get the restart button element
