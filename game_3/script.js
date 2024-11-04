@@ -348,7 +348,6 @@ function drawDeflectionRing(character) {
 }
 
 
-// Update projectiles for deflection
 function updateProjectiles() {
     projectiles = projectiles.filter(projectile => {
         // Check if the projectile collides with the player's or enemy's deflection ring
@@ -358,25 +357,60 @@ function updateProjectiles() {
         const playerHasBlueCell = player.attachedCells.some(cell => cell.type === 'blue');
         const enemyHasBlueCell = enemy.attachedCells.some(cell => cell.type === 'blue');
 
-        // Check deflection for the player
+        // Deflect projectiles if within the range of the deflection ring
         if (playerHasBlueCell && projectile.origin !== 'player' && distanceToPlayer < player.radius * deflectionRingRadiusMultiplier) {
             console.log('Projectile deflected by player!');
             deflectProjectile(projectile, player.x, player.y, 'enemy');
+            projectile.isDeflected = true; // Mark projectile as deflected
             return true; // Keep the projectile in play after deflection
         }
 
-        // Check deflection for the enemy
         if (enemyHasBlueCell && projectile.origin !== 'enemy' && distanceToEnemy < enemy.radius * deflectionRingRadiusMultiplier) {
             console.log('Projectile deflected by enemy!');
             deflectProjectile(projectile, enemy.x, enemy.y, 'player');
+            projectile.isDeflected = true; // Mark projectile as deflected
             return true; // Keep the projectile in play after deflection
         }
 
-        // Collision checks and removal logic (existing code)
+        // Remove projectiles that have already been deflected and hit another deflection ring
+        if (projectile.isDeflected && (distanceToPlayer < player.radius * deflectionRingRadiusMultiplier || distanceToEnemy < enemy.radius * deflectionRingRadiusMultiplier)) {
+            console.log('Deflected projectile removed after hitting another deflection ring');
+            return false; // Remove projectile
+        }
 
-        return projectile.distanceTraveled < 500; // Keep if within range
+        // Update the projectile's position
+        projectile.x += projectile.direction.x * projectileSpeed;
+        projectile.y += projectile.direction.y * projectileSpeed;
+        projectile.distanceTraveled += projectileSpeed;
+
+        // Check collision with the enemy
+        if (projectile.origin === 'player' && distanceToEnemy < enemy.radius + projectile.size) {
+            enemy.health -= 5; // Damage enemy
+            console.log('Enemy hit by player projectile!');
+            return false; // Remove projectile after collision
+        }
+
+        // Check collision with the player
+        if (projectile.origin === 'enemy' && distanceToPlayer < player.radius + projectile.size) {
+            player.health -= 5; // Damage player
+            console.log('Player hit by enemy projectile!');
+            return false; // Remove projectile after collision
+        }
+
+        // Draw the projectile
+        ctx.save();
+        ctx.translate(projectile.x - offsetX, projectile.y - offsetY);
+        ctx.fillStyle = projectile.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, projectile.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // Keep the projectile if it hasn't traveled beyond its range
+        return projectile.distanceTraveled < 500;
     });
 }
+
 
 
 
