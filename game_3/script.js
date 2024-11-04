@@ -629,10 +629,20 @@ function updateEnemyPosition() {
 function followPlayerAndShoot() {
     const angleToPlayer = Math.atan2(player.y - enemy.y, player.x - enemy.x);
     const distanceToPlayer = Math.sqrt(Math.pow(player.x - enemy.x, 2) + Math.pow(player.y - enemy.y, 2));
-    const minFollowDistance = 30; // Minimum distance the enemy should maintain from the player
+    const minFollowDistance = 100; // Minimum distance the enemy should maintain from the player
+    const safeDistance = 150; // Safe distance threshold where the enemy will evade
 
-    // Only move the enemy if it is further than the minimum follow distance
-    if (distanceToPlayer > minFollowDistance) {
+    // Evade the player if too close
+    if (distanceToPlayer < minFollowDistance) {
+        // Move away from the player to maintain a safe distance
+        enemy.x -= Math.cos(angleToPlayer) * enemy.speed;
+        enemy.y -= Math.sin(angleToPlayer) * enemy.speed;
+    } else if (distanceToPlayer < safeDistance) {
+        // If within the safe range but not too close, do not move closer
+        // This keeps the enemy in place without closing the gap further
+        return;
+    } else {
+        // Only move toward the player if it's beyond the safe distance
         enemy.x += Math.cos(angleToPlayer) * enemy.speed;
         enemy.y += Math.sin(angleToPlayer) * enemy.speed;
     }
@@ -642,6 +652,7 @@ function followPlayerAndShoot() {
         fireEnemyProjectile();
     }
 }
+
 
 
 
