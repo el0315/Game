@@ -508,7 +508,6 @@ function shouldContinueCurrentBehavior() {
     return (Date.now() - enemy.lastMovementChangeTime) < enemy.movementCommitDuration;
 }
 
-// Update the enemy position logic to include commitment to current movement
 function updateEnemyPosition() {
     if (shouldContinueCurrentBehavior()) {
         // Continue current behavior until commitment duration ends
@@ -518,44 +517,29 @@ function updateEnemyPosition() {
             moveCellRandomly(enemy);
         }
     } else {
-        // Decide on new behavior after commitment duration
-        if (enemy.attachedCells.length === 0) {
+        // Check if the enemy already has a red cell attached
+        const hasRedCell = enemy.attachedCells.some(cell => cell.type === 'red');
+
+        if (!hasRedCell) {
+            // Search for the nearest unattached cell if no red cell is attached
             const nearestCell = findNearestCell();
             if (nearestCell) {
                 const angleToCell = Math.atan2(nearestCell.y - enemy.y, nearestCell.x - enemy.x);
                 enemy.x += Math.cos(angleToCell) * enemy.speed;
                 enemy.y += Math.sin(angleToCell) * enemy.speed;
 
-                // Check if the enemy has reached the cell and attach it if so
+                // Check if the enemy reaches the cell and attach it if so
                 if (isCollidingWithCell(enemy.x, enemy.y, nearestCell)) {
                     attachCell(nearestCell, enemy.attachedCells, enemy);
                 }
             } else {
-                followPlayerAndShoot();
-            }
-        } else {
-            const hasRedCell = enemy.attachedCells.some(cell => cell.type === 'red');
-
-            if (shouldFollowLogic(enemiesKilled)) {
-                if (hasRedCell) {
-                    enemy.isFollowingPlayer = true;
-                    followPlayerAndShoot();
-                } else {
-                    const nearestCell = findNearestCell();
-                    if (nearestCell) {
-                        const angleToCell = Math.atan2(nearestCell.y - enemy.y, nearestCell.x - enemy.x);
-                        enemy.x += Math.cos(angleToCell) * enemy.speed;
-                        enemy.y += Math.sin(angleToCell) * enemy.speed;
-
-                        if (isCollidingWithCell(enemy.x, enemy.y, nearestCell)) {
-                            attachCell(nearestCell, enemy.attachedCells, enemy);
-                        }
-                    }
-                }
-            } else {
-                enemy.isFollowingPlayer = false;
+                // No cells found, wander randomly
                 moveCellRandomly(enemy);
             }
+        } else {
+            // If a red cell is attached, switch to following the player and shooting
+            enemy.isFollowingPlayer = true;
+            followPlayerAndShoot();
         }
 
         // Reset the movement commitment timestamp
@@ -566,6 +550,7 @@ function updateEnemyPosition() {
     enemy.x = Math.max(enemy.radius, Math.min(mapWidth - enemy.radius, enemy.x));
     enemy.y = Math.max(enemy.radius, Math.min(mapHeight - enemy.radius, enemy.y));
 }
+
 
 
 // Function for the enemy to follow the player and shoot if a red cell is attached
