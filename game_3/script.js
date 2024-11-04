@@ -257,7 +257,7 @@ function fireContinuously() {
         if (activeRedCell && currentTime - lastShotTime >= shootingCooldown) {
             lastShotTime = currentTime;
 
-            // Create and add a new projectile
+            // Ensure that blue cells (deflection rings) don't interfere with firing
             projectiles.push({
                 x: player.x,
                 y: player.y,
@@ -265,13 +265,13 @@ function fireContinuously() {
                 direction: { x: Math.cos(joystickFireAngle), y: Math.sin(joystickFireAngle) },
                 distanceTraveled: 0,
                 color: getProjectileColor(player.attachedCells),
-                isHoming: player.attachedCells.some(cell => cell.type === 'green'), // Check for green cell
-                origin: 'player', // Specify that this projectile was fired by the player
-                originX: player.x, // Set initial X origin
-                originY: player.y  // Set initial Y origin
+                isHoming: player.attachedCells.some(cell => cell.type === 'green'),
+                origin: 'player', // Ensure this is marked as a player's projectile
+                originX: player.x,
+                originY: player.y,
+                isDeflected: false // Reset deflection status for new projectiles
             });
 
-            // Deplete the red cell's attach time
             activeRedCell.attachTime -= DEPLETION_RATE_PER_SHOT;
             console.log(`Red cell attach time remaining: ${activeRedCell.attachTime}`);
 
@@ -359,8 +359,6 @@ function drawDeflectionRing(character) {
 }
 
 function updateProjectiles() {
-    // Combine both arrays for a unified update loop if they share the same logic
-    projectiles = projectiles.concat(enemyProjectiles);
     projectiles = projectiles.filter(projectile => {
         // Calculate distances to the player and the enemy
         const distanceToPlayer = Math.sqrt(Math.pow(projectile.x - player.x, 2) + Math.pow(projectile.y - player.y, 2));
@@ -369,38 +367,28 @@ function updateProjectiles() {
         const playerHasBlueCell = player.attachedCells.some(cell => cell.type === 'blue');
         const enemyHasBlueCell = enemy.attachedCells.some(cell => cell.type === 'blue');
 
-        // Handle deflection for the player
+        // Handle deflection logic (ensure it doesn't prevent normal firing)
         if (!projectile.isDeflected && playerHasBlueCell && projectile.origin === 'enemy' && distanceToPlayer < player.radius * deflectionRingRadiusMultiplier) {
             console.log('Projectile deflected by player!');
             deflectProjectile(projectile, player.x, player.y, 'enemy');
+            projectile.isDeflected = true; // Mark projectile as deflected
             return true; // Keep the projectile in play after deflection
         }
 
-        // Handle deflection for the enemy
         if (!projectile.isDeflected && enemyHasBlueCell && projectile.origin === 'player' && distanceToEnemy < enemy.radius * deflectionRingRadiusMultiplier) {
             console.log('Projectile deflected by enemy!');
             deflectProjectile(projectile, enemy.x, enemy.y, 'player');
+            projectile.isDeflected = true; // Mark projectile as deflected
             return true; // Keep the projectile in play after deflection
         }
 
-        // Safety check for double deflection handling
+        // Prevent projectiles from being repeatedly deflected
         if (projectile.isDeflected && (
             (projectile.origin === 'enemy' && distanceToPlayer < player.radius * deflectionRingRadiusMultiplier) ||
             (projectile.origin === 'player' && distanceToEnemy < enemy.radius * deflectionRingRadiusMultiplier)
         )) {
-            console.log('Projectile removed after second deflection to prevent crash');
-            return false; // Remove the projectile
-        }
-
-        // Homing logic for projectiles
-        if (projectile.isHoming) {
-            const target = projectile.origin === 'enemy' ? player : enemy;
-            const angleToTarget = Math.atan2(target.y - projectile.y, target.x - projectile.x);
-            projectile.direction.x += Math.cos(angleToTarget) * 0.1;
-            projectile.direction.y += Math.sin(angleToTarget) * 0.1;
-            const length = Math.sqrt(projectile.direction.x ** 2 + projectile.direction.y ** 2);
-            projectile.direction.x /= length;
-            projectile.direction.y /= length;
+            console.log('Projectile removed after second deflection to prevent further conflicts');
+            return false; // Remove the projectile after it was deflected once
         }
 
         // Move the projectile
@@ -408,7 +396,7 @@ function updateProjectiles() {
         projectile.y += projectile.direction.y * projectileSpeed;
         projectile.distanceTraveled += projectileSpeed;
 
-        // Collision handling
+        // Collision logic for the player and the enemy
         if (projectile.origin === 'enemy' && distanceToPlayer < player.radius + projectile.size) {
             player.health -= 5; // Damage the player
             console.log('Player hit by enemy projectile!');
@@ -421,7 +409,7 @@ function updateProjectiles() {
             return false; // Remove the projectile
         }
 
-        // Draw the projectile
+        // Draw the projectile on the canvas
         ctx.save();
         ctx.translate(projectile.x - offsetX, projectile.y - offsetY);
         ctx.fillStyle = projectile.color;
@@ -430,13 +418,10 @@ function updateProjectiles() {
         ctx.fill();
         ctx.restore();
 
-        return projectile.distanceTraveled < 500; // Retain projectile if within range
+        // Keep the projectile if it hasn't exceeded its range
+        return projectile.distanceTraveled < 500;
     });
-
-    // Clear enemyProjectiles to avoid duplication
-    enemyProjectiles = [];
 }
-
 
 
 // Function to draw the health bar above the player
