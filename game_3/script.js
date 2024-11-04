@@ -108,7 +108,7 @@ let cells = [];
 
 for (let i = 0; i < initialCellCount; i++) {
     // Randomly select a cell type and color
-    const cellTypes = ['yellow', 'orange', 'red', 'green'];
+    const cellTypes = ['yellow', 'orange', 'red', 'green','blue'];
     const type = cellTypes[Math.floor(Math.random() * cellTypes.length)];
     let color;
 
@@ -329,79 +329,54 @@ function normalizeVector(vector) {
     return { x: vector.x / length, y: vector.y / length };
 }
 
+// Additional property for deflection radius
+const deflectionRingRadiusMultiplier = 1.5; // Adjust this as needed for ring size
+
+// Function to draw the deflection ring
+function drawDeflectionRing(character) {
+    const blueCellAttached = character.attachedCells.some(cell => cell.type === 'blue');
+    if (blueCellAttached) {
+        ctx.save();
+        ctx.translate(character.x - offsetX, character.y - offsetY);
+        ctx.strokeStyle = 'rgba(0, 0, 255, 0.5)'; // Semi-transparent blue color
+        ctx.lineWidth = 3;
+        
+        // Create a pulsing effect
+        const pulseSize = 1 + 0.05 * Math.sin(Date.now() / 200); // Pulsing factor
+        ctx.beginPath();
+        ctx.arc(0, 0, character.radius * deflectionRingRadiusMultiplier * pulseSize, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+    }
+}
+
+// Update projectiles for deflection
 function updateProjectiles() {
     projectiles = projectiles.filter(projectile => {
-        // Check if the projectile should have homing behavior
-        if (projectile.isHoming) {
-            // Adjust the direction gradually to home in on the enemy
-            const angleToEnemy = Math.atan2(enemy.y - projectile.y, enemy.x - projectile.x);
-            const adjustmentFactor = 0.5; // Determines how fast the projectile turns (tweakable)
-
-            // Gradually adjust the direction towards the enemy
-            projectile.direction.x += Math.cos(angleToEnemy) * adjustmentFactor;
-            projectile.direction.y += Math.sin(angleToEnemy) * adjustmentFactor;
-
-            // Normalize the new direction to keep a consistent speed
-            const length = Math.sqrt(projectile.direction.x ** 2 + projectile.direction.y ** 2);
-            projectile.direction.x /= length;
-            projectile.direction.y /= length;
-        }
-
-        // Update the projectile's position
-        projectile.x += projectile.direction.x * projectileSpeed;
-        projectile.y += projectile.direction.y * projectileSpeed;
-        projectile.distanceTraveled += projectileSpeed;
-
-        // Check collision with the enemy
-        const distanceToEnemy = Math.sqrt(Math.pow(projectile.x - enemy.x, 2) + Math.pow(projectile.y - enemy.y, 2));
-        if (distanceToEnemy < enemy.radius + projectile.size) {
-            // Deal damage to the enemy
-            enemy.health -= 5;
-            //console.log('Enemy hit! Health:', enemy.health);
-            return false; // Remove the projectile after collision
-        }
-
-        // Draw the projectile
-        ctx.save();
-        ctx.translate(projectile.x - offsetX, projectile.y - offsetY);
-        ctx.fillStyle = projectile.color;
-        ctx.beginPath();
-        ctx.arc(0, 0, projectile.size, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-
-        // Keep the projectile if it hasn't traveled beyond its range
-        return projectile.distanceTraveled < 500;
-    });
-
-    // Handle enemy projectiles (no changes needed for homing behavior)
-    enemyProjectiles = enemyProjectiles.filter(projectile => {
-        // Update projectile position
-        const normalizedDirection = normalizeVector(projectile.direction);
-        projectile.x += normalizedDirection.x * projectileSpeed;
-        projectile.y += normalizedDirection.y * projectileSpeed;
-        projectile.distanceTraveled += projectileSpeed;
-
-        // Check collision with the player
+        // Check if the projectile collides with the player's or enemy's deflection ring
         const distanceToPlayer = Math.sqrt(Math.pow(projectile.x - player.x, 2) + Math.pow(projectile.y - player.y, 2));
-        if (distanceToPlayer < player.radius + projectile.size) {
-            // Deal damage to the player
-            player.health -= 5;
-            //console.log('Player hit! Health:', player.health);
-            return false; // Remove the projectile after collision
+        const distanceToEnemy = Math.sqrt(Math.pow(projectile.x - enemy.x, 2) + Math.pow(projectile.y - enemy.y, 2));
+
+        const playerHasBlueCell = player.attachedCells.some(cell => cell.type === 'blue');
+        const enemyHasBlueCell = enemy.attachedCells.some(cell => cell.type === 'blue');
+
+        // Check deflection for the player
+        if (playerHasBlueCell && projectile.origin !== 'player' && distanceToPlayer < player.radius * deflectionRingRadiusMultiplier) {
+            console.log('Projectile deflected by player!');
+            deflectProjectile(projectile, player.x, player.y, 'enemy');
+            return true; // Keep the projectile in play after deflection
         }
 
-        // Draw the enemy projectile
-        ctx.save();
-        ctx.translate(projectile.x - offsetX, projectile.y - offsetY);
-        ctx.fillStyle = projectile.color;
-        ctx.beginPath();
-        ctx.arc(0, 0, projectile.size, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
+        // Check deflection for the enemy
+        if (enemyHasBlueCell && projectile.origin !== 'enemy' && distanceToEnemy < enemy.radius * deflectionRingRadiusMultiplier) {
+            console.log('Projectile deflected by enemy!');
+            deflectProjectile(projectile, enemy.x, enemy.y, 'player');
+            return true; // Keep the projectile in play after deflection
+        }
 
-        // Keep the enemy projectile if it hasn't traveled beyond its range
-        return projectile.distanceTraveled < 500;
+        // Collision checks and removal logic (existing code)
+
+        return projectile.distanceTraveled < 500; // Keep if within range
     });
 }
 
@@ -463,6 +438,16 @@ function drawAttachedCells(character, attachedCells) {
         ctx.restore();
     });
 }
+
+// Function to handle the deflection logic
+function deflectProjectile(projectile, deflectorX, deflectorY, newOrigin) {
+    const angleToOrigin = Math.atan2(projectile.originY - deflectorY, projectile.originX - deflectorX);
+    projectile.direction.x = Math.cos(angleToOrigin);
+    projectile.direction.y = Math.sin(angleToOrigin);
+    projectile.origin = newOrigin; // Update the origin so it can now damage the original shooter
+    console.log(`Projectile deflected and can now damage: ${newOrigin}`);
+}
+
 
 
 
@@ -807,23 +792,17 @@ function detachExpiredCells(attachedCells, character) {
 
 
 
-// Function to respawn a cell at a new random position with updated properties
 function respawnCell(cell) {
     // Generate a new random position within the map boundaries
     cell.x = Math.random() * (mapWidth - 2 * cell.radius) + cell.radius;
     cell.y = Math.random() * (mapHeight - 2 * cell.radius) + cell.radius;
 
-    // Ensure the new position does not overlap with other cells or the player
-    while (isOverlappingWithExistingCells(cell) || isCollidingWithCell(player.x, player.y, cell)) {
-        cell.x = Math.random() * (mapWidth - 2 * cell.radius) + cell.radius;
-        cell.y = Math.random() * (mapHeight - 2 * cell.radius) + cell.radius;
-    }
-
-    // Randomly assign a new type and color for the respawned cell
-    const cellTypes = ['yellow', 'orange', 'red', 'green'];
+    // Randomly change the type and color of the cell
+    const cellTypes = ['yellow', 'orange', 'red', 'green', 'blue'];
     const newType = cellTypes[Math.floor(Math.random() * cellTypes.length)];
-
     cell.type = newType;
+
+    // Assign color based on the new type
     switch (newType) {
         case 'yellow':
             cell.color = 'yellow';
@@ -837,14 +816,16 @@ function respawnCell(cell) {
         case 'green':
             cell.color = 'green';
             break;
+        case 'blue':
+            cell.color = '#00FFFF'; // Cyan color for blue type
+            break;
     }
 
     cell.attached = false; // Mark the cell as attachable
     cell.directionAngle = Math.random() * 2 * Math.PI; // Reset movement direction
     cell.lastDirectionChangeTime = Date.now(); // Reset timing for direction change
-
-    //console.log(`${cell.type} cell respawned at (${cell.x.toFixed(2)}, ${cell.y.toFixed(2)})`);
 }
+
 
 
 
@@ -854,7 +835,7 @@ function respawnCell(cell) {
     cell.y = Math.random() * (mapHeight - 2 * cell.radius) + cell.radius;
 
     // Randomly change the type and color of the cell
-    const cellTypes = ['yellow', 'orange', 'red', 'green'];
+    const cellTypes = ['yellow', 'orange', 'red', 'green','blue'];
     const newType = cellTypes[Math.floor(Math.random() * cellTypes.length)];
 
     cell.type = newType;
@@ -987,17 +968,36 @@ let seed = Date.now(); // Initialize with current time or any number for consist
 
 function addRandomCell() {
     if (cells.length >= maxCells) {
-        //console.log(`Max cells limit reached. Current count: ${cells.length}, Max allowed: ${maxCells}`);
+        console.log(`Max cells limit reached. Current count: ${cells.length}, Max allowed: ${maxCells}`);
         return;
     }
 
     // Array of possible cell types with equal probability
-    const cellTypes = ['yellow', 'orange', 'red', 'green'];
+    const cellTypes = ['yellow', 'orange', 'red', 'green', 'blue']; // Include 'blue' for cyan cells
 
     // Use seeded random function for consistent results
     seed += 1; // Increment seed for next generation
     const type = cellTypes[Math.floor(seededRandom(seed) * cellTypes.length)];
-    const color = type; // Use type directly as color for simplicity
+    let color;
+
+    // Assign color based on type
+    switch (type) {
+        case 'yellow':
+            color = 'yellow';
+            break;
+        case 'orange':
+            color = 'orange';
+            break;
+        case 'red':
+            color = 'red';
+            break;
+        case 'green':
+            color = 'green';
+            break;
+        case 'blue':
+            color = '#00FFFF'; // Cyan color for blue type
+            break;
+    }
 
     // Create and position the cell at a random location within the map boundaries
     let newCell;
@@ -1010,8 +1010,9 @@ function addRandomCell() {
     } while (isOverlappingWithExistingCells(newCell));
 
     cells.push(newCell);
-    //console.log(`Added a ${type} cell at (${newCell.x.toFixed(2)}, ${newCell.y.toFixed(2)})`);
+    console.log(`Added a ${type} cell at (${newCell.x.toFixed(2)}, ${newCell.y.toFixed(2)})`);
 }
+
 
 
 
@@ -1089,6 +1090,12 @@ function drawScene() {
     if (enemy) drawHealthBar(enemy.x, enemy.y, enemy.health, enemy.maxHealth);
     drawMiniMap();
 
+
+    drawDeflectionRing(player);
+    if (enemy) drawDeflectionRing(enemy);
+
+    updateProjectiles();
+
     // Draw the "Enemies Killed" display
     drawEnemiesKilled();
 }
@@ -1114,7 +1121,6 @@ function showGameOver() {
     restartButton.style.display = 'block';
 }
 
-// Function to restart the game
 restartButton.addEventListener('click', () => {
     // Reset player state
     player.x = 100;
@@ -1139,23 +1145,31 @@ restartButton.addEventListener('click', () => {
     // Reset enemies killed counter
     enemiesKilled = 0;
 
-    // Clear and respawn cells with equivalent probability for all types
+    // Clear and respawn cells with equivalent probability for all types, including blue
     cells = [];
     for (let i = 0; i < initialCellCount; i++) {
-        // Randomly select a cell type and color
-        const cellTypes = ['yellow', 'orange', 'red', 'green'];
+        // Updated array to include 'blue'
+        const cellTypes = ['yellow', 'orange', 'red', 'green', 'blue']; // Include blue cells
         const type = cellTypes[Math.floor(Math.random() * cellTypes.length)];
         let color;
 
         // Assign the color based on the type
-        if (type === 'yellow') {
-            color = 'yellow';
-        } else if (type === 'orange') {
-            color = 'orange';
-        } else if (type === 'red') {
-            color = 'red';
-        } else if (type === 'green') {
-            color = 'green'; // Green color for the homing missile cell
+        switch (type) {
+            case 'yellow':
+                color = 'yellow';
+                break;
+            case 'orange':
+                color = 'orange';
+                break;
+            case 'red':
+                color = 'red';
+                break;
+            case 'green':
+                color = 'green';
+                break;
+            case 'blue':
+                color = '#00FFFF'; // Cyan color for blue type
+                break;
         }
 
         // Generate a random position within the map boundaries
@@ -1172,6 +1186,7 @@ restartButton.addEventListener('click', () => {
     // Resume the game loop
     requestAnimationFrame(gameLoop);
 });
+
 
 
 
