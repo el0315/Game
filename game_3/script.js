@@ -296,27 +296,34 @@ function fireEnemyProjectile() {
         enemy.lastShotTime = currentTime;
 
         if (activeRedCell.attachTime > 0) {
+            // Create a new enemy projectile
             enemyProjectiles.push({
                 x: enemy.x,
                 y: enemy.y,
                 size: projectileSize,
-                direction: normalizeVector({ x: player.x - enemy.x, y: player.y - enemy.y }),
+                direction: hasGreenCell ? calculateHomingDirection(enemy, player) : normalizeVector({ x: player.x - enemy.x, y: player.y - enemy.y }),
                 distanceTraveled: 0,
                 color: 'white',
-                isHoming: hasGreenCell // Set to true if a green cell is attached
+                isHoming: hasGreenCell, // Set to true if a green cell is attached for homing behavior
+                origin: 'enemy', // Indicate the projectile is from the enemy
+                originX: enemy.x,
+                originY: enemy.y
             });
 
+            // Deplete the active red cell's time
             activeRedCell.attachTime -= DEPLETION_RATE_PER_SHOT;
             console.log(`Enemy red cell attach time remaining: ${activeRedCell.attachTime}`);
 
+            // Detach the red cell if it is depleted
             if (activeRedCell.attachTime <= 0) {
                 detachRedCell(enemy, activeRedCell);
-                enemy.isFiring = false;
+                enemy.isFiring = false; // Stop firing when the red cell is depleted
                 console.log('Enemy red cell detached - depleted');
             }
         }
     }
 }
+
 
 
 
@@ -350,50 +357,56 @@ function drawDeflectionRing(character) {
 
 function updateProjectiles() {
     projectiles = projectiles.filter(projectile => {
-        // Check if the projectile collides with the player's or enemy's deflection ring
+        // Calculate distances to the player and the enemy
         const distanceToPlayer = Math.sqrt(Math.pow(projectile.x - player.x, 2) + Math.pow(projectile.y - player.y, 2));
         const distanceToEnemy = Math.sqrt(Math.pow(projectile.x - enemy.x, 2) + Math.pow(projectile.y - enemy.y, 2));
 
         const playerHasBlueCell = player.attachedCells.some(cell => cell.type === 'blue');
         const enemyHasBlueCell = enemy.attachedCells.some(cell => cell.type === 'blue');
 
-        // Deflect projectiles if within the range of the deflection ring
-        if (playerHasBlueCell && projectile.origin !== 'player' && distanceToPlayer < player.radius * deflectionRingRadiusMultiplier) {
+        // Deflection logic for the player (only deflects enemy projectiles, and only once)
+        if (!projectile.isDeflected && playerHasBlueCell && projectile.origin === 'enemy' && distanceToPlayer < player.radius * deflectionRingRadiusMultiplier) {
             console.log('Projectile deflected by player!');
             deflectProjectile(projectile, player.x, player.y, 'enemy');
             projectile.isDeflected = true; // Mark projectile as deflected
             return true; // Keep the projectile in play after deflection
         }
 
-        if (enemyHasBlueCell && projectile.origin !== 'enemy' && distanceToEnemy < enemy.radius * deflectionRingRadiusMultiplier) {
+        // Deflection logic for the enemy (only deflects player projectiles, and only once)
+        if (!projectile.isDeflected && enemyHasBlueCell && projectile.origin === 'player' && distanceToEnemy < enemy.radius * deflectionRingRadiusMultiplier) {
             console.log('Projectile deflected by enemy!');
             deflectProjectile(projectile, enemy.x, enemy.y, 'player');
             projectile.isDeflected = true; // Mark projectile as deflected
             return true; // Keep the projectile in play after deflection
         }
 
-        // Remove projectiles that have already been deflected and hit another deflection ring
-        if (projectile.isDeflected && (distanceToPlayer < player.radius * deflectionRingRadiusMultiplier || distanceToEnemy < enemy.radius * deflectionRingRadiusMultiplier)) {
-            console.log('Deflected projectile removed after hitting another deflection ring');
-            return false; // Remove projectile
+        // Update the projectile's position and check for homing behavior
+        if (projectile.isHoming) {
+            const target = projectile.origin === 'enemy' ? player : enemy;
+            const angleToTarget = Math.atan2(target.y - projectile.y, target.x - projectile.x);
+            projectile.direction.x += Math.cos(angleToTarget) * 0.1; // Adjust homing factor as needed
+            projectile.direction.y += Math.sin(angleToTarget) * 0.1;
+            const length = Math.sqrt(projectile.direction.x ** 2 + projectile.direction.y ** 2);
+            projectile.direction.x /= length;
+            projectile.direction.y /= length;
         }
 
-        // Update the projectile's position
+        // Move the projectile
         projectile.x += projectile.direction.x * projectileSpeed;
         projectile.y += projectile.direction.y * projectileSpeed;
         projectile.distanceTraveled += projectileSpeed;
 
-        // Check collision with the enemy
-        if (projectile.origin === 'player' && distanceToEnemy < enemy.radius + projectile.size) {
-            enemy.health -= 5; // Damage enemy
-            console.log('Enemy hit by player projectile!');
+        // Check collision with the player (only for enemy projectiles)
+        if (projectile.origin === 'enemy' && distanceToPlayer < player.radius + projectile.size) {
+            player.health -= 5; // Apply damage to the player
+            console.log('Player hit by enemy projectile!');
             return false; // Remove projectile after collision
         }
 
-        // Check collision with the player
-        if (projectile.origin === 'enemy' && distanceToPlayer < player.radius + projectile.size) {
-            player.health -= 5; // Damage player
-            console.log('Player hit by enemy projectile!');
+        // Check collision with the enemy (only for player projectiles)
+        if (projectile.origin === 'player' && distanceToEnemy < enemy.radius + projectile.size) {
+            enemy.health -= 5; // Apply damage to the enemy
+            console.log('Enemy hit by player projectile!');
             return false; // Remove projectile after collision
         }
 
@@ -406,10 +419,12 @@ function updateProjectiles() {
         ctx.fill();
         ctx.restore();
 
-        // Keep the projectile if it hasn't traveled beyond its range
+        // Keep the projectile if it hasn't exceeded its range
         return projectile.distanceTraveled < 500;
     });
 }
+
+
 
 
 
