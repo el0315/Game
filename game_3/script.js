@@ -359,6 +359,8 @@ function drawDeflectionRing(character) {
 }
 
 function updateProjectiles() {
+    // Combine both arrays for a unified update loop if they share the same logic
+    projectiles = projectiles.concat(enemyProjectiles);
     projectiles = projectiles.filter(projectile => {
         // Calculate distances to the player and the enemy
         const distanceToPlayer = Math.sqrt(Math.pow(projectile.x - player.x, 2) + Math.pow(projectile.y - player.y, 2));
@@ -371,7 +373,6 @@ function updateProjectiles() {
         if (!projectile.isDeflected && playerHasBlueCell && projectile.origin === 'enemy' && distanceToPlayer < player.radius * deflectionRingRadiusMultiplier) {
             console.log('Projectile deflected by player!');
             deflectProjectile(projectile, player.x, player.y, 'enemy');
-            projectile.isDeflected = true; // Mark projectile as deflected
             return true; // Keep the projectile in play after deflection
         }
 
@@ -379,11 +380,10 @@ function updateProjectiles() {
         if (!projectile.isDeflected && enemyHasBlueCell && projectile.origin === 'player' && distanceToEnemy < enemy.radius * deflectionRingRadiusMultiplier) {
             console.log('Projectile deflected by enemy!');
             deflectProjectile(projectile, enemy.x, enemy.y, 'player');
-            projectile.isDeflected = true; // Mark projectile as deflected
             return true; // Keep the projectile in play after deflection
         }
 
-        // Safety check to prevent crashes on deflected projectiles hitting deflection rings again
+        // Safety check for double deflection handling
         if (projectile.isDeflected && (
             (projectile.origin === 'enemy' && distanceToPlayer < player.radius * deflectionRingRadiusMultiplier) ||
             (projectile.origin === 'player' && distanceToEnemy < enemy.radius * deflectionRingRadiusMultiplier)
@@ -392,11 +392,11 @@ function updateProjectiles() {
             return false; // Remove the projectile
         }
 
-        // Update the projectile's position and check for homing behavior
+        // Homing logic for projectiles
         if (projectile.isHoming) {
             const target = projectile.origin === 'enemy' ? player : enemy;
             const angleToTarget = Math.atan2(target.y - projectile.y, target.x - projectile.x);
-            projectile.direction.x += Math.cos(angleToTarget) * 0.1; // Adjust homing factor as needed
+            projectile.direction.x += Math.cos(angleToTarget) * 0.1;
             projectile.direction.y += Math.sin(angleToTarget) * 0.1;
             const length = Math.sqrt(projectile.direction.x ** 2 + projectile.direction.y ** 2);
             projectile.direction.x /= length;
@@ -408,18 +408,17 @@ function updateProjectiles() {
         projectile.y += projectile.direction.y * projectileSpeed;
         projectile.distanceTraveled += projectileSpeed;
 
-        // Collision with the player (only for enemy projectiles)
+        // Collision handling
         if (projectile.origin === 'enemy' && distanceToPlayer < player.radius + projectile.size) {
-            player.health -= 5; // Apply damage to the player
+            player.health -= 5; // Damage the player
             console.log('Player hit by enemy projectile!');
-            return false; // Remove projectile after collision
+            return false; // Remove the projectile
         }
 
-        // Collision with the enemy (only for player projectiles)
         if (projectile.origin === 'player' && distanceToEnemy < enemy.radius + projectile.size) {
-            enemy.health -= 5; // Apply damage to the enemy
+            enemy.health -= 5; // Damage the enemy
             console.log('Enemy hit by player projectile!');
-            return false; // Remove projectile after collision
+            return false; // Remove the projectile
         }
 
         // Draw the projectile
@@ -431,13 +430,12 @@ function updateProjectiles() {
         ctx.fill();
         ctx.restore();
 
-        // Keep the projectile if it hasn't exceeded its range
-        return projectile.distanceTraveled < 500;
+        return projectile.distanceTraveled < 500; // Retain projectile if within range
     });
+
+    // Clear enemyProjectiles to avoid duplication
+    enemyProjectiles = [];
 }
-
-
-
 
 
 
