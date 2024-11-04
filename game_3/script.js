@@ -245,37 +245,35 @@ function fireContinuously() {
     if (isFiring && joystickFireAngle !== null) {
         const currentTime = Date.now();
 
-        // Check if the player has a red cell attached and start depleting the active one
+        // Check if the player has any red cells attached and deplete the active one
         const activeRedCell = player.attachedCells.find(cell => cell.type === 'red');
 
-        if (activeRedCell) {
-            if (currentTime - lastShotTime >= shootingCooldown) {
-                lastShotTime = currentTime;
+        if (activeRedCell && currentTime - lastShotTime >= shootingCooldown) {
+            lastShotTime = currentTime;
 
-                // Fire a projectile (existing logic)
-                projectiles.push({
-                    x: player.x,
-                    y: player.y,
-                    size: projectileSize,
-                    direction: { x: Math.cos(joystickFireAngle), y: Math.sin(joystickFireAngle) },
-                    distanceTraveled: 0,
-                    color: 'white',
-                    isHoming: false // Track if it's a homing projectile (set appropriately)
-                });
+            // Fire a projectile
+            projectiles.push({
+                x: player.x,
+                y: player.y,
+                size: projectileSize,
+                direction: { x: Math.cos(joystickFireAngle), y: Math.sin(joystickFireAngle) },
+                distanceTraveled: 0,
+                color: 'white',
+                isHoming: false
+            });
 
-                // Deplete the active red cell's timer
-                activeRedCell.attachTime -= DEPLETION_RATE_PER_SHOT;
+            // Deplete the active red cell's timer
+            activeRedCell.attachTime -= DEPLETION_RATE_PER_SHOT;
 
-                // Check if the red cell is fully depleted and detach if necessary
-                if (currentTime - activeRedCell.attachTime >= cellDuration) {
-                    console.log(`Red cell depleted and detached from player`);
-                    detachRedCell(player, activeRedCell);
-                }
+            // Check if the red cell is fully depleted and detach it if necessary
+            if (cellDuration - activeRedCell.attachTime <= 0) {
+                console.log(`Red cell depleted and detached from player`);
+                detachRedCell(player, activeRedCell);
             }
         }
     }
 
-    // Call the function repeatedly as long as firing is active
+    // Recursively call for continuous firing
     if (isFiring) {
         setTimeout(fireContinuously, shootingCooldown);
     }
@@ -728,14 +726,13 @@ function followPlayer() {
 }
 
 function detachRedCell(character, cell) {
-    // Detach the cell and mark it as no longer attached
-    cell.attached = false;
+    cell.attached = false; // Mark cell as detached
     character.attachedCells = character.attachedCells.filter(c => c !== cell);
 
-    // Respawn the cell or trigger appropriate logic to remove it
+    // Respawn or recycle the cell as needed
     respawnCell(cell);
 
-    // Find the next red cell to activate if shooting continues
+    // If another red cell exists and shooting continues, start depleting the next one
     const nextRedCell = character.attachedCells.find(c => c.type === 'red');
     if (nextRedCell && isFiring) {
         console.log(`Switching to next red cell for ${character.color === 'blue' ? 'player' : 'enemy'}`);
@@ -745,23 +742,33 @@ function detachRedCell(character, cell) {
 
 function detachExpiredCells(attachedCells, character) {
     const currentTime = Date.now();
+    let detachedCells = [];
 
+    // Filter out expired cells and detach them based on their type
     let remainingAttachedCells = attachedCells.filter(cell => {
         if (cell.type === 'red') {
-            // Red cells detach only based on shooting logic, not regular timing
+            // Skip automatic detachment for red cells; they detach only when depleted through shooting
             return true;
         }
 
-        // Standard detachment for other cells
+        // For non-red cells, detach when their duration expires
         if (currentTime - cell.attachTime >= cellDuration) {
             console.log(`${cell.type} cell detached from ${character.color === 'blue' ? 'player' : 'enemy'}`);
             cell.attached = false;
-            return false; // Exclude detached cell
+            detachedCells.push(cell); // Collect detached cell for potential respawn
+            return false; // Exclude this cell from the remaining attached cells
         }
-        return true; // Keep if not expired
+
+        return true; // Keep the cell if it hasn't expired
     });
 
+    // Update character's attached cells to exclude detached ones
     character.attachedCells = remainingAttachedCells;
+
+    // Respawn detached cells if necessary
+    detachedCells.forEach(cell => {
+        respawnCell(cell);
+    });
 }
 
 
