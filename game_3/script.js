@@ -249,14 +249,28 @@ function fireContinuously() {
         if (activeRedCell && currentTime - lastShotTime >= shootingCooldown) {
             lastShotTime = currentTime;
 
-            // Deplete red cell only during shooting
+            // Create and add a new projectile
+            projectiles.push({
+                x: player.x,
+                y: player.y,
+                size: projectileSize,
+                direction: { x: Math.cos(joystickFireAngle), y: Math.sin(joystickFireAngle) },
+                distanceTraveled: 0,
+                color: getProjectileColor(player.attachedCells),
+                isHoming: false
+            });
+
+            // Deplete the active red cell's timer
             activeRedCell.attachTime -= DEPLETION_RATE_PER_SHOT;
-            if (activeRedCell.attachTime <= 0) {
-                console.log(`Red cell depleted and detached from player`);
+
+            // Check if the red cell is depleted and detach it if necessary
+            if (cellDuration - activeRedCell.attachTime <= 0) {
                 detachRedCell(player, activeRedCell);
             }
         }
     }
+
+    // Schedule the next firing event
     if (isFiring) {
         setTimeout(fireContinuously, shootingCooldown);
     }
@@ -267,13 +281,14 @@ function fireContinuously() {
 
 
 
+
 function fireEnemyProjectile() {
     const currentTime = Date.now();
+    const activeRedCell = enemy.attachedCells.find(cell => cell.type === 'red');
 
-    // Check if the enemy has a red cell attached before shooting
-    const hasRedCell = enemy.attachedCells.some(cell => cell.type === 'red');
-    if (hasRedCell && currentTime - enemy.lastShotTime >= enemyShootingCooldown) {
+    if (activeRedCell && currentTime - enemy.lastShotTime >= enemyShootingCooldown) {
         enemy.lastShotTime = currentTime;
+
         enemyProjectiles.push({
             x: enemy.x,
             y: enemy.y,
@@ -282,8 +297,16 @@ function fireEnemyProjectile() {
             distanceTraveled: 0,
             color: 'white'
         });
+
+        // Deplete the active red cell's timer for the enemy
+        activeRedCell.attachTime -= DEPLETION_RATE_PER_SHOT;
+
+        if (cellDuration - activeRedCell.attachTime <= 0) {
+            detachRedCell(enemy, activeRedCell);
+        }
     }
 }
+
 
 
 // Normalize vector for enemy projectile direction
@@ -401,17 +424,15 @@ function drawCell(cell) {
 
 function drawAttachedCells(character, attachedCells) {
     attachedCells.forEach((cell, index) => {
-        let timeLeftRatio;
+        let adjustedRadius;
         if (cell.type === 'red') {
-            // For red cells, calculate based on depletion
-            timeLeftRatio = (cellDuration - Math.max(0, cell.attachTime)) / cellDuration;
+            const shotsUsed = (cellDuration - cell.attachTime) / DEPLETION_RATE_PER_SHOT;
+            adjustedRadius = (character.radius / 2) * (1 - shotsUsed / (cellDuration / DEPLETION_RATE_PER_SHOT));
+            adjustedRadius = Math.max(0, adjustedRadius); // Ensure the radius doesn't go negative
         } else {
-            // For other cells, calculate based on time elapsed
-            const currentTime = Date.now();
-            timeLeftRatio = Math.max(0, 1 - (currentTime - cell.attachTime) / cellDuration);
+            const timeLeftRatio = Math.max(0, 1 - (Date.now() - cell.attachTime) / cellDuration);
+            adjustedRadius = (character.radius / 2) * timeLeftRatio;
         }
-        
-        const adjustedRadius = (character.radius / 2) * timeLeftRatio;
 
         const angleIncrement = (Math.PI * 2) / attachedCells.length;
         const angle = angleIncrement * index;
@@ -428,6 +449,7 @@ function drawAttachedCells(character, attachedCells) {
         ctx.restore();
     });
 }
+
 
 
 // Arrow configuration
@@ -651,16 +673,16 @@ function handleBoundaryCollision(character) {
 function attachCell(cell, attachedCells, character) {
     if (!cell.attached) {
         cell.attached = true;
-        cell.attachTime = cell.type === 'red' ? cellDuration : Date.now(); // Special handling for red cells
+        cell.attachTime = cell.type === 'red' ? cellDuration : Date.now();
         attachedCells.push(cell);
         console.log(`${cell.type} cell attached to ${character.color === 'blue' ? 'player' : 'enemy'}`);
-
-        // Handle specific cell effects
+        
         if (cell.type === 'orange') {
             character.speed = character.baseSpeed * speedBoostMultiplier;
         }
     }
 }
+
 
 
 
