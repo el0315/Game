@@ -249,38 +249,39 @@ function fireContinuously() {
         if (activeRedCell && currentTime - lastShotTime >= shootingCooldown) {
             lastShotTime = currentTime;
 
-            // Create and add a new projectile
-            projectiles.push({
-                x: player.x,
-                y: player.y,
-                size: projectileSize,
-                direction: { x: Math.cos(joystickFireAngle), y: Math.sin(joystickFireAngle) },
-                distanceTraveled: 0,
-                color: getProjectileColor(player.attachedCells),
-                isHoming: false
-            });
+            // Ensure shooting only depletes the red cell if it has time left
+            if (activeRedCell.attachTime > 0) {
+                // Fire a projectile
+                projectiles.push({
+                    x: player.x,
+                    y: player.y,
+                    size: projectileSize,
+                    direction: { x: Math.cos(joystickFireAngle), y: Math.sin(joystickFireAngle) },
+                    distanceTraveled: 0,
+                    color: getProjectileColor(player.attachedCells),
+                    isHoming: false
+                });
 
-            // Deplete the active red cell's timer
-            activeRedCell.attachTime -= DEPLETION_RATE_PER_SHOT;
+                // Deplete the active red cell's time
+                activeRedCell.attachTime -= DEPLETION_RATE_PER_SHOT;
+                console.log(`Red cell attach time remaining: ${activeRedCell.attachTime}`);
 
-            // Check if the red cell is depleted and detach it if necessary
-            if (cellDuration - activeRedCell.attachTime <= 0) {
-                detachRedCell(player, activeRedCell);
+                // Detach if time is depleted
+                if (activeRedCell.attachTime <= 0) {
+                    detachRedCell(player, activeRedCell);
+                    isFiring = false; // Stop firing
+                    console.log('Red cell detached - depleted');
+                }
             }
+        } else if (!activeRedCell) {
+            isFiring = false; // Stop firing if no active red cell is found
         }
     }
 
-    // Schedule the next firing event
     if (isFiring) {
         setTimeout(fireContinuously, shootingCooldown);
     }
 }
-
-
-
-
-
-
 
 function fireEnemyProjectile() {
     const currentTime = Date.now();
@@ -289,20 +290,27 @@ function fireEnemyProjectile() {
     if (activeRedCell && currentTime - enemy.lastShotTime >= enemyShootingCooldown) {
         enemy.lastShotTime = currentTime;
 
-        enemyProjectiles.push({
-            x: enemy.x,
-            y: enemy.y,
-            size: projectileSize,
-            direction: normalizeVector({ x: player.x - enemy.x, y: player.y - enemy.y }),
-            distanceTraveled: 0,
-            color: 'white'
-        });
+        // Ensure the enemy depletes the red cell only if it has time left
+        if (activeRedCell.attachTime > 0) {
+            enemyProjectiles.push({
+                x: enemy.x,
+                y: enemy.y,
+                size: projectileSize,
+                direction: normalizeVector({ x: player.x - enemy.x, y: player.y - enemy.y }),
+                distanceTraveled: 0,
+                color: 'white'
+            });
 
-        // Deplete the active red cell's timer for the enemy
-        activeRedCell.attachTime -= DEPLETION_RATE_PER_SHOT;
+            // Deplete the active red cell's time
+            activeRedCell.attachTime -= DEPLETION_RATE_PER_SHOT;
+            console.log(`Enemy red cell attach time remaining: ${activeRedCell.attachTime}`);
 
-        if (cellDuration - activeRedCell.attachTime <= 0) {
-            detachRedCell(enemy, activeRedCell);
+            // Detach if time is depleted
+            if (activeRedCell.attachTime <= 0) {
+                detachRedCell(enemy, activeRedCell);
+                enemy.isFiring = false; // Stop enemy firing
+                console.log('Enemy red cell detached - depleted');
+            }
         }
     }
 }
@@ -343,7 +351,7 @@ function updateProjectiles() {
         if (distanceToEnemy < enemy.radius + projectile.size) {
             // Deal damage to the enemy
             enemy.health -= 5;
-            console.log('Enemy hit! Health:', enemy.health);
+            //console.log('Enemy hit! Health:', enemy.health);
             return false; // Remove the projectile after collision
         }
 
@@ -373,7 +381,7 @@ function updateProjectiles() {
         if (distanceToPlayer < player.radius + projectile.size) {
             // Deal damage to the player
             player.health -= 5;
-            console.log('Player hit! Health:', player.health);
+            //console.log('Player hit! Health:', player.health);
             return false; // Remove the projectile after collision
         }
 
@@ -735,17 +743,27 @@ function followPlayer() {
 }
 
 function detachRedCell(character, cell) {
-    cell.attached = false;
-    cell.attachTime = null; // Reset the attach time
-    character.attachedCells = character.attachedCells.filter(c => c !== cell);
-    respawnCell(cell);
+    if (cell.attached) {
+        cell.attached = false; // Mark the cell as detached
+        character.attachedCells = character.attachedCells.filter(c => c !== cell);
+        console.log(`${cell.type} cell detached from ${character.color === 'blue' ? 'player' : 'enemy'}`);
+        respawnCell(cell);
 
-    // Continue shooting if there are more red cells
-    const nextRedCell = character.attachedCells.find(c => c.type === 'red');
-    if (nextRedCell && isFiring) {
-        console.log(`Switching to next red cell for ${character.color === 'blue' ? 'player' : 'enemy'}`);
+        // Stop firing if no other red cell is attached
+        const nextRedCell = character.attachedCells.find(c => c.type === 'red');
+        if (!nextRedCell) {
+            if (character.color === 'blue') {
+                isFiring = false;
+            } else {
+                character.isFiring = false;
+            }
+            console.log(`${character.color === 'blue' ? 'Player' : 'Enemy'} stopped firing - no red cell attached`);
+        }
     }
 }
+
+
+
 
 
 
@@ -762,7 +780,7 @@ function detachExpiredCells(attachedCells, character) {
 
         // For non-red cells, detach when their duration expires
         if (currentTime - cell.attachTime >= cellDuration) {
-            console.log(`${cell.type} cell detached from ${character.color === 'blue' ? 'player' : 'enemy'}`);
+            //console.log(`${cell.type} cell detached from ${character.color === 'blue' ? 'player' : 'enemy'}`);
             cell.attached = false;
             detachedCells.push(cell); // Collect detached cell for potential respawn
             return false; // Exclude this cell from the remaining attached cells
@@ -819,7 +837,7 @@ function respawnCell(cell) {
     cell.directionAngle = Math.random() * 2 * Math.PI; // Reset movement direction
     cell.lastDirectionChangeTime = Date.now(); // Reset timing for direction change
 
-    console.log(`${cell.type} cell respawned at (${cell.x.toFixed(2)}, ${cell.y.toFixed(2)})`);
+    //console.log(`${cell.type} cell respawned at (${cell.x.toFixed(2)}, ${cell.y.toFixed(2)})`);
 }
 
 
@@ -853,7 +871,7 @@ function respawnCell(cell) {
     cell.directionAngle = Math.random() * 2 * Math.PI; // Reset movement direction
     cell.lastDirectionChangeTime = Date.now(); // Reset timing for direction change
 
-    console.log(`${cell.type} cell respawned at (${cell.x.toFixed(2)}, ${cell.y.toFixed(2)})`);
+    //console.log(`${cell.type} cell respawned at (${cell.x.toFixed(2)}, ${cell.y.toFixed(2)})`);
 }
 
 
@@ -941,13 +959,13 @@ function ensureMinimumCellCount() {
     let totalCellsCount = Math.max(0, attachedCellsCount + attachableCellsCount);
     const minCount = Math.max(0, minCellCount);
 
-    console.log(`Checking cell counts: Attached = ${attachedCellsCount}, Attachable = ${attachableCellsCount}, Total = ${totalCellsCount}`);
+    //console.log(`Checking cell counts: Attached = ${attachedCellsCount}, Attachable = ${attachableCellsCount}, Total = ${totalCellsCount}`);
 
     // Add random cells until the total count meets or exceeds the minimum required
     while (totalCellsCount < minCount) {
         addRandomCell();
         totalCellsCount++; // Increment count safely
-        console.log(`Added a random cell to ensure minimum count. New Total: ${totalCellsCount}`);
+        //console.log(`Added a random cell to ensure minimum count. New Total: ${totalCellsCount}`);
     }
 }
 
@@ -963,7 +981,7 @@ let seed = Date.now(); // Initialize with current time or any number for consist
 
 function addRandomCell() {
     if (cells.length >= maxCells) {
-        console.log(`Max cells limit reached. Current count: ${cells.length}, Max allowed: ${maxCells}`);
+        //console.log(`Max cells limit reached. Current count: ${cells.length}, Max allowed: ${maxCells}`);
         return;
     }
 
@@ -986,7 +1004,7 @@ function addRandomCell() {
     } while (isOverlappingWithExistingCells(newCell));
 
     cells.push(newCell);
-    console.log(`Added a ${type} cell at (${newCell.x.toFixed(2)}, ${newCell.y.toFixed(2)})`);
+    //console.log(`Added a ${type} cell at (${newCell.x.toFixed(2)}, ${newCell.y.toFixed(2)})`);
 }
 
 
@@ -1154,7 +1172,7 @@ restartButton.addEventListener('click', () => {
 function detachAllCellsFromCharacter(character) {
     const currentTime = Date.now();
     character.attachedCells.forEach(cell => {
-        console.log(`${cell.type} cell detached from ${character.color === 'blue' ? 'player' : 'enemy'}`);
+        //console.log(`${cell.type} cell detached from ${character.color === 'blue' ? 'player' : 'enemy'}`);
         cell.attached = false;
         cell.attachTime = currentTime - cellDuration; // Mark it as expired to simulate detachment
         respawnCell(cell); // Respawn the cell to create new ones on the map
@@ -1165,7 +1183,7 @@ function detachAllCellsFromCharacter(character) {
 }
 
 function resetEnemy() {
-    console.log('Enemy defeated! Resetting enemy...');
+    //console.log('Enemy defeated! Resetting enemy...');
     enemiesKilled++; // Increment the counter when an enemy is reset
 
     // Detach all attached cells from the enemy as if they expired
@@ -1197,7 +1215,7 @@ function resetEnemy() {
         }
     } while (isOverlapping);
 
-    console.log('Enemy reset at:', enemy.x, enemy.y);
+    //console.log('Enemy reset at:', enemy.x, enemy.y);
 }
 
 
