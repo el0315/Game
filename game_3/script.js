@@ -90,6 +90,10 @@ const projectileSpeed = 5;
 const shootingCooldown = 100;
 let lastShotTime = 0;
 
+// Adjustable depletion rate (in milliseconds per shot)
+const DEPLETION_RATE_PER_SHOT = 200;
+
+
 // Get joystick and button elements
 const joystickContainerMove = document.getElementById('joystickContainerMove');
 const joystickKnobMove = document.getElementById('joystickKnobMove');
@@ -241,25 +245,42 @@ function fireContinuously() {
     if (isFiring && joystickFireAngle !== null) {
         const currentTime = Date.now();
 
-        // Check if the player has both a red cell (to fire) and a green cell (for homing)
-        const hasRedCell = player.attachedCells.some(cell => cell.type === 'red');
-        const hasGreenCell = player.attachedCells.some(cell => cell.type === 'green');
+        // Check if the player has a red cell attached and start depleting the active one
+        const activeRedCell = player.attachedCells.find(cell => cell.type === 'red');
 
-        if (hasRedCell && currentTime - lastShotTime >= shootingCooldown) {
-            lastShotTime = currentTime;
-            projectiles.push({
-                x: player.x,
-                y: player.y,
-                size: projectileSize,
-                direction: { x: Math.cos(joystickFireAngle), y: Math.sin(joystickFireAngle) },
-                distanceTraveled: 0,
-                color: 'white',
-                isHoming: hasGreenCell // Track if the projectile is homing
-            });
+        if (activeRedCell) {
+            if (currentTime - lastShotTime >= shootingCooldown) {
+                lastShotTime = currentTime;
+
+                // Fire a projectile (existing logic)
+                projectiles.push({
+                    x: player.x,
+                    y: player.y,
+                    size: projectileSize,
+                    direction: { x: Math.cos(joystickFireAngle), y: Math.sin(joystickFireAngle) },
+                    distanceTraveled: 0,
+                    color: 'white',
+                    isHoming: false // Track if it's a homing projectile (set appropriately)
+                });
+
+                // Deplete the active red cell's timer
+                activeRedCell.attachTime -= DEPLETION_RATE_PER_SHOT;
+
+                // Check if the red cell is fully depleted and detach if necessary
+                if (currentTime - activeRedCell.attachTime >= cellDuration) {
+                    console.log(`Red cell depleted and detached from player`);
+                    detachRedCell(player, activeRedCell);
+                }
+            }
         }
     }
-    setTimeout(fireContinuously, shootingCooldown);
+
+    // Call the function repeatedly as long as firing is active
+    if (isFiring) {
+        setTimeout(fireContinuously, shootingCooldown);
+    }
 }
+
 
 
 
@@ -706,37 +727,43 @@ function followPlayer() {
     enemy.y += Math.sin(angleToPlayer) * enemy.speed;
 }
 
+function detachRedCell(character, cell) {
+    // Detach the cell and mark it as no longer attached
+    cell.attached = false;
+    character.attachedCells = character.attachedCells.filter(c => c !== cell);
+
+    // Respawn the cell or trigger appropriate logic to remove it
+    respawnCell(cell);
+
+    // Find the next red cell to activate if shooting continues
+    const nextRedCell = character.attachedCells.find(c => c.type === 'red');
+    if (nextRedCell && isFiring) {
+        console.log(`Switching to next red cell for ${character.color === 'blue' ? 'player' : 'enemy'}`);
+    }
+}
+
+
 function detachExpiredCells(attachedCells, character) {
     const currentTime = Date.now();
-    let detachedCell = null;
 
-    // Filter out expired cells and detach them
     let remainingAttachedCells = attachedCells.filter(cell => {
+        if (cell.type === 'red') {
+            // Red cells detach only based on shooting logic, not regular timing
+            return true;
+        }
+
+        // Standard detachment for other cells
         if (currentTime - cell.attachTime >= cellDuration) {
             console.log(`${cell.type} cell detached from ${character.color === 'blue' ? 'player' : 'enemy'}`);
             cell.attached = false;
-            detachedCell = cell;
-            return false; // Exclude this cell from remaining attached cells
+            return false; // Exclude detached cell
         }
-        return true; // Keep the cell if it hasn't expired
+        return true; // Keep if not expired
     });
 
-    // Ensure the updated attached cells count is non-negative
-    character.attachedCells = remainingAttachedCells.length > 0 ? remainingAttachedCells : [];
-
-    // Reset speed if necessary
-    if (detachedCell && detachedCell.type === 'orange' && !remainingAttachedCells.some(cell => cell.type === 'orange')) {
-        character.speed = character.baseSpeed;
-    }
-
-    // Maintain the minimum number of cells on the map
-    ensureMinimumCellCount();
-
-    // Respawn the detached cell, if necessary
-    if (detachedCell) {
-        respawnCell(detachedCell);
-    }
+    character.attachedCells = remainingAttachedCells;
 }
+
 
 
 
