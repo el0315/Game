@@ -786,7 +786,6 @@ function detachExpiredCells(attachedCells, character) {
 
         // For non-red cells, detach when their duration expires
         if (currentTime - cell.attachTime >= cellDuration) {
-            //console.log(`${cell.type} cell detached from ${character.color === 'blue' ? 'player' : 'enemy'}`);
             cell.attached = false;
             detachedCells.push(cell); // Collect detached cell for potential respawn
             return false; // Exclude this cell from the remaining attached cells
@@ -798,11 +797,17 @@ function detachExpiredCells(attachedCells, character) {
     // Update character's attached cells to exclude detached ones
     character.attachedCells = remainingAttachedCells;
 
+    // Reset speed to baseSpeed if no orange cell is attached
+    if (!character.attachedCells.some(cell => cell.type === 'orange')) {
+        character.speed = character.baseSpeed;
+    }
+
     // Respawn detached cells if necessary
     detachedCells.forEach(cell => {
         respawnCell(cell);
     });
 }
+
 
 
 
@@ -1174,11 +1179,9 @@ restartButton.addEventListener('click', () => {
 });
 
 
-
 function detachAllCellsFromCharacter(character) {
     const currentTime = Date.now();
     character.attachedCells.forEach(cell => {
-        //console.log(`${cell.type} cell detached from ${character.color === 'blue' ? 'player' : 'enemy'}`);
         cell.attached = false;
         cell.attachTime = currentTime - cellDuration; // Mark it as expired to simulate detachment
         respawnCell(cell); // Respawn the cell to create new ones on the map
@@ -1186,7 +1189,11 @@ function detachAllCellsFromCharacter(character) {
 
     // Clear the character's attached cells array
     character.attachedCells = [];
+
+    // Reset the speed to baseSpeed
+    character.speed = character.baseSpeed;
 }
+
 
 function resetEnemy() {
     //console.log('Enemy defeated! Resetting enemy...');
