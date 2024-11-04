@@ -236,22 +236,30 @@ function handleFireJoystick(event) {
     }
 }
 
+
 // Function to determine projectile color based on attached cells
 function getProjectileColor(attachedCells) {
-    return 'white'; // All projectiles are now white
+    if (attachedCells.some(cell => cell.type === 'green')) {
+        return 'green'; // Example color for homing projectiles
+    }
+    if (attachedCells.some(cell => cell.type === 'red')) {
+        return 'white'; // Example color for normal projectiles
+    }
+    return 'default'; // Default color if no influencing cells
 }
+
 
 function fireContinuously() {
     if (isFiring && joystickFireAngle !== null) {
         const currentTime = Date.now();
         const activeRedCell = player.attachedCells.find(cell => cell.type === 'red');
+        const hasGreenCell = player.attachedCells.some(cell => cell.type === 'green');
 
         if (activeRedCell && currentTime - lastShotTime >= shootingCooldown) {
             lastShotTime = currentTime;
 
-            // Ensure shooting only depletes the red cell if it has time left
             if (activeRedCell.attachTime > 0) {
-                // Fire a projectile
+                // Create and add a new projectile with homing capability if a green cell is attached
                 projectiles.push({
                     x: player.x,
                     y: player.y,
@@ -259,22 +267,20 @@ function fireContinuously() {
                     direction: { x: Math.cos(joystickFireAngle), y: Math.sin(joystickFireAngle) },
                     distanceTraveled: 0,
                     color: getProjectileColor(player.attachedCells),
-                    isHoming: false
+                    isHoming: hasGreenCell // Set to true if a green cell is attached
                 });
 
-                // Deplete the active red cell's time
                 activeRedCell.attachTime -= DEPLETION_RATE_PER_SHOT;
                 console.log(`Red cell attach time remaining: ${activeRedCell.attachTime}`);
 
-                // Detach if time is depleted
                 if (activeRedCell.attachTime <= 0) {
                     detachRedCell(player, activeRedCell);
-                    isFiring = false; // Stop firing
+                    isFiring = false;
                     console.log('Red cell detached - depleted');
                 }
             }
         } else if (!activeRedCell) {
-            isFiring = false; // Stop firing if no active red cell is found
+            isFiring = false;
         }
     }
 
@@ -286,11 +292,11 @@ function fireContinuously() {
 function fireEnemyProjectile() {
     const currentTime = Date.now();
     const activeRedCell = enemy.attachedCells.find(cell => cell.type === 'red');
+    const hasGreenCell = enemy.attachedCells.some(cell => cell.type === 'green');
 
     if (activeRedCell && currentTime - enemy.lastShotTime >= enemyShootingCooldown) {
         enemy.lastShotTime = currentTime;
 
-        // Ensure the enemy depletes the red cell only if it has time left
         if (activeRedCell.attachTime > 0) {
             enemyProjectiles.push({
                 x: enemy.x,
@@ -298,22 +304,22 @@ function fireEnemyProjectile() {
                 size: projectileSize,
                 direction: normalizeVector({ x: player.x - enemy.x, y: player.y - enemy.y }),
                 distanceTraveled: 0,
-                color: 'white'
+                color: 'white',
+                isHoming: hasGreenCell // Set to true if a green cell is attached
             });
 
-            // Deplete the active red cell's time
             activeRedCell.attachTime -= DEPLETION_RATE_PER_SHOT;
             console.log(`Enemy red cell attach time remaining: ${activeRedCell.attachTime}`);
 
-            // Detach if time is depleted
             if (activeRedCell.attachTime <= 0) {
                 detachRedCell(enemy, activeRedCell);
-                enemy.isFiring = false; // Stop enemy firing
+                enemy.isFiring = false;
                 console.log('Enemy red cell detached - depleted');
             }
         }
     }
 }
+
 
 
 
