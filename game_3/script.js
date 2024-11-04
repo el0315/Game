@@ -14,16 +14,13 @@ miniMapCanvas.style.backgroundColor = 'rgba(0, 0, 0, 0.1)';
 document.body.appendChild(miniMapCanvas);
 const miniCtx = miniMapCanvas.getContext('2d');
 
+// Map dimensions
+const mapWidth = 600;
+const mapHeight = 600;
 
-// Initial map size (1/5 of the final size)
-let mapWidth = 500; // Adjust starting size as needed
-let mapHeight = 500;
-const maxMapWidth = 1000; // Full map size
-const maxMapHeight = 1000;
-
-// Scaling factor for the mini-map (adjusts dynamically)
-let miniMapScaleX = miniMapCanvas.width / mapWidth;
-let miniMapScaleY = miniMapCanvas.height / mapHeight;
+// Scaling factor for the mini-map
+const miniMapScaleX = miniMapCanvas.width / mapWidth;
+const miniMapScaleY = miniMapCanvas.height / mapHeight;
 
 // Viewport dimensions (canvas size)
 canvas.width = window.innerWidth;
@@ -34,8 +31,8 @@ const viewportHeight = canvas.height;
 
 // Player state
 let player = {
-    x: mapWidth / 2, // Use mapWidth directly
-    y: mapHeight / 2, // Use mapHeight directly
+    x: 100,
+    y: 100,
     radius: 15,
     baseSpeed: 3,
     speed: 3,
@@ -48,11 +45,12 @@ let player = {
 
 // Enemy state
 let enemy = {
-    x: mapWidth - 100, // Use mapWidth directly
-    y: mapHeight - 100, // Use mapHeight directly
+    x: 800,
+    y: 800,
     radius: 15,
     baseSpeed: 3,
     speed: 3,
+    //purple
     color: '#9666ba',
     health: 100,
     maxHealth: 100,
@@ -63,7 +61,6 @@ let enemy = {
 };
 
 let enemiesKilled = 0; // Initialize the counter for enemies killed
-
 
 
 // Variables for behavior logic
@@ -681,7 +678,7 @@ function preventOverlap() {
     }
 }
 
-// Modify boundary handling and position checking for dynamic map size
+// Function to check and handle boundary collisions for a character
 function handleBoundaryCollision(character) {
     character.x = Math.max(character.radius, Math.min(mapWidth - character.radius, character.x));
     character.y = Math.max(character.radius, Math.min(mapHeight - character.radius, character.y));
@@ -773,23 +770,6 @@ function detachRedCell(character, cell) {
 
 
 
-function respawnCell(cell) {
-    cell.x = Math.random() * (mapWidth - 2 * cell.radius) + cell.radius;
-    cell.y = Math.random() * (mapHeight - 2 * cell.radius) + cell.radius;
-
-    while (isOverlappingWithExistingCells(cell) || isCollidingWithCell(player.x, player.y, cell)) {
-        cell.x = Math.random() * (mapWidth - 2 * cell.radius) + cell.radius;
-        cell.y = Math.random() * (mapHeight - 2 * cell.radius) + cell.radius;
-    }
-
-    const cellTypes = ['yellow', 'orange', 'red', 'green'];
-    const newType = cellTypes[Math.floor(Math.random() * cellTypes.length)];
-    cell.type = newType;
-    cell.color = newType;
-    cell.attached = false;
-    cell.directionAngle = Math.random() * 2 * Math.PI;
-    cell.lastDirectionChangeTime = Date.now();
-}
 
 
 
@@ -806,6 +786,7 @@ function detachExpiredCells(attachedCells, character) {
 
         // For non-red cells, detach when their duration expires
         if (currentTime - cell.attachTime >= cellDuration) {
+            //console.log(`${cell.type} cell detached from ${character.color === 'blue' ? 'player' : 'enemy'}`);
             cell.attached = false;
             detachedCells.push(cell); // Collect detached cell for potential respawn
             return false; // Exclude this cell from the remaining attached cells
@@ -817,17 +798,87 @@ function detachExpiredCells(attachedCells, character) {
     // Update character's attached cells to exclude detached ones
     character.attachedCells = remainingAttachedCells;
 
-    // Reset speed to baseSpeed if no orange cell is attached
-    if (!character.attachedCells.some(cell => cell.type === 'orange')) {
-        character.speed = character.baseSpeed;
-    }
-
     // Respawn detached cells if necessary
     detachedCells.forEach(cell => {
         respawnCell(cell);
     });
 }
 
+
+
+
+// Function to respawn a cell at a new random position with updated properties
+function respawnCell(cell) {
+    // Generate a new random position within the map boundaries
+    cell.x = Math.random() * (mapWidth - 2 * cell.radius) + cell.radius;
+    cell.y = Math.random() * (mapHeight - 2 * cell.radius) + cell.radius;
+
+    // Ensure the new position does not overlap with other cells or the player
+    while (isOverlappingWithExistingCells(cell) || isCollidingWithCell(player.x, player.y, cell)) {
+        cell.x = Math.random() * (mapWidth - 2 * cell.radius) + cell.radius;
+        cell.y = Math.random() * (mapHeight - 2 * cell.radius) + cell.radius;
+    }
+
+    // Randomly assign a new type and color for the respawned cell
+    const cellTypes = ['yellow', 'orange', 'red', 'green'];
+    const newType = cellTypes[Math.floor(Math.random() * cellTypes.length)];
+
+    cell.type = newType;
+    switch (newType) {
+        case 'yellow':
+            cell.color = 'yellow';
+            break;
+        case 'orange':
+            cell.color = 'orange';
+            break;
+        case 'red':
+            cell.color = 'red';
+            break;
+        case 'green':
+            cell.color = 'green';
+            break;
+    }
+
+    cell.attached = false; // Mark the cell as attachable
+    cell.directionAngle = Math.random() * 2 * Math.PI; // Reset movement direction
+    cell.lastDirectionChangeTime = Date.now(); // Reset timing for direction change
+
+    //console.log(`${cell.type} cell respawned at (${cell.x.toFixed(2)}, ${cell.y.toFixed(2)})`);
+}
+
+
+
+function respawnCell(cell) {
+    // Generate a new random position within the map boundaries
+    cell.x = Math.random() * (mapWidth - 2 * cell.radius) + cell.radius;
+    cell.y = Math.random() * (mapHeight - 2 * cell.radius) + cell.radius;
+
+    // Randomly change the type and color of the cell
+    const cellTypes = ['yellow', 'orange', 'red', 'green'];
+    const newType = cellTypes[Math.floor(Math.random() * cellTypes.length)];
+
+    cell.type = newType;
+    switch (newType) {
+        case 'yellow':
+            cell.color = 'yellow';
+            break;
+        case 'orange':
+            cell.color = 'orange';
+            break;
+        case 'red':
+            cell.color = 'red';
+            break;
+        case 'green':
+            cell.color = 'green';
+            break;
+    }
+
+    cell.attached = false; // Mark the cell as attachable
+    cell.directionAngle = Math.random() * 2 * Math.PI; // Reset movement direction
+    cell.lastDirectionChangeTime = Date.now(); // Reset timing for direction change
+
+    //console.log(`${cell.type} cell respawned at (${cell.x.toFixed(2)}, ${cell.y.toFixed(2)})`);
+}
 
 
 // Function to move cells in a consistent natural direction
@@ -847,9 +898,10 @@ function moveCellRandomly(cell) {
     }
 }
 
-// Update mini-map drawing to reflect current map size
+// Function to draw the mini-map
 function drawMiniMap() {
     miniCtx.clearRect(0, 0, miniMapCanvas.width, miniMapCanvas.height);
+
     miniCtx.fillStyle = 'rgba(0, 0, 0, 0.3)';
     miniCtx.fillRect(0, 0, miniMapCanvas.width, miniMapCanvas.height);
 
@@ -890,6 +942,7 @@ function drawMiniMap() {
         }
     });
 }
+
 function handleCellInteraction(attachedCells, character) {
     attachedCells.forEach(cell => {
         if (cell.type === 'yellow') {
@@ -978,27 +1031,6 @@ bButton.addEventListener('pointerdown', () => {
         addRandomCell();
     }
 });
-
-
-function adjustMapSize(enemiesKilled) {
-    if (enemiesKilled > 0 && enemiesKilled <= 10) {
-        // Adjust the map size based on the number of enemies killed
-        mapWidth = 200 + ((maxMapWidth - 200) / 10) * enemiesKilled;
-        mapHeight = 200 + ((maxMapHeight - 200) / 10) * enemiesKilled;
-
-        // Update mini-map scaling factors
-        miniMapScaleX = miniMapCanvas.width / mapWidth;
-        miniMapScaleY = miniMapCanvas.height / mapHeight;
-
-        console.log(`Map resized: ${mapWidth} x ${mapHeight}`);
-
-        // Ensure character positions stay within the new boundaries
-        adjustCharacterPositions();
-    }
-}
-
-
-
 
 function drawScene() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1107,19 +1139,6 @@ restartButton.addEventListener('click', () => {
     // Reset enemies killed counter
     enemiesKilled = 0;
 
-
-  
-
-    function adjustCharacterPositions() {
-        player.x = Math.min(player.x, mapWidth - player.radius);
-        player.y = Math.min(player.y, mapHeight - player.radius);
-        enemy.x = Math.min(enemy.x, mapWidth - enemy.radius);
-        enemy.y = Math.min(enemy.y, mapHeight - enemy.radius);
-    }
-    
-
-
-
     // Clear and respawn cells with equivalent probability for all types
     cells = [];
     for (let i = 0; i < initialCellCount; i++) {
@@ -1155,9 +1174,11 @@ restartButton.addEventListener('click', () => {
 });
 
 
+
 function detachAllCellsFromCharacter(character) {
     const currentTime = Date.now();
     character.attachedCells.forEach(cell => {
+        //console.log(`${cell.type} cell detached from ${character.color === 'blue' ? 'player' : 'enemy'}`);
         cell.attached = false;
         cell.attachTime = currentTime - cellDuration; // Mark it as expired to simulate detachment
         respawnCell(cell); // Respawn the cell to create new ones on the map
@@ -1165,17 +1186,11 @@ function detachAllCellsFromCharacter(character) {
 
     // Clear the character's attached cells array
     character.attachedCells = [];
-
-    // Reset the speed to baseSpeed
-    character.speed = character.baseSpeed;
 }
 
-
-// Update enemy reset logic to include map size adjustment
 function resetEnemy() {
-    enemiesKilled++;
-    adjustMapSize(); // Increase map size with each enemy killed
-    adjustCharacterPositions(); // Ensure characters stay within new boundaries
+    //console.log('Enemy defeated! Resetting enemy...');
+    enemiesKilled++; // Increment the counter when an enemy is reset
 
     // Detach all attached cells from the enemy as if they expired
     detachAllCellsFromCharacter(enemy);
@@ -1184,7 +1199,7 @@ function resetEnemy() {
     enemy.health = enemy.maxHealth;
     enemy.speed = enemy.baseSpeed;
     enemy.attachedCells = [];
-    enemy.isFiring = false;
+    enemy.isFiring = false; // Ensure the enemy cannot shoot until it collects a red cell
 
     // Find a valid new position within the map boundaries
     let isOverlapping;
@@ -1192,6 +1207,7 @@ function resetEnemy() {
     const maxAttempts = 100;
 
     do {
+        // Generate a random position within map boundaries
         enemy.x = Math.random() * (mapWidth - 2 * enemy.radius) + enemy.radius;
         enemy.y = Math.random() * (mapHeight - 2 * enemy.radius) + enemy.radius;
 
@@ -1204,6 +1220,8 @@ function resetEnemy() {
             isOverlapping = false; // Exit loop after max attempts
         }
     } while (isOverlapping);
+
+    //console.log('Enemy reset at:', enemy.x, enemy.y);
 }
 
 
@@ -1294,3 +1312,6 @@ function moveCellRandomly(cell) {
 
 // Start the game loop
 gameLoop();
+
+
+
