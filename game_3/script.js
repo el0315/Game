@@ -508,6 +508,16 @@ function shouldContinueCurrentBehavior() {
     return (Date.now() - enemy.lastMovementChangeTime) < enemy.movementCommitDuration;
 }
 
+// Function to determine if the enemy should seek the nearest cell based on enemies killed
+function shouldFindNearestCell(enemiesKilled) {
+    // Start at 25% and increase by 5% for each enemy killed, capping at 100%
+    const seekCellPercentage = Math.min(25 + (enemiesKilled * 5), 100);
+    const randomValue = Math.random() * 100; // Generate a random number between 0 and 100
+
+    return randomValue < seekCellPercentage; // Return true if the random value is within the seekCellPercentage
+}
+
+// Update the enemy position logic to use the `shouldFindNearestCell` function
 function updateEnemyPosition() {
     if (shouldContinueCurrentBehavior()) {
         // Continue current behavior until commitment duration ends
@@ -517,29 +527,33 @@ function updateEnemyPosition() {
             moveCellRandomly(enemy);
         }
     } else {
-        // Check if the enemy already has a red cell attached
-        const hasRedCell = enemy.attachedCells.some(cell => cell.type === 'red');
-
-        if (!hasRedCell) {
-            // Search for the nearest unattached cell if no red cell is attached
+        // Check if the enemy should seek the nearest cell
+        if (shouldFindNearestCell(enemiesKilled)) {
             const nearestCell = findNearestCell();
             if (nearestCell) {
                 const angleToCell = Math.atan2(nearestCell.y - enemy.y, nearestCell.x - enemy.x);
                 enemy.x += Math.cos(angleToCell) * enemy.speed;
                 enemy.y += Math.sin(angleToCell) * enemy.speed;
 
-                // Check if the enemy reaches the cell and attach it if so
+                // Check if the enemy has reached the cell and attach it if so
                 if (isCollidingWithCell(enemy.x, enemy.y, nearestCell)) {
                     attachCell(nearestCell, enemy.attachedCells, enemy);
                 }
             } else {
-                // No cells found, wander randomly
                 moveCellRandomly(enemy);
             }
         } else {
-            // If a red cell is attached, switch to following the player and shooting
-            enemy.isFollowingPlayer = true;
-            followPlayerAndShoot();
+            // Follow player or move randomly
+            if (shouldFollowLogic(enemiesKilled)) {
+                if (enemy.attachedCells.some(cell => cell.type === 'red')) {
+                    enemy.isFollowingPlayer = true;
+                    followPlayerAndShoot();
+                } else {
+                    moveCellRandomly(enemy);
+                }
+            } else {
+                moveCellRandomly(enemy);
+            }
         }
 
         // Reset the movement commitment timestamp
@@ -550,6 +564,7 @@ function updateEnemyPosition() {
     enemy.x = Math.max(enemy.radius, Math.min(mapWidth - enemy.radius, enemy.x));
     enemy.y = Math.max(enemy.radius, Math.min(mapHeight - enemy.radius, enemy.y));
 }
+
 
 
 
