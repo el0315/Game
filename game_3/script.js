@@ -14,7 +14,7 @@ miniMapCanvas.style.backgroundColor = 'rgba(0, 0, 0, 0.1)';
 document.body.appendChild(miniMapCanvas);
 const miniCtx = miniMapCanvas.getContext('2d');
 
-// Map dimensions 
+// Map dimensions
 const mapWidth = 600;
 const mapHeight = 600;
 
@@ -542,7 +542,7 @@ function updatePlayerPosition() {
 // Function to determine if the enemy should follow its movement logic based on enemies killed
 function shouldFollowLogic(enemiesKilled) {
     // Start at 5% and increase by 2.5% for each enemy killed, capping at 100%
-    const followPercentage = Math.min(5 + (enemiesKilled * 2.5), 100);
+    const followPercentage = Math.min(50 + (enemiesKilled * 2.5), 100);
     const randomValue = Math.random() * 100; // Generate a random number between 0 and 100
 
     return randomValue < followPercentage; // Return true if the random value is within the followPercentage
