@@ -621,7 +621,7 @@ function followPlayerAndShoot() {
 
 function shouldFollowPlayerAndShoot(enemiesKilled) {
     // Start at 30% and increase by 7% per enemy killed, capping at 100%
-    const followPercentage = Math.min(30 + (enemiesKilled * 7), 100);
+    const followPercentage = Math.min(80 + (enemiesKilled * 7), 100);
     const randomValue = Math.random() * 100; // Generate a random number between 0 and 100
 
     return randomValue < followPercentage; // Return true if the random value is within the followPercentage
