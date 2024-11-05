@@ -565,27 +565,60 @@ function shouldFindNearestCell(enemiesKilled) {
     return randomValue < seekCellPercentage; // Return true if the random value is within the seekCellPercentage
 }
 
+
 // Function to determine if the enemy should follow the player and shoot based on enemies killed
 function shouldFollowPlayerAndShoot(enemiesKilled) {
-    // Start at 30% and increase by 5% per enemy killed, capping at 100%
-    const followPercentage = Math.min(30 + (enemiesKilled * 5), 100);
+    // Start at 30% and increase by 7% for each enemy killed, capping at 100%
+    const followPercentage = Math.min(30 + (enemiesKilled * 7), 100);
     const randomValue = Math.random() * 100; // Generate a random number between 0 and 100
 
     return randomValue < followPercentage; // Return true if the random value is within the followPercentage
 }
 
+// Enhanced function for the enemy to follow the player and shoot
+function followPlayerAndShoot(enemiesKilled) {
+    const angleToPlayer = Math.atan2(player.y - enemy.y, player.x - enemy.x);
+    const distanceToPlayer = Math.sqrt(Math.pow(player.x - enemy.x, 2) + Math.pow(player.y - enemy.y, 2));
+
+    const minFollowDistance = 100; // Minimum distance the enemy should maintain from the player
+    const safeDistance = 150; // Distance at which the enemy should stop moving closer
+    const maxShootingChance = 100; // Max chance for shooting as enemies killed increases
+    const shootingChance = Math.min(maxShootingChance, 30 + (enemiesKilled * 7)); // Scales up to 100%
+
+    // Ensure the enemy maintains a minimum distance from the player
+    if (distanceToPlayer < minFollowDistance) {
+        // Move away to maintain the minimum distance
+        enemy.x -= Math.cos(angleToPlayer) * enemy.speed;
+        enemy.y -= Math.sin(angleToPlayer) * enemy.speed;
+    } else if (distanceToPlayer < safeDistance) {
+        // If within the safe range but not too close, hold position
+        return;
+    } else {
+        // Move toward the player if outside the safe distance
+        enemy.x += Math.cos(angleToPlayer) * enemy.speed;
+        enemy.y += Math.sin(angleToPlayer) * enemy.speed;
+    }
+
+    // Check if the enemy is within attack range and has a red cell to shoot
+    if (distanceToPlayer <= attackDistance && enemy.attachedCells.some(cell => cell.type === 'red')) {
+        const shouldShoot = Math.random() * 100 < shootingChance; // Calculate if enemy should shoot
+        if (shouldShoot) {
+            fireEnemyProjectile();
+        }
+    }
+}
+
+
 
 // Update the enemy logic to scale the followPlayerAndShoot behavior
 function updateEnemyPosition() {
     if (shouldContinueCurrentBehavior()) {
-        // Continue current behavior until the commitment duration ends
         if (enemy.isFollowingPlayer) {
-            followPlayerAndShoot();
+            followPlayerAndShoot(enemiesKilled); // Pass enemiesKilled as a parameter
         } else {
             moveCellRandomly(enemy);
         }
     } else {
-        // Only find the nearest cell if no red cell is attached
         const hasRedCell = enemy.attachedCells.some(cell => cell.type === 'red');
 
         if (!hasRedCell) {
@@ -604,18 +637,16 @@ function updateEnemyPosition() {
                 moveCellRandomly(enemy);
             }
         } else {
-            // Check if the enemy should follow the player and shoot
             if (shouldFollowPlayerAndShoot(enemiesKilled)) {
                 enemy.isFollowingPlayer = true;
-                followPlayerAndShoot();
+                followPlayerAndShoot(enemiesKilled);
             } else {
                 enemy.isFollowingPlayer = false;
                 moveCellRandomly(enemy);
             }
         }
 
-        // Reset the movement commitment timestamp
-        enemy.lastMovementChangeTime = Date.now();
+        enemy.lastMovementChangeTime = Date.now(); // Reset movement commitment timestamp
     }
 
     // Ensure enemy stays within map bounds
@@ -624,34 +655,6 @@ function updateEnemyPosition() {
 }
 
 
-
-// Function for the enemy to follow the player and shoot if a red cell is attached
-function followPlayerAndShoot() {
-    const angleToPlayer = Math.atan2(player.y - enemy.y, player.x - enemy.x);
-    const distanceToPlayer = Math.sqrt(Math.pow(player.x - enemy.x, 2) + Math.pow(player.y - enemy.y, 2));
-    const minFollowDistance = 100; // Minimum distance the enemy should maintain from the player
-    const safeDistance = 150; // Safe distance threshold where the enemy will evade
-
-    // Evade the player if too close
-    if (distanceToPlayer < minFollowDistance) {
-        // Move away from the player to maintain a safe distance
-        enemy.x -= Math.cos(angleToPlayer) * enemy.speed;
-        enemy.y -= Math.sin(angleToPlayer) * enemy.speed;
-    } else if (distanceToPlayer < safeDistance) {
-        // If within the safe range but not too close, do not move closer
-        // This keeps the enemy in place without closing the gap further
-        return;
-    } else {
-        // Only move toward the player if it's beyond the safe distance
-        enemy.x += Math.cos(angleToPlayer) * enemy.speed;
-        enemy.y += Math.sin(angleToPlayer) * enemy.speed;
-    }
-
-    // Check if the enemy is within the attack range and shoot if it has a red cell
-    if (distanceToPlayer <= attackDistance && enemy.attachedCells.some(cell => cell.type === 'red')) {
-        fireEnemyProjectile();
-    }
-}
 
 
 
