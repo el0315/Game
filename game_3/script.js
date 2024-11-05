@@ -14,7 +14,7 @@ miniMapCanvas.style.backgroundColor = 'rgba(0, 0, 0, 0.1)';
 document.body.appendChild(miniMapCanvas);
 const miniCtx = miniMapCanvas.getContext('2d');
 
-// Map dimensions
+// Map dimensions 
 const mapWidth = 600;
 const mapHeight = 600;
 
