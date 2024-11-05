@@ -323,6 +323,7 @@ function fireEnemyProjectile() {
 
 
 
+
 // Normalize vector for enemy projectile direction
 function normalizeVector(vector) {
     const length = Math.sqrt(vector.x * vector.x + vector.y * vector.y);
@@ -566,24 +567,36 @@ function shouldFindNearestCell(enemiesKilled) {
 }
 
 
-// Function to determine if the enemy should follow the player and shoot based on enemies killed
-function shouldFollowPlayerAndShoot(enemiesKilled) {
-    // Start at 30% and increase by 7% for each enemy killed, capping at 100%
-    const followPercentage = Math.min(30 + (enemiesKilled * 7), 100);
-    const randomValue = Math.random() * 100; // Generate a random number between 0 and 100
-
-    return randomValue < followPercentage; // Return true if the random value is within the followPercentage
-}
-
-// Enhanced function for the enemy to follow the player and shoot
-function followPlayerAndShoot(enemiesKilled) {
+function followPlayerAndShoot() {
     const angleToPlayer = Math.atan2(player.y - enemy.y, player.x - enemy.x);
     const distanceToPlayer = Math.sqrt(Math.pow(player.x - enemy.x, 2) + Math.pow(player.y - enemy.y, 2));
 
     const minFollowDistance = 100; // Minimum distance the enemy should maintain from the player
     const safeDistance = 150; // Distance at which the enemy should stop moving closer
-    const maxShootingChance = 100; // Max chance for shooting as enemies killed increases
-    const shootingChance = Math.min(maxShootingChance, 30 + (enemiesKilled * 7)); // Scales up to 100%
+
+    if (distanceToPlayer < minFollowDistance) {
+        enemy.x -= Math.cos(angleToPlayer) * enemy.speed;
+        enemy.y -= Math.sin(angleToPlayer) * enemy.speed;
+    } else if (distanceToPlayer < safeDistance) {
+        return;
+    } else {
+        enemy.x += Math.cos(angleToPlayer) * enemy.speed;
+        enemy.y += Math.sin(angleToPlayer) * enemy.speed;
+    }
+
+    // Always shoot if the enemy has a red cell attached and is within range
+    if (distanceToPlayer <= attackDistance && enemy.attachedCells.some(cell => cell.type === 'red')) {
+        fireEnemyProjectile();
+    }
+}
+
+
+function followPlayerAndShoot() {
+    const angleToPlayer = Math.atan2(player.y - enemy.y, player.x - enemy.x);
+    const distanceToPlayer = Math.sqrt(Math.pow(player.x - enemy.x, 2) + Math.pow(player.y - enemy.y, 2));
+
+    const minFollowDistance = 100; // Minimum distance the enemy should maintain from the player
+    const safeDistance = 150; // Distance at which the enemy should stop moving closer
 
     // Ensure the enemy maintains a minimum distance from the player
     if (distanceToPlayer < minFollowDistance) {
@@ -599,22 +612,26 @@ function followPlayerAndShoot(enemiesKilled) {
         enemy.y += Math.sin(angleToPlayer) * enemy.speed;
     }
 
-    // Check if the enemy is within attack range and has a red cell to shoot
+    // Always shoot if the enemy has a red cell attached and is within range
     if (distanceToPlayer <= attackDistance && enemy.attachedCells.some(cell => cell.type === 'red')) {
-        const shouldShoot = Math.random() * 100 < shootingChance; // Calculate if enemy should shoot
-        if (shouldShoot) {
-            fireEnemyProjectile();
-        }
+        fireEnemyProjectile();
     }
 }
 
 
+function shouldFollowPlayerAndShoot(enemiesKilled) {
+    // Start at 30% and increase by 7% per enemy killed, capping at 100%
+    const followPercentage = Math.min(30 + (enemiesKilled * 7), 100);
+    const randomValue = Math.random() * 100; // Generate a random number between 0 and 100
 
-// Update the enemy logic to scale the followPlayerAndShoot behavior
+    return randomValue < followPercentage; // Return true if the random value is within the followPercentage
+}
+
+
 function updateEnemyPosition() {
     if (shouldContinueCurrentBehavior()) {
         if (enemy.isFollowingPlayer) {
-            followPlayerAndShoot(enemiesKilled); // Pass enemiesKilled as a parameter
+            followPlayerAndShoot(); // Ensure function call is correct and defined
         } else {
             moveCellRandomly(enemy);
         }
@@ -639,7 +656,7 @@ function updateEnemyPosition() {
         } else {
             if (shouldFollowPlayerAndShoot(enemiesKilled)) {
                 enemy.isFollowingPlayer = true;
-                followPlayerAndShoot(enemiesKilled);
+                followPlayerAndShoot();
             } else {
                 enemy.isFollowingPlayer = false;
                 moveCellRandomly(enemy);
@@ -653,6 +670,7 @@ function updateEnemyPosition() {
     enemy.x = Math.max(enemy.radius, Math.min(mapWidth - enemy.radius, enemy.x));
     enemy.y = Math.max(enemy.radius, Math.min(mapHeight - enemy.radius, enemy.y));
 }
+
 
 
 
