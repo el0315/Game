@@ -188,91 +188,6 @@ function adjustPositionForCylinderCollision(player, pillar, playerRadius, pillar
 
 // Player Movement Update with Collision Adjustment
 const playerVelocity = new THREE.Vector3();
-
-
-// Constants
-const groundLevel = 0; // Ground level
-
-const rampWidth = 5;
-const rampLength = 20; // Long ramp for smoother incline
-const rampHeight = 2;  // Moderate height for gentle incline
-const rampFriction = 0.9;
-const gravity = -0.02; // Gravity force
-
-// Parameters for controlled entry onto the ramp
-const rampVerticalOffset = -0.9; // Adjust to make the entry edge flush with the ground
-const rampEntryThreshold = 0; // Distance threshold for player to enter ramp smoothly
-
-// Ramp Setup using BoxGeometry
-const rampGeometry = new THREE.BoxGeometry(rampWidth, rampHeight, rampLength);
-const rampMaterial = new THREE.MeshStandardMaterial({ color: 0x808080 });
-const ramp = new THREE.Mesh(rampGeometry, rampMaterial);
-
-// Position the ramp so its entry edge is flush with ground level
-ramp.position.set(10, groundLevel + rampHeight / 2 + rampVerticalOffset, -10 + rampLength / 2);
-ramp.rotation.x = -Math.atan(rampHeight / rampLength); // Set the incline angle
-ramp.receiveShadow = true;
-scene.add(ramp);
-
-// Define a bounding box for the ramp
-const rampBoundingBox = new THREE.Box3().setFromObject(ramp);
-
-// Raycasters for ramp and ground
-const raycasterRamp = new THREE.Raycaster();
-const raycasterGround = new THREE.Raycaster();
-
-// Player velocity and falling state
-
-let isFalling = false;
-
-// Function to adjust player height on the ramp using raycasting
-function adjustPlayerOnRamp(player, ramp) {
-    // Cast a ray downward from just above the player to detect the ramp
-    raycasterRamp.set(player.position.clone().add(new THREE.Vector3(0, playerRadius + 0.1, 0)), new THREE.Vector3(0, -1, 0));
-    const intersectsRamp = raycasterRamp.intersectObject(ramp);
-
-    if (intersectsRamp.length > 0) {
-        const intersectPoint = intersectsRamp[0].point;
-        player.position.y = intersectPoint.y + playerRadius; // Position player on the ramp surface
-        playerVelocity.y = 0; // Reset vertical velocity when on the ramp
-        isFalling = false; // Reset falling state
-        return true; // Indicates that the player is on the ramp
-    }
-    return false; // Indicates that the player is not on the ramp
-}
-
-// Function to check if the player is on the ground
-function adjustPlayerOnGround(player) {
-    // Cast a ray downward from just above the player to detect the ground
-    raycasterGround.set(player.position.clone().add(new THREE.Vector3(0, playerRadius + 0.1, 0)), new THREE.Vector3(0, -1, 0));
-    const intersectsGround = raycasterGround.intersectObject(ground);
-
-    if (intersectsGround.length > 0) {
-        const intersectPoint = intersectsGround[0].point;
-        player.position.y = intersectPoint.y + playerRadius; // Position player on the ground
-        playerVelocity.y = 0; // Reset vertical velocity when on the ground
-        isFalling = false; // Reset falling state
-        return true; // Indicates that the player is on the ground
-    }
-    return false; // Indicates that the player is not on the ground
-}
-
-// Function to apply gravity if the player is not on the ramp or ground
-function applyGravity(player) {
-    playerVelocity.y += gravity;
-    player.position.y += playerVelocity.y;
-}
-
-// Function to determine if the player has rolled off the ramp
-function isPlayerOffRamp(player) {
-    const playerRelativeZ = player.position.z - (ramp.position.z - rampLength / 2);
-    const playerRelativeX = Math.abs(player.position.x - ramp.position.x);
-
-    // Check if player has moved beyond the ramp’s boundaries
-    return playerRelativeZ > rampLength / 2 || playerRelativeZ < -rampLength / 2 || playerRelativeX > rampWidth / 2;
-}
-
-// Update player position with ramp, ground adjustments, and gravity
 function updatePlayerPosition() {
     if (joystickMoveAngle !== null) {
         const moveDirection = new THREE.Vector3(
@@ -285,34 +200,20 @@ function updatePlayerPosition() {
         moveDirection.applyQuaternion(quaternion);
 
         // Calculate player velocity based on direction and speed
-        playerVelocity.x = moveDirection.x * playerSpeed;
-        playerVelocity.z = moveDirection.z * playerSpeed;
+        playerVelocity.copy(moveDirection).multiplyScalar(playerSpeed);
         player.position.add(playerVelocity);
 
-        // Check if the player is on the ramp
-        const isPlayerOnRamp = adjustPlayerOnRamp(player, ramp);
+        // Precise collision handling for cylindrical pillar
+        adjustPositionForCylinderCollision(player, pillar, playerRadius, pillarRadius);
 
-        // Check if the player is on the ground if not on the ramp
-        const isPlayerOnGround = !isPlayerOnRamp && adjustPlayerOnGround(player);
-
-        // If the player is off the ramp and not on the ground, apply gravity
-        if (!isPlayerOnRamp && !isPlayerOnGround) {
-            isFalling = true;
-            applyGravity(player);
-        }
-
-        // Check if the player has rolled off the ramp and enable gravity if so
-        if (isPlayerOnRamp && isPlayerOffRamp(player)) {
-            isFalling = true;
-            applyGravity(player);
-        }
+        // Regular collision handling for other obstacles
+        adjustPositionForSphereCollision(player, obstacles.filter(ob => ob !== pillar), playerRadius);
 
         // Add player rolling effect
         const rotationAxis = new THREE.Vector3(playerVelocity.z, 0, -playerVelocity.x).normalize();
         player.rotateOnWorldAxis(rotationAxis, playerSpeed / 0.5);
     }
 }
-
 
 
 // Joystick Event Handlers
