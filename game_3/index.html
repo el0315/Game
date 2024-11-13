@@ -3,24 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mobile FPS with Organic Ground</title>
+    <title>Mobile FPS with Crosshair and Compass</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
-
-        <!-- Left joystick for movement -->
+        <div id="crosshair"></div>
         <div id="joystickContainerMove">
             <div id="joystickKnobMove" class="joystickKnob"></div>
         </div>
+        <div id="compass">
+            <div id="compass-needle">
+                <span class="compass-label front">F</span>
+                <span class="compass-label back">B</span>
+            </div>
+        </div>
     </div>
 
-    <!-- Load Three.js and Sky.js from CDN -->
+    <!-- Load Three.js and Sky.js -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.138.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.138.0/examples/js/objects/Sky.js"></script>    
-
-    <!-- Main script for game logic -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.138.0/examples/js/objects/Sky.js"></script>
+    <!-- Load Ammo.js from local or CDN -->
+    <script src="ammo.js"></script> <!-- Ensure correct path to ammo.js -->
     <script src="script.js"></script>
 </body>
 </html>
