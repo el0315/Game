@@ -10,8 +10,8 @@ let moveDirection = new THREE.Vector3();
 // Terrain parameters
 const terrainWidthExtents = 100;
 const terrainDepthExtents = 100;
-const terrainWidth = 128;
-const terrainDepth = 128;
+const terrainWidth = 64;
+const terrainDepth = 64;
 const terrainHalfWidth = terrainWidth / 2;
 const terrainHalfDepth = terrainDepth / 2;
 const terrainMaxHeight = 4; // Maximum height of the terrain
