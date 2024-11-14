@@ -894,50 +894,46 @@ function createRandomObstacles(count) {
 
         switch(type) {
             case 'cone':
-                // Define random dimensions for the cone
-                const radius = Math.random() * 1 + 0.5; // Radius between 0.5 and 1.5
+                radius = Math.random() * 1 + 0.5; // Radius between 0.5 and 1.5
                 height = Math.random() * 2 + 1;  // Height between 1 and 3
 
-                // Create the Three.js cone mesh
                 obstacleMesh = new THREE.Mesh(
                     new THREE.ConeGeometry(radius, height, 32),
                     new THREE.MeshStandardMaterial({ color: 0xCD853F })
                 );
 
-                // Create the Ammo.js cone shape
-                // Ammo.js btConeShape is defined along the Y-axis with height in the Y direction
                 shape = new Ammo.btConeShape(radius, height);
-                break; // Prevent fall-through to default
+
+
+                break;
 
             default:
                 console.warn(`Unknown obstacle type: ${type}. Skipping creation.`);
-                continue; // Skip unknown obstacle types
+                continue;
         }
 
-        // Position based on terrain height
+        // Ensure cone sits on the terrain
         const terrainHeight = getTerrainHeightAt(position.x, position.z);
-
-        // Ensure that the cone sits on the terrain by adjusting Y position
-        obstacleMesh.position.set(
-            position.x,
-            terrainHeight + (height / 2),
-            position.z
-        );
-
+        obstacleMesh.position.set(position.x, terrainHeight + (height / 2), position.z);
         obstacleMesh.castShadow = true;
         obstacleMesh.receiveShadow = true;
         scene.add(obstacleMesh);
 
         // Create physics for the obstacle
         createObstaclePhysics(obstacleMesh.position, shape, obstacleMesh);
-
         obstacles.push(obstacleMesh);
 
-        // Debugging log
-        //console.log(`Created cone obstacle ${i + 1}/${count} at (${obstacleMesh.position.x.toFixed(2)}, ${obstacleMesh.position.y.toFixed(2)}, ${obstacleMesh.position.z.toFixed(2)}) with radius ${radius.toFixed(2)} and height ${height.toFixed(2)}`);
+
+                // Use this function to create smoke at the tip of each cone
+        obstacles.forEach(cone => {
+            const coneHeight = cone.geometry.parameters.height || 2; // Default height if undefined
+            const smokePosition = new THREE.Vector3(cone.position.x, cone.position.y, cone.position.z);
+            createCylinderSmokeEffect(smokePosition, coneHeight);
+        });
+    
+
     }
 }
-
 
 
 
@@ -1234,6 +1230,72 @@ function darkenBackgroundLighting() {
     const hemisphereLight = new THREE.HemisphereLight(0x111111, 0x0d1b2a, 0.3);
     scene.add(hemisphereLight);
 }
+
+
+function createCylinderSmokeEffect(position, coneHeight) {
+    const smokeParticles = [];
+    const particleCount = 10; // Number of particles in the vertical stack
+    const particleSpacing = 0.2; // Space between particles
+
+    // Create individual circular particles to form a cylindrical smoke shape
+    for (let i = 0; i < particleCount; i++) {
+        const smokeGeometry = new THREE.CircleGeometry(0.2, 16);
+        const smokeMaterial = new THREE.MeshBasicMaterial({
+            color: 0x555555,
+            transparent: true,
+            opacity: 0.1,
+            side: THREE.DoubleSide,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false
+        });
+
+        const smokeParticle = new THREE.Mesh(smokeGeometry, smokeMaterial);
+        
+        // Position each particle above the previous one to form a stack
+        smokeParticle.position.set(
+            position.x,
+            position.y + coneHeight + i * particleSpacing - 2.5,
+            position.z
+        );
+
+        scene.add(smokeParticle);
+        smokeParticles.push(smokeParticle);
+    }
+
+    // Function to animate the entire column of smoke particles
+    function animateSmoke() {
+        const time = Date.now() * 0.0001;
+
+        for (let i = 0; i < particleCount; i++) {
+            const particle = smokeParticles[i];
+
+            // Apply a slight upward movement
+            particle.position.y += 0.01;
+
+            // Add random horizontal drift using Perlin noise
+            particle.position.x += (perlinNoise(time + i, particle.position.y) - 0.5) * 0.005;
+            particle.position.z += (perlinNoise(particle.position.x, time + i) - 0.5) * 0.005;
+
+            // Adjust opacity to fade out as it rises
+            particle.material.opacity = Math.max(0, 0.1 - (particle.position.y - (position.y + coneHeight)) * 0.1);
+
+            // Reset position and opacity for continuous effect
+            if (particle.material.opacity <= 0) {
+                particle.position.set(
+                    position.x,
+                    position.y + coneHeight + i * particleSpacing,
+                    position.z
+                );
+                particle.material.opacity = 0.1;
+            }
+        }
+
+        requestAnimationFrame(animateSmoke);
+    }
+
+    animateSmoke();
+}
+
 
 
 
@@ -1545,33 +1607,7 @@ function initializeScene() {
     // Obstacles
     const obstacleMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
 
-    // Pillar
-    const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 5, 32), obstacleMaterial);
-    pillar.position.set(5, 2.5, 5);
-    pillar.castShadow = true;
-    pillar.receiveShadow = true;
-    scene.add(pillar);
-
-    // Create physics for the pillar and associate the mesh
-    createObstaclePhysics(pillar.position, new Ammo.btCylinderShape(new Ammo.btVector3(0.5, 2.5, 0.5)), pillar);
-
-    // Cube
-    const cube = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), new THREE.MeshStandardMaterial({ color: 0x8B4513 }));
-    cube.position.set(3, 1, 3);
-    cube.castShadow = true;
-    cube.receiveShadow = true;
-    scene.add(cube);
-
-    // Create physics for the cube and associate the mesh
-    createObstaclePhysics(cube.position, new Ammo.btBoxShape(new Ammo.btVector3(1, 1, 1)), cube);
-
-    obstacles.push(pillar, cube);
-
-    // Update shadow properties on obstacles
-    obstacles.forEach(obstacle => {
-        obstacle.castShadow = true;
-        obstacle.receiveShadow = true;
-    });
+    
 
     // **LOD Setup Moved Inside initializeScene()**
     const lod = new THREE.LOD();
@@ -2236,6 +2272,7 @@ function animate() {
     updatePlayerPosition();
     // Update fireflies each frame
     updateFireflies();
+
 
     // Update enemy AI (movement, shooting, jumping)
     updateEnemyAI(deltaTime);
