@@ -4,29 +4,55 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>3D Game</title>
+    
+    <!-- Google Fonts: Montserrat -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- Game Container (Play Window) -->
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
-
-        <!-- Left joystick for movement -->
-        <div id="joystickContainerMove">
-            <div id="joystickKnobMove" class="joystickKnob"></div>
-        </div>
     </div>
 
+    <!-- Control Window -->
+    <div id="controls">
+        <!-- Joystick Container for Movement (Left Side) -->
+        <div id="joystickContainerMove">
+            <div id="joystickKnobMove" class="joystickKnob"></div>
+            <div class="joystick-label">Move</div> <!-- Label for Move -->
+        </div>
+
+        <!-- Joystick Container for Shooting (Right Side) -->
+        <div id="joystickContainerFire">
+            <div id="joystickKnobFire" class="joystickKnob"></div>
+            <div class="joystick-label">Shoot</div> <!-- Label for Shoot -->
+        </div>
+
+
+        <!-- Hidden Action Buttons (if needed) -->
+        <button id="bButton" class="control-button action-button" style="display: none;">B</button>
+        <button id="aButton" class="control-button action-button" style="display: none;">A</button>
+    </div>
+
+    <!-- Overlays -->
     <!-- Game Over Overlay -->
     <div id="gameOverOverlay">Player Died! Respawning...</div>
 
     <!-- Enemy Respawn Overlay -->
     <div id="enemyRespawnOverlay">Enemy Respawning...</div>
 
-    <!-- Load Three.js and Sky.js -->
+    <!-- Restart Button -->
+    <button id="restartButton" style="display: none;">Restart</button>
+
+    <!-- Load External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.138.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.138.0/examples/js/objects/Sky.js"></script>
     <!-- Load Ammo.js from local or CDN -->
     <script src="ammo.js"></script> <!-- Ensure correct path to ammo.js -->
+
+    <!-- External JavaScript File -->
     <script src="script.js"></script>
 </body>
 </html>
