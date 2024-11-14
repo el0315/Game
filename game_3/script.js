@@ -1,4 +1,12 @@
-let scene, camera, renderer, player, ground, sky, obstacles = [];
+let scene, camera, renderer, player, ground, sky;
+let obstacles = [];
+let collectibles = [];
+let trees = [];
+let rotatingSpikes = [];
+
+// Add other arrays as needed
+
+
 let physicsWorld, playerBody;
 let yaw = 0, pitch = 0;
 
@@ -62,6 +70,26 @@ let jumpButton, jumpRing, jumpKnob;
 // References to Shooting Button Elements
 let shootButton, shootKnob;
 
+// Collectibles
+const collectibleMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0xFFD700, 
+    emissive: 0xFFD700, 
+    emissiveIntensity: 0.5,
+    transparent: true, 
+    opacity: 1 
+});
+
+
+// Rotating Spikes
+const spikeMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0xFF0000, 
+    emissive: 0xFF0000, 
+    emissiveIntensity: 0.3,
+    transparent: true, 
+    opacity: 1 
+});
+
+
 // Collision Groups
 const COL_GROUP_PLAYER = 1 << 0;             // 1
 const COL_GROUP_OBSTACLE = 1 << 2;           // 4
@@ -69,7 +97,6 @@ const COL_GROUP_ENEMY = 1 << 3;              // 8
 const COL_GROUP_TERRAIN = 1 << 4;            // 16
 const COL_GROUP_PLAYER_PROJECTILE = 1 << 5;  // 32
 const COL_GROUP_ENEMY_PROJECTILE = 1 << 6;   // 64
-
 
 
 
@@ -86,8 +113,8 @@ let heightData = null;
 let ammoHeightData = null;
 
 // Hill parameters for terrain generation
-const hillFrequency = 15;   // Adjust this value for more or fewer hills (lower value = fewer hills)
-const hillAmplitude = 0.5; // Adjust this value for the height of the hills (higher value = taller hills)
+const hillFrequency = 10;   // Adjust this value for more or fewer hills (lower value = fewer hills)
+const hillAmplitude = 1; // Adjust this value for the height of the hills (higher value = taller hills)
 
 // Global variables for projectiles
 let projectiles = [];
@@ -95,6 +122,8 @@ const projectileSpeed = 50;
 const projectileRadius = 0.2;
 const projectileMass = 1;
 const maxProjectiles = 100; // Limit the number of active projectiles
+
+
 
 
 function createProjectile(position, direction, owner) {
@@ -672,6 +701,7 @@ function initializePhysics() {
 
     // Generate height data
     heightData = generateHeight(terrainWidth, terrainDepth, terrainMinHeight, terrainMaxHeight);
+    heightData = smoothHeightData(heightData, terrainWidth, terrainDepth);
 
     // Create the terrain physics body
     const groundShape = createTerrainShape();
@@ -748,27 +778,56 @@ function initializePhysics() {
 function generateHeight(width, depth, minHeight, maxHeight) {
     const size = width * depth;
     const data = new Float32Array(size);
-
     const hRange = maxHeight - minHeight;
-
     let p = 0;
 
-    // Generate Perlin noise for terrain height variation
+    // Multiple octaves for richer terrain
+    const octaves = 4;
+    const persistence = 0.5;
+
     for (let j = 0; j < depth; j++) {
         for (let i = 0; i < width; i++) {
-            const x = i / width;
-            const y = j / depth;
+            let amplitude = 1;
+            let frequency = 1;
+            let noiseHeight = 0;
 
-            // Use Perlin noise function for natural-looking terrain
-            const height = perlinNoise(x * hillFrequency, y * hillFrequency) * hillAmplitude * hRange + minHeight;
+            for (let o = 0; o < octaves; o++) {
+                const x = (i / width) * frequency;
+                const y = (j / depth) * frequency;
+                noiseHeight += perlinNoise(x, y) * amplitude;
+                amplitude *= persistence;
+                frequency *= 2;
+            }
 
-            data[p] = height;
+            // Normalize to [minHeight, maxHeight]
+            noiseHeight = noiseHeight / (1 - Math.pow(persistence, octaves)) * hRange + minHeight;
+            data[p] = noiseHeight;
             p++;
         }
     }
 
     return data;
 }
+function smoothHeightData(heightData, width, depth, iterations = 2) {
+    for (let it = 0; it < iterations; it++) {
+        const newData = heightData.slice();
+        for (let j = 1; j < depth - 1; j++) {
+            for (let i = 1; i < width - 1; i++) {
+                const index = j * width + i;
+                newData[index] = (
+                    heightData[index] +
+                    heightData[index - 1] +
+                    heightData[index + 1] +
+                    heightData[index - width] +
+                    heightData[index + width]
+                ) / 5;
+            }
+        }
+        heightData = newData;
+    }
+    return heightData;
+}
+
 
 function createTerrainShape() {
     const heightScale = 1;
@@ -814,6 +873,320 @@ function createTerrainShape() {
 
     return heightFieldShape;
 }
+function createRandomObstacles(count) {
+    const obstacleTypes = ['cone']; // Add more types as needed
+    for (let i = 0; i < count; i++) {
+        const type = obstacleTypes[Math.floor(Math.random() * obstacleTypes.length)];
+        let obstacleMesh;
+        let shape;
+        let height; // Declare height here
+        let radius;
+        const position = new THREE.Vector3(
+            (Math.random() - 0.5) * terrainWidthExtents,
+            0, // Y will be set based on terrain height
+            (Math.random() - 0.5) * terrainDepthExtents
+        );
+
+        switch(type) {
+            case 'cone':
+                // Define random dimensions for the cone
+                const radius = Math.random() * 1 + 0.5; // Radius between 0.5 and 1.5
+                height = Math.random() * 2 + 1;  // Height between 1 and 3
+
+                // Create the Three.js cone mesh
+                obstacleMesh = new THREE.Mesh(
+                    new THREE.ConeGeometry(radius, height, 32),
+                    new THREE.MeshStandardMaterial({ color: 0xCD853F })
+                );
+
+                // Create the Ammo.js cone shape
+                // Ammo.js btConeShape is defined along the Y-axis with height in the Y direction
+                shape = new Ammo.btConeShape(radius, height);
+                break; // Prevent fall-through to default
+
+            default:
+                console.warn(`Unknown obstacle type: ${type}. Skipping creation.`);
+                continue; // Skip unknown obstacle types
+        }
+
+        // Position based on terrain height
+        const terrainHeight = getTerrainHeightAt(position.x, position.z);
+
+        // Ensure that the cone sits on the terrain by adjusting Y position
+        obstacleMesh.position.set(
+            position.x,
+            terrainHeight + (height / 2),
+            position.z
+        );
+
+        obstacleMesh.castShadow = true;
+        obstacleMesh.receiveShadow = true;
+        scene.add(obstacleMesh);
+
+        // Create physics for the obstacle
+        createObstaclePhysics(obstacleMesh.position, shape, obstacleMesh);
+
+        obstacles.push(obstacleMesh);
+
+        // Debugging log
+        //console.log(`Created cone obstacle ${i + 1}/${count} at (${obstacleMesh.position.x.toFixed(2)}, ${obstacleMesh.position.y.toFixed(2)}, ${obstacleMesh.position.z.toFixed(2)}) with radius ${radius.toFixed(2)} and height ${height.toFixed(2)}`);
+    }
+}
+
+
+
+
+function createWaterBodies() {
+    const waterGeometry = new THREE.PlaneGeometry(20, 20);
+    const waterMaterial = new THREE.MeshPhongMaterial({ color: 0x1E90FF, transparent: true, opacity: 0.6 });
+    const water = new THREE.Mesh(waterGeometry, waterMaterial);
+    water.rotation.x = -Math.PI / 2;
+    water.position.set(10, getTerrainHeightAt(10, 10) + 0.1, 10); // Slightly above terrain
+    scene.add(water);
+}
+
+function createRotatingSpikePhysics(spikeMesh) {
+    const mass = 0; // Static object
+    const shape = new Ammo.btConeShape(0.5, 2); // Cone shape with radius 0.5 and height 2
+
+    const transform = new Ammo.btTransform();
+    transform.setIdentity();
+    transform.setOrigin(new Ammo.btVector3(spikeMesh.position.x, spikeMesh.position.y, spikeMesh.position.z));
+    const motionState = new Ammo.btDefaultMotionState(transform);
+
+    const localInertia = new Ammo.btVector3(0, 0, 0);
+    shape.calculateLocalInertia(mass, localInertia);
+
+    const rbInfo = new Ammo.btRigidBodyConstructionInfo(mass, motionState, shape, localInertia);
+    const body = new Ammo.btRigidBody(rbInfo);
+    body.setFriction(0.5);
+    body.setRestitution(0.1);
+    body.setCollisionFlags(body.getCollisionFlags() | 2); // Make it a static object
+
+    // Tag the body as a rotating spike for collision handling
+    body.userData = { type: 'rotatingSpike' };
+
+    physicsWorld.addRigidBody(
+        body,
+        COL_GROUP_OBSTACLE, // Collision group
+        COL_GROUP_PLAYER | COL_GROUP_ENEMY | COL_GROUP_PLAYER_PROJECTILE | COL_GROUP_ENEMY_PROJECTILE | COL_GROUP_TERRAIN // Collision mask
+    );
+
+    // Associate the Three.js mesh with the Ammo.js body
+    spikeMesh.userData.physicsBody = body;
+    body.threeObject = spikeMesh;
+}
+
+
+
+function updateRotatingSpikes(deltaTime) {
+    rotatingSpikes.forEach(spike => {
+        spike.rotation.y += deltaTime; // Rotate over time
+    });
+}
+
+
+function createCollectibles(count) {
+    for (let i = 0; i < count; i++) {
+        const collectible = new THREE.Mesh(
+            new THREE.TetrahedronGeometry(0.5),
+            collectibleMaterial // Use the predefined material
+        );
+
+        // Random position on terrain
+        const position = new THREE.Vector3(
+            (Math.random() - 0.5) * terrainWidthExtents,
+            0, // Y will be set based on terrain height
+            (Math.random() - 0.5) * terrainDepthExtents
+        );
+        const terrainHeight = getTerrainHeightAt(position.x, position.z);
+
+        // Calculate half the height of the collectible
+        const collectibleHeight = 2 * 0.5 * Math.sqrt(2 / 3); // Height of a regular tetrahedron with radius 0.5
+        const halfHeight = collectibleHeight / 2;
+
+        collectible.position.set(
+            position.x,
+            terrainHeight + halfHeight,
+            position.z
+        );
+
+        collectible.castShadow = true;
+        collectible.receiveShadow = true;
+        scene.add(collectible);
+        collectibles.push(collectible);
+
+        // Add physics body for collision detection
+        createCollectiblePhysics(collectible);
+
+        console.log(`Collectible ${i + 1} created at position: (${collectible.position.x}, ${collectible.position.y}, ${collectible.position.z})`);
+    }
+}
+
+function createRotatingSpikes(count) {
+    for (let i = 0; i < count; i++) {
+        const spike = new THREE.Mesh(
+            new THREE.ConeGeometry(0.5, 2, 8),
+            spikeMaterial // Use the predefined material
+        );
+        spike.rotation.x = Math.PI / 2; // Pointing upwards
+
+        // Random position on terrain
+        const position = new THREE.Vector3(
+            (Math.random() - 0.5) * terrainWidthExtents,
+            0, // Y will be set based on terrain height
+            (Math.random() - 0.5) * terrainDepthExtents
+        );
+        const terrainHeight = getTerrainHeightAt(position.x, position.z);
+
+        // Spike height is 2, so half is 1
+        spike.position.set(
+            position.x,
+            terrainHeight + 1, // 1 is half the spike's height to sit on terrain
+            position.z
+        );
+
+        spike.castShadow = true;
+        spike.receiveShadow = true;
+        scene.add(spike);
+        rotatingSpikes.push(spike);
+
+        // Add physics body for collision detection
+        createRotatingSpikePhysics(spike);
+
+        console.log(`Rotating Spike ${i + 1} created at position: (${spike.position.x}, ${spike.position.y}, ${spike.position.z})`);
+    }
+}
+
+
+
+function createCollectiblePhysics(collectibleMesh) {
+    const mass = 0; // Static object
+    const shape = new Ammo.btSphereShape(0.5); // Approximated as a sphere
+
+    const transform = new Ammo.btTransform();
+    transform.setIdentity();
+    transform.setOrigin(new Ammo.btVector3(collectibleMesh.position.x, collectibleMesh.position.y, collectibleMesh.position.z));
+    const motionState = new Ammo.btDefaultMotionState(transform);
+
+    const localInertia = new Ammo.btVector3(0, 0, 0);
+    shape.calculateLocalInertia(mass, localInertia);
+
+    const rbInfo = new Ammo.btRigidBodyConstructionInfo(mass, motionState, shape, localInertia);
+    const body = new Ammo.btRigidBody(rbInfo);
+    body.setFriction(0.5);
+    body.setRestitution(0.1);
+    body.setCollisionFlags(body.getCollisionFlags() | 2); // Make it a static object
+
+    // Tag the body as a collectible for collision handling
+    body.userData = { type: 'collectible' };
+
+    physicsWorld.addRigidBody(
+        body,
+        COL_GROUP_OBSTACLE, // Collision group
+        COL_GROUP_PLAYER | COL_GROUP_ENEMY | COL_GROUP_PLAYER_PROJECTILE | COL_GROUP_ENEMY_PROJECTILE | COL_GROUP_TERRAIN // Collision mask
+    );
+
+    // Associate the Three.js mesh with the Ammo.js body
+    collectibleMesh.userData.physicsBody = body;
+    body.threeObject = collectibleMesh;
+}
+
+function createTrees(count) {
+    for (let i = 0; i < count; i++) {
+        const tree = new THREE.Group();
+
+        // Trunk
+        const trunkHeight = Math.random() * 1 + 1; // Random trunk height between 1 and 2
+        const trunk = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.2, 0.2, trunkHeight, 8),
+            new THREE.MeshStandardMaterial({ color: 0x8B4513 })
+        );
+        trunk.position.y = (trunkHeight / 2); // Position trunk so its base is at y=0
+        tree.add(trunk);
+
+        // Foliage
+        const foliageHeight = Math.random() * 2 + 1; // Random foliage height between 1 and 3
+        const foliage = new THREE.Mesh(
+            new THREE.ConeGeometry(0.8, foliageHeight, 8),
+            new THREE.MeshStandardMaterial({ color: 0x228B22 })
+        );
+        foliage.position.y = trunkHeight + (foliageHeight / 2); // Position foliage on top of the trunk
+        tree.add(foliage);
+
+        // Position on terrain
+        const position = new THREE.Vector3(
+            (Math.random() - 0.5) * terrainWidthExtents,
+            0, // Y will be set based on terrain height and tree height
+            (Math.random() - 0.5) * terrainDepthExtents
+        );
+        const terrainHeight = getTerrainHeightAt(position.x, position.z);
+
+        // Calculate total tree height
+        const totalTreeHeight = trunkHeight + foliageHeight;
+
+        // Log terrain height and tree position for debugging
+        console.log(`Tree ${i + 1}: Terrain Height = ${terrainHeight}, Total Tree Height = ${totalTreeHeight}`);
+
+        tree.position.set(
+            position.x,
+            terrainHeight + (totalTreeHeight / 2) - 2,
+            position.z
+        );
+
+        // Avoid overlapping with player/enemy
+        if (position.distanceTo(player.position) < 5 || position.distanceTo(enemy.position) < 5) {
+            i--;
+            continue;
+        }
+
+        // Add tree to scene and tracking arrays
+        scene.add(tree);
+        trees.push(tree); // If you have a separate trees array
+        obstacles.push(tree); // If trees are considered obstacles
+
+        // Optional: Add physics body if trees should interact physically
+        // Example: Approximate the tree as a compound shape or use a cylinder
+        const trunkShape = new Ammo.btCylinderShape(new Ammo.btVector3(0.2, trunkHeight / 2, 0.2));
+        const foliageShape = new Ammo.btConeShape(0.8, foliageHeight);
+
+        // Position shapes relative to the tree
+        const compoundShape = new Ammo.btCompoundShape();
+        const transformTrunk = new Ammo.btTransform();
+        transformTrunk.setIdentity();
+        transformTrunk.setOrigin(new Ammo.btVector3(0, trunkHeight / 2, 0));
+        compoundShape.addChildShape(transformTrunk, trunkShape);
+
+        const transformFoliage = new Ammo.btTransform();
+        transformFoliage.setIdentity();
+        transformFoliage.setOrigin(new Ammo.btVector3(0, trunkHeight + foliageHeight / 2, 0));
+        compoundShape.addChildShape(transformFoliage, foliageShape);
+
+        createObstaclePhysics(tree.position, compoundShape, tree);
+    }
+}
+
+
+function getTerrainHeightAt(x, z) {
+    // Convert world coordinates to grid indices
+    const gridX = Math.floor((x + terrainWidthExtents / 2) / (terrainWidthExtents / terrainWidth));
+    const gridZ = Math.floor((z + terrainDepthExtents / 2) / (terrainDepthExtents / terrainDepth));
+
+    // Clamp indices to valid range
+    const clampedX = THREE.MathUtils.clamp(gridX, 0, terrainWidth - 1);
+    const clampedZ = THREE.MathUtils.clamp(gridZ, 0, terrainDepth - 1);
+
+    const index = clampedZ * terrainWidth + clampedX;
+
+    if (index >= 0 && index < heightData.length) {
+        return heightData[index];
+    }
+
+    // Fallback if out of bounds
+    return (terrainMinHeight + terrainMaxHeight) / 2;
+}
+
+
 
 function createObstaclePhysics(position, shape, obstacleMesh) {
     const obstacleTransform = new Ammo.btTransform();
@@ -868,56 +1241,6 @@ function handleJumpPointerDown(event) {
     }, 150); // Duration in milliseconds
 }
 
-
-// Handle Jump Button Release
-function handleJumpPointerUp(event) {
-    if (!isJumping) return;
-
-    // Calculate hold duration
-    const holdDuration = Date.now() - jumpStartTime;
-    isJumping = false;
-
-    // Remove active class
-    jumpKnob.classList.remove('active');
-
-    // Calculate jump force based on hold duration
-    const clampedHoldTime = Math.min(holdDuration, maxHoldTime);
-    const jumpForce = minJumpForce + ((clampedHoldTime / maxHoldTime) * (maxJumpForce - minJumpForce));
-
-    console.log(`Jump held for ${clampedHoldTime} ms, applying force: ${jumpForce}`);
-
-    // Apply the jump to the player's physics body
-    applyJump(jumpForce);
-
-    // Reset the jump ring
-    jumpRing.style.background = `conic-gradient(
-        rgba(255, 255, 255, 0.5) 0deg,
-        rgba(255, 255, 255, 0.5) 0deg
-    )`;
-
-    // Prevent event propagation
-    event.preventDefault();
-    event.stopPropagation();
-}
-
-// Update the Jump Ring Visual Indicator
-function updateJumpRing() {
-    if (!isJumping) return;
-
-    const elapsed = Date.now() - jumpStartTime;
-    const progress = Math.min(elapsed / maxHoldTime, 1);
-    const angle = progress * 360;
-
-    // Update the ring's conic gradient to show progress
-    jumpRing.style.background = `conic-gradient(
-        rgba(255, 255, 255, 0.5) ${angle}deg,
-        rgba(255, 255, 255, 0.5) ${angle}deg
-    )`;
-
-    if (progress < 1) {
-        requestAnimationFrame(updateJumpRing);
-    }
-}
 
 function applyJump() {
     // Get the current velocity of the player
@@ -1030,6 +1353,7 @@ function transformDirectionToWorldSpace(localDirection) {
 
 
 
+
 function initializeScene() {
     scene = new THREE.Scene();
 
@@ -1037,8 +1361,7 @@ function initializeScene() {
     joystickContainerMove = document.getElementById('joystickContainerMove');
     joystickKnobMove = document.getElementById('joystickKnobMove');
 
-
-        // Movement Joystick Event Handlers
+    // Movement Joystick Event Handlers
     joystickKnobMove.addEventListener('pointerdown', (e) => {
         movementTouchId = e.pointerId;
         handleMoveJoystickStart(e);
@@ -1064,7 +1387,7 @@ function initializeScene() {
     // Enemy Jump Timer Initialization
     enemyJumpTimer = 0;
 
-    // Initialize Jump Button
+    // Initialize Jump and Shooting Buttons
     initializeJumpButton();
     initializeShootingButton();
 
@@ -1144,6 +1467,7 @@ function initializeScene() {
     // Create Enemy Health Bar
     createEnemyHealthBar();
 
+    
     // Obstacles
     const obstacleMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
 
@@ -1168,15 +1492,50 @@ function initializeScene() {
     createObstaclePhysics(cube.position, new Ammo.btBoxShape(new Ammo.btVector3(1, 1, 1)), cube);
 
     obstacles.push(pillar, cube);
-    
+
     // Update shadow properties on obstacles
     obstacles.forEach(obstacle => {
         obstacle.castShadow = true;
         obstacle.receiveShadow = true;
     });
 
-    }
-    
+    // **LOD Setup Moved Inside initializeScene()**
+    const lod = new THREE.LOD();
+
+    // High detail mesh
+    const highDetailMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(1, 32, 32),
+        new THREE.MeshStandardMaterial({ color: 0xff0000 })
+    );
+    lod.addLevel(highDetailMesh, 0);
+
+    // Medium detail mesh
+    const mediumDetailMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(1, 16, 16),
+        new THREE.MeshStandardMaterial({ color: 0xff0000 })
+    );
+    lod.addLevel(mediumDetailMesh, 50);
+
+    // Low detail mesh
+    const lowDetailMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(1, 8, 8),
+        new THREE.MeshStandardMaterial({ color: 0xff0000 })
+    );
+    lod.addLevel(lowDetailMesh, 100);
+
+    scene.add(lod);
+
+    // Fog
+    scene.fog = new THREE.FogExp2(0xcccccc, 0.002);
+
+    // **Call Environmental Feature Creation Functions**
+    createRandomObstacles(10);    // Adjust count as needed
+    createCollectibles(15);       // Adjust count as needed
+    createTrees(100);              // Adjust count as needed
+    createWaterBodies(5);          // Creates water bodies
+    createRotatingSpikes(5);       // Creates rotating spikes
+}
+
 
 function updatePlayerPosition() {
     if (joystickMoveAngle !== null) {
@@ -1439,7 +1798,191 @@ function updatePhysics(deltaTime) {
     checkProjectileCollisions();
 }
 
+function checkCollisions() {
+    const dispatcher = physicsWorld.getDispatcher();
+    const numManifolds = dispatcher.getNumManifolds();
 
+    for (let i = 0; i < numManifolds; i++) {
+        const contactManifold = dispatcher.getManifoldByIndexInternal(i);
+        const body0 = Ammo.castObject(contactManifold.getBody0(), Ammo.btRigidBody);
+        const body1 = Ammo.castObject(contactManifold.getBody1(), Ammo.btRigidBody);
+
+        // Check for player/projectile collisions as before
+        // ...
+
+        // Handle direct collisions between player/enemy and collectibles/spikes
+        handleDirectCollisions(body0, body1);
+    }
+}
+
+function handleDirectCollisions(body0, body1) {
+    // Player collides with Collectible
+    if ((isPlayerBody(body0) && isCollectibleBody(body1)) ||
+        (isPlayerBody(body1) && isCollectibleBody(body0))) {
+        handlePlayerCollectibleCollision(body0, body1);
+    }
+
+    // Enemy collides with Collectible
+    if ((isEnemyBody(body0) && isCollectibleBody(body1)) ||
+        (isEnemyBody(body1) && isCollectibleBody(body0))) {
+        handleEnemyCollectibleCollision(body0, body1);
+    }
+
+    // Player collides with Spike
+    if ((isPlayerBody(body0) && isSpikeBody(body1)) ||
+        (isPlayerBody(body1) && isSpikeBody(body0))) {
+        handlePlayerSpikeCollision(body0, body1);
+    }
+
+    // Enemy collides with Spike
+    if ((isEnemyBody(body0) && isSpikeBody(body1)) ||
+        (isEnemyBody(body1) && isSpikeBody(body0))) {
+        handleEnemySpikeCollision(body0, body1);
+    }
+}
+
+function isCollectibleBody(body) {
+    return body.userData && body.userData.type === 'collectible';
+}
+
+function isSpikeBody(body) {
+    return body.userData && body.userData.type === 'rotatingSpike';
+}
+
+function handlePlayerCollectibleCollision(body0, body1) {
+    let collectibleBody = isPlayerBody(body0) ? body1 : body0;
+    collectCollectible(collectibleBody, 'player');
+}
+
+function handleEnemyCollectibleCollision(body0, body1) {
+    let collectibleBody = isEnemyBody(body0) ? body1 : body0;
+    collectCollectible(collectibleBody, 'enemy');
+}
+
+
+
+
+function collectCollectible(collectibleBody, collector) {
+    const collectible = collectibles.find(c => c.userData.physicsBody === collectibleBody);
+
+    if (collectible) {
+        // Apply fade-out effect
+        new TWEEN.Tween(collectible.material)
+            .to({ opacity: 0 }, 200)
+            .onComplete(() => {
+                // Calculate a new random position on the terrain
+                const newPosition = getNewCollectiblePosition();
+
+                // Update the Three.js mesh position
+                collectible.position.copy(newPosition);
+
+                // Update the Ammo.js physics body position
+                const transform = new Ammo.btTransform();
+                transform.setIdentity();
+                transform.setOrigin(new Ammo.btVector3(newPosition.x, newPosition.y, newPosition.z));
+                collectibleBody.setWorldTransform(transform);
+                collectibleBody.getMotionState().setWorldTransform(transform);
+
+                // Reset material opacity
+                collectible.material.opacity = 1;
+
+                // Apply fade-in effect
+                new TWEEN.Tween(collectible.material)
+                    .to({ opacity: 1 }, 200)
+                    .start();
+            })
+            .start();
+
+        // Apply effects based on collector
+        if (collector === 'player') {
+            handlePlayerHealthRestore(1); // Restore 1 health
+        } else if (collector === 'enemy') {
+            handleEnemyHealthRestore(1); // Restore 1 health
+        }
+
+        console.log(`${collector.charAt(0).toUpperCase() + collector.slice(1)} collected a collectible! Respawning with fade effect.`);
+    }
+}
+
+
+function getNewCollectiblePosition() {
+    let newPosition;
+    const retryLimit = 10;
+    let attempts = 0;
+    let validPosition = false;
+
+    while (attempts < retryLimit && !validPosition) {
+        newPosition = new THREE.Vector3(
+            (Math.random() - 0.5) * terrainWidthExtents,
+            0,
+            (Math.random() - 0.5) * terrainDepthExtents
+        );
+        const terrainHeight = getTerrainHeightAt(newPosition.x, newPosition.z);
+        if (newPosition.distanceTo(player.position) >= 5 && newPosition.distanceTo(enemy.position) >= 5) {
+            newPosition.set(
+                newPosition.x,
+                terrainHeight + 0.6,
+                newPosition.z
+            );
+            validPosition = true;
+        }
+        attempts++;
+    }
+
+    if (!validPosition) {
+        console.warn("Failed to find a valid position for collectible. Placing at default location.");
+        newPosition.set(0, terrainMaxHeight + 0.6, 0); // Default position
+    }
+
+    return newPosition;
+}
+
+
+function handlePlayerSpikeCollision(body0, body1) {
+    let spikeBody = isPlayerBody(body0) ? body1 : body0;
+    damagePlayer(1); // Decrease player health by 1
+}
+
+function handleEnemySpikeCollision(body0, body1) {
+    let spikeBody = isEnemyBody(body0) ? body1 : body0;
+    damageEnemy(1); // Decrease enemy health by 1
+}
+
+function handlePlayerHealthRestore(amount) {
+    playerHealth = Math.min(playerHealth + amount, maxPlayerHealth);
+    updatePlayerHealthBar();
+    console.log(`Player collected a collectible! Health restored by ${amount}. Current Health: ${playerHealth}`);
+}
+
+function handleEnemyHealthRestore(amount) {
+    enemyHealth = Math.min(enemyHealth + amount, maxEnemyHealth);
+    updateEnemyHealthBar();
+    console.log(`Enemy collected a collectible! Health restored by ${amount}. Current Health: ${enemyHealth}`);
+}
+
+function damagePlayer(amount) {
+    playerHealth -= amount;
+    playerHealth = Math.max(playerHealth, 0);
+    updatePlayerHealthBar();
+    applyPlayerHitEffect();
+    console.log(`Player hit by spike! Health decreased by ${amount}. Current Health: ${playerHealth}`);
+
+    if (playerHealth <= 0) {
+        handlePlayerDeath();
+    }
+}
+
+function damageEnemy(amount) {
+    enemyHealth -= amount;
+    enemyHealth = Math.max(enemyHealth, 0);
+    updateEnemyHealthBar();
+    applyEnemyHitEffect();
+    console.log(`Enemy hit by spike! Health decreased by ${amount}. Current Health: ${enemyHealth}`);
+
+    if (enemyHealth <= 0) {
+        destroyEnemy();
+    }
+}
 
 
 function resetMoveJoystick() {
@@ -1556,16 +2099,17 @@ document.addEventListener('touchend', (e) => {
 function updateCameraPosition() {
     const cameraDistance = 10;
     const offsetX = cameraDistance * Math.cos(pitch) * Math.sin(yaw);
-    const offsetY = cameraDistance * Math.sin(pitch);
+    const offsetY = cameraDistance * Math.sin(pitch) + 5; // Elevated for better view
     const offsetZ = cameraDistance * Math.cos(pitch) * Math.cos(yaw);
 
     camera.position.set(
         player.position.x + offsetX,
-        player.position.y + offsetY + 5, // Adjusted for better view
+        player.position.y + offsetY,
         player.position.z + offsetZ
     );
     camera.lookAt(player.position);
 }
+
 
 
 // **Function to Attempt Firing a Shot with Cooldown**
@@ -1604,7 +2148,6 @@ function fireShot() {
     }
 }
 
-
 function animate() {
     requestAnimationFrame(animate);
 
@@ -1621,19 +2164,24 @@ function animate() {
     // Update enemy AI (movement, shooting, jumping)
     updateEnemyAI(deltaTime);
 
+    // Update rotating spikes
+    updateRotatingSpikes(deltaTime);
+
     // Update camera position
     updateCameraPosition();
 
     // Update health bars to face the camera
     updateHealthBars();
 
+    // Check for collisions
+    checkCollisions();
+
+    // Update TWEEN animations
+    TWEEN.update();
+
     // Render the scene
     renderer.render(scene, camera);
 }
-
-
-
-
 
 
 loadAmmoAndStartGame();
