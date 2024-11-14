@@ -1,7 +1,18 @@
 let scene, camera, renderer, player, ground, sky, obstacles = [];
 let physicsWorld, playerBody;
 let yaw = 0, pitch = 0;
+
+const maxPitch = Math.PI / 2;   // Existing maximum pitch (looking straight up)
+const minPitch = -Math.PI / 6;  // New minimum pitch (looking 45 degrees down)
+
 let joystickMoveAngle = null, movementTouchId = null, rotationTouchId = null, lastTouchX = 0, lastTouchY = 0;
+
+// New shooting joystick variables
+let joystickFireAngle = null;
+let firingTouchId = null;
+let isFiring = false;
+let lastShotTime = 0;               // Timestamp of the last shot
+const shootCooldown = 50;           // Cooldown in milliseconds between shots
 const playerRadius = 0.5;
 const playerSpeed = 10;
 const rotationSpeed = 0.015;
@@ -20,8 +31,8 @@ const enemySpeed = 2; // Adjust the speed as needed
 let enemyHealth = 3; // Current health
 const maxEnemyHealth = 3; // Maximum health
 // Enemy AI Configuration
-const enemyMoveTowardsPlayerFrequency = 0.5; // Seconds between movement direction updates
-const enemyShootFrequency = 0.5; // Seconds between shooting actions
+const enemyMoveTowardsPlayerFrequency = 15; // Seconds between movement direction updates
+const enemyShootFrequency = 15; // Seconds between shooting actions
 
 // Internal tracking variables
 let lastEnemyMoveTime = 0;
@@ -36,6 +47,7 @@ const COL_GROUP_ENEMY = 1 << 3;              // 8
 const COL_GROUP_TERRAIN = 1 << 4;            // 16
 const COL_GROUP_PLAYER_PROJECTILE = 1 << 5;  // 32
 const COL_GROUP_ENEMY_PROJECTILE = 1 << 6;   // 64
+
 
 
 
@@ -62,30 +74,6 @@ const projectileRadius = 0.2;
 const projectileMass = 1;
 const maxProjectiles = 100; // Limit the number of active projectiles
 
-// Function to handle shooting
-function handleShootStart(event) {
-    if (!playerControlsEnabled) return; // Prevent shooting when controls are disabled
-    event.preventDefault();
-
-    // Get the player's position and direction
-    const playerPosition = new THREE.Vector3();
-    playerPosition.copy(player.position);
-
-    // Calculate the shooting direction based on player rotation (yaw and pitch)
-    const direction = new THREE.Vector3(
-        -Math.sin(yaw) * Math.cos(pitch),
-        Math.sin(pitch),
-        -Math.cos(yaw) * Math.cos(pitch)
-    ).normalize();
-
-    // Create the projectile with shooterType 'player'
-    createProjectile(playerPosition, direction, 'player');
-
-    // Limit the number of projectiles
-    if (projectiles.length > maxProjectiles) {
-        removeOldestProjectile();
-    }
-}
 
 
 function createProjectile(position, direction, shooterType = 'player') {
@@ -624,9 +612,10 @@ function respawnPlayer() {
 
     // Enable player controls
     enablePlayerControls();
+
+    // **Reset Shooting Joystick State**
+    resetFireJoystick();
 }
-
-
 
 
 // Helper functions to identify projectiles and obstacles
@@ -859,12 +848,67 @@ function createObstaclePhysics(position, shape, obstacleMesh) {
 }
 
 
+// **New Function to Add Event Listeners for Shooting Joystick**
+function addShootingJoystickEventListeners() {
+    // Shooting Joystick Event Handlers
+    joystickKnobFire.addEventListener('pointerdown', (e) => {
+        firingTouchId = e.pointerId;
+        handleFireJoystickStart(e);
+        e.preventDefault();
+        e.stopPropagation(); // Prevent event from reaching document
+    }, { passive: false });
+
+    joystickKnobFire.addEventListener('pointermove', (e) => {
+        if (e.pointerId === firingTouchId) {
+            handleFireJoystick(e);
+        }
+        e.preventDefault();
+        e.stopPropagation(); // Prevent event from reaching document
+    }, { passive: false });
+
+    joystickKnobFire.addEventListener('pointerup', (e) => {
+        resetFireJoystick();
+        firingTouchId = null;
+        e.preventDefault();
+        e.stopPropagation(); // Prevent event from reaching document
+    }, { passive: false });
+}
+
+
 function initializeScene() {
     scene = new THREE.Scene();
 
     // Initialize joystick elements
     joystickContainerMove = document.getElementById('joystickContainerMove');
     joystickKnobMove = document.getElementById('joystickKnobMove');
+
+    // **Add these references for the shooting joystick**
+    joystickContainerFire = document.getElementById('joystickContainerFire');
+    joystickKnobFire = document.getElementById('joystickKnobFire');
+
+
+        // Movement Joystick Event Handlers
+    joystickKnobMove.addEventListener('pointerdown', (e) => {
+        movementTouchId = e.pointerId;
+        handleMoveJoystickStart(e);
+        e.preventDefault();
+        e.stopPropagation(); // Prevent event from reaching document
+    }, { passive: false });
+
+    joystickKnobMove.addEventListener('pointermove', (e) => {
+        if (e.pointerId === movementTouchId) {
+            handleMoveJoystick(e);
+        }
+        e.preventDefault();
+        e.stopPropagation(); // Prevent event from reaching document
+    }, { passive: false });
+
+    joystickKnobMove.addEventListener('pointerup', (e) => {
+        resetMoveJoystick();
+        movementTouchId = null;
+        e.preventDefault();
+        e.stopPropagation(); // Prevent event from reaching document
+    }, { passive: false });
 
     // Renderer setup
     renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gameCanvas') });
@@ -876,6 +920,8 @@ function initializeScene() {
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 20, 30); // Adjusted camera position
     scene.add(camera);
+
+    addShootingJoystickEventListeners();
 
     // Lighting
     const hemisphereLight = new THREE.HemisphereLight(0xffd27f, 0x5e3b1d, 0.8);
@@ -973,54 +1019,6 @@ function initializeScene() {
         obstacle.receiveShadow = true;
     });
 
-
-        // Create the shoot button
-        createShootButton();
-    }
-    
-    function createShootButton() {
-        const button = document.createElement('button');
-        button.id = 'shootButton';
-        button.innerText = '⦿'; // Unicode character for a minimalistic icon
-        button.style.position = 'absolute';
-        button.style.bottom = '20px';
-        button.style.right = '20px';
-        button.style.width = '60px';
-        button.style.height = '60px';
-        button.style.borderRadius = '50%';
-        button.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
-        button.style.color = '#000';
-        button.style.border = 'none';
-        button.style.outline = 'none';
-        button.style.fontSize = '32px';
-        button.style.display = 'flex';
-        button.style.alignItems = 'center';
-        button.style.justifyContent = 'center';
-        button.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
-        button.style.cursor = 'pointer';
-        button.style.transition = 'background-color 0.3s, transform 0.1s';
-    
-        // Hover effect (for desktop)
-        button.addEventListener('mouseenter', () => {
-            button.style.backgroundColor = 'rgba(255, 255, 255, 1)';
-        });
-        button.addEventListener('mouseleave', () => {
-            button.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
-        });
-    
-        // Touch feedback
-        button.addEventListener('touchstart', () => {
-            button.style.transform = 'scale(0.95)';
-        }, false);
-        button.addEventListener('touchend', () => {
-            button.style.transform = 'scale(1)';
-        }, false);
-    
-        // Add event listener for shooting
-        button.addEventListener('touchstart', handleShootStart, false);
-        button.addEventListener('mousedown', handleShootStart, false);
-    
-        document.body.appendChild(button);
     }
     
 
@@ -1134,6 +1132,7 @@ function moveEnemyTowardsPlayer() {
 
 function enemyShootAtPlayer() {
     if (!enemyCanShoot) return; // Prevent shooting during respawn
+    if (!playerControlsEnabled) return; // Prevent shooting if player is dead or respawning
 
     // Get the enemy's current position
     const enemyPosition = new THREE.Vector3();
@@ -1248,48 +1247,75 @@ function handleMoveJoystick(event) {
 }
 
 
-// Touch Event Handlers for Movement and Rotation
+
+function isTouchWithinJoystick(touch, joystickContainer) {
+    const rect = joystickContainer.getBoundingClientRect();
+    const isWithin = (
+        touch.clientX >= rect.left &&
+        touch.clientX <= rect.right &&
+        touch.clientY >= rect.top &&
+        touch.clientY <= rect.bottom
+    );
+    console.log(`Touch at (${touch.clientX}, ${touch.clientY}) within joystick: ${isWithin}`);
+    return isWithin;
+}
+
+
+
 document.addEventListener('touchstart', (e) => {
     for (const touch of e.changedTouches) {
-        if (touch.clientX < window.innerWidth / 2 && movementTouchId === null) {
+        if (isTouchWithinJoystick(touch, joystickContainerMove) && movementTouchId === null) {
             movementTouchId = touch.identifier;
             handleMoveJoystickStart(touch);
-        } else if (touch.clientX > window.innerWidth / 2 && rotationTouchId === null) {
+        }
+        else if (isTouchWithinJoystick(touch, joystickContainerFire) && firingTouchId === null) {
+            firingTouchId = touch.identifier;
+            handleFireJoystickStart(touch);
+        }
+        else if (!isTouchWithinJoystick(touch, joystickContainerMove) && !isTouchWithinJoystick(touch, joystickContainerFire) && rotationTouchId === null) {
             rotationTouchId = touch.identifier;
             lastTouchX = touch.clientX;
             lastTouchY = touch.clientY;
         }
     }
     e.preventDefault();
-});
+}, { passive: false });
+
 
 document.addEventListener('touchmove', (e) => {
     for (const touch of e.changedTouches) {
         if (touch.identifier === movementTouchId) {
             handleMoveJoystick(touch);
+        } else if (touch.identifier === firingTouchId) {
+            handleFireJoystick(touch);
         } else if (touch.identifier === rotationTouchId) {
             const deltaX = touch.clientX - lastTouchX;
             const deltaY = touch.clientY - lastTouchY;
             yaw -= deltaX * rotationSpeed;
-            pitch = Math.max(0, Math.min(Math.PI / 2, pitch + deltaY * 0.008));
+            // Update pitch with new constraints
+            pitch = Math.max(minPitch, Math.min(maxPitch, pitch + deltaY * 0.008));
             lastTouchX = touch.clientX;
             lastTouchY = touch.clientY;
         }
     }
     e.preventDefault();
-});
+}, { passive: false });
 
 document.addEventListener('touchend', (e) => {
     for (const touch of e.changedTouches) {
         if (touch.identifier === movementTouchId) {
             resetMoveJoystick();
             movementTouchId = null;
+        } else if (touch.identifier === firingTouchId) {
+            resetFireJoystick();
+            firingTouchId = null;
         } else if (touch.identifier === rotationTouchId) {
             rotationTouchId = null;
         }
     }
     e.preventDefault();
-});
+}, { passive: false });
+
 
 
 function updateCameraPosition() {
@@ -1305,6 +1331,80 @@ function updateCameraPosition() {
     );
     camera.lookAt(player.position);
 }
+
+
+// **Handler Function When Shooting Joystick is Pressed**
+function handleFireJoystickStart(event) {
+    if (!playerControlsEnabled) return; // Prevent shooting when controls are disabled
+    handleFireJoystick(event);
+}
+
+// **Handler Function for Shooting Joystick Movement**
+function handleFireJoystick(event) {
+    const rect = joystickContainerFire.getBoundingClientRect();
+    let offsetX = event.clientX - rect.left - rect.width / 2;
+    let offsetY = event.clientY - rect.top - rect.height / 2;
+    const distance = Math.sqrt(offsetX * offsetX + offsetY * offsetY);
+    const maxDistance = rect.width / 2;
+
+    if (distance > maxDistance) {
+        const angle = Math.atan2(offsetY, offsetX);
+        offsetX = Math.cos(angle) * maxDistance;
+        offsetY = Math.sin(angle) * maxDistance;
+    }
+
+    joystickKnobFire.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+    joystickFireAngle = Math.atan2(offsetY, offsetX);
+
+    // Attempt to fire a shot if cooldown has passed
+    attemptToFireShot();
+}
+
+// **Function to Attempt Firing a Shot with Cooldown**
+function attemptToFireShot() {
+    const currentTime = Date.now();
+    if (currentTime - lastShotTime >= shootCooldown) {
+        fireShot();
+        lastShotTime = currentTime;
+    }
+
+    // Continue firing as long as the joystick is engaged
+    if (joystickFireAngle !== null) {
+        requestAnimationFrame(attemptToFireShot);
+    }
+}
+
+// **Function to Fire a Shot in the Direction of the Shooting Joystick**
+function fireShot() {
+    if (!playerControlsEnabled) return; // Ensure controls are enabled
+
+    // Calculate shooting direction based on joystickFireAngle
+    const direction = new THREE.Vector3(
+        Math.cos(joystickFireAngle),
+        0,
+        Math.sin(joystickFireAngle)
+    ).normalize();
+
+    // Get player's current position
+    const playerPosition = new THREE.Vector3();
+    playerPosition.copy(player.position);
+
+    // Create and fire the projectile
+    createProjectile(playerPosition, direction, 'player');
+
+    // Limit the number of projectiles
+    if (projectiles.length > maxProjectiles) {
+        removeOldestProjectile();
+    }
+}
+
+// **Function to Reset the Shooting Joystick**
+function resetFireJoystick() {
+    joystickFireAngle = null;
+    joystickKnobFire.style.transform = `translate(0px, 0px)`;
+    isFiring = false;
+}
+
 
 function animate() {
     requestAnimationFrame(animate);
