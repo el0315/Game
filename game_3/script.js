@@ -79,6 +79,11 @@ const collectibleMaterial = new THREE.MeshStandardMaterial({
     opacity: 1 
 });
 
+let fireflies = [];
+const fireflyCount = 100;
+const fireflyRange = 80; // Distance range for fireflies from the center
+const fireflySpeed = 0.2; // Movement speed of fireflies
+
 
 // Rotating Spikes
 const spikeMaterial = new THREE.MeshStandardMaterial({ 
@@ -1171,6 +1176,66 @@ function createTrees(count) {
     }
 }
 
+function createFireflies() {
+    const fireflyMaterial = new THREE.PointsMaterial({
+        color: 0xFFFFAA,   // Light yellow for glow effect
+        size: 0.2,
+        transparent: true,
+        opacity: 0.8
+    });
+
+    for (let i = 0; i < fireflyCount; i++) {
+        const fireflyGeometry = new THREE.BufferGeometry();
+        const position = new THREE.Vector3(
+            (Math.random() - 0.5) * fireflyRange,
+            Math.random() * 10 + 5,  // Keep them in the air, 5-15 units up
+            (Math.random() - 0.5) * fireflyRange
+        );
+
+        // Avoid spotlight region (around [5, 50, -5])
+        if (position.distanceTo(new THREE.Vector3(5, 50, -5)) > 30) { // 30 is a safe spotlight radius
+            fireflyGeometry.setAttribute('position', new THREE.Float32BufferAttribute(position.toArray(), 3));
+            const firefly = new THREE.Points(fireflyGeometry, fireflyMaterial);
+            firefly.position.copy(position);
+            scene.add(firefly);
+            fireflies.push(firefly);
+        }
+    }
+}
+
+function updateFireflies() {
+    fireflies.forEach(firefly => {
+        // Move firefly slightly in a random direction
+        firefly.position.x += (Math.random() - 0.5) * fireflySpeed;
+        firefly.position.y += (Math.random() - 0.5) * fireflySpeed;
+        firefly.position.z += (Math.random() - 0.5) * fireflySpeed;
+
+        // Ensure fireflies stay within defined range and out of spotlight area
+        const spotlightCenter = new THREE.Vector3(5, 50, -5);
+        const distanceToSpotlight = firefly.position.distanceTo(spotlightCenter);
+        if (distanceToSpotlight < 30 || firefly.position.length() > fireflyRange) {
+            // If too close to spotlight, reposition firefly
+            firefly.position.set(
+                (Math.random() - 0.5) * fireflyRange,
+                Math.random() * 10 + 5,
+                (Math.random() - 0.5) * fireflyRange
+            );
+        }
+    });
+}
+
+
+function darkenBackgroundLighting() {
+    // Adjust the ambient light to be dimmer
+    const ambientLight = new THREE.AmbientLight(0x0d1b2a, 0.2); // Dark blue for a night-like effect
+    scene.add(ambientLight);
+
+    // Adjust hemisphere light with darker color
+    const hemisphereLight = new THREE.HemisphereLight(0x111111, 0x0d1b2a, 0.3);
+    scene.add(hemisphereLight);
+}
+
+
 
 function getTerrainHeightAt(x, z) {
     // Convert world coordinates to grid indices
@@ -1422,6 +1487,10 @@ function initializeScene() {
     spotlight.shadow.mapSize.height = 4096;
     spotlight.shadow.bias = -0.000001;
     scene.add(spotlight);
+
+    // Add darker background and fireflies
+    darkenBackgroundLighting();
+    createFireflies();
 
     // Sky
     sky = new THREE.Sky();
@@ -2165,6 +2234,8 @@ function animate() {
     // Update player rotation and position
     updatePlayerRotation();
     updatePlayerPosition();
+    // Update fireflies each frame
+    updateFireflies();
 
     // Update enemy AI (movement, shooting, jumping)
     updateEnemyAI(deltaTime);
