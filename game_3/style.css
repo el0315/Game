@@ -49,7 +49,7 @@ html, body {
     background-color: transparent; /* Removed gray coloring */
 }
 
-#joystickContainerMove, #joystickContainerFire {
+#joystickContainerMove {
     position: fixed;
     /* Set appropriate z-index to ensure they are above other elements */
     z-index: 1000;
@@ -69,13 +69,8 @@ html, body {
     bottom: 20px;
 }
 
-#joystickContainerFire {
-    right: 20px;
-    bottom: 20px;
-    background: rgba(255, 0, 0, 0.3); /* Adjusted for visual differentiation */
-}
 
-#joystickKnobMove, #joystickKnobFire {
+#joystickKnobMove {
     width: 60px;
     height: 60px;
     border-radius: 50%;
@@ -83,17 +78,36 @@ html, body {
     transition: transform 0.1s ease;
 }
 
-/* Joystick Labels */
-.joystick-label {
-    position: absolute;
-    top: 130px; /* Positioned below the joystick */
-    width: 100%;
-    text-align: center;
-    font-size: 14px;
-    color: white;
-    user-select: none;
-    pointer-events: none;
+/* Shooting Button */
+.shoot-button {
+    position: fixed;
+    bottom: 20px; /* Align with other controls */
+    right: 20px;  /* Position on the right side */
+    width: 80px;
+    height: 80px;
+    z-index: 1000;
+    touch-action: none; /* Prevent default touch behaviors */
 }
+
+/* Shoot Knob */
+.shoot-knob {
+    width: 60px;
+    height: 60px;
+    background-color: rgba(255, 0, 0, 0.7); /* Semi-transparent red */
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+/* Active State for Shoot Knob */
+.shoot-knob.active {
+    background-color: rgba(255, 0, 0, 1); /* Opaque red on active */
+}
+
 
 /* Simplified Jump Button */
 .jump-button {
