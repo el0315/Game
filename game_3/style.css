@@ -1,67 +1,119 @@
-/* Reset default margins and paddings */
+/* Reset and Basic Styles */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
 }
 
-/* Ensure the gameCanvas takes up the full viewport */
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #77706F;
+    touch-action: none;
+    font-family: 'Montserrat', sans-serif; /* Apply Montserrat font globally */
+}
+
+/* Main Game Container */
+#gameContainer {
+    width: 100%;
+    height: 50vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: transparent;
+    position: relative;
+}
+
+/* Canvas Styling */
 #gameCanvas {
     width: 100%;
-    height: 100vh;
+    height: 100%;
     display: block;
 }
 
-/* Joystick Container Styling */
-#joystickContainerMove {
-    position: absolute;
-    bottom: 20px;
-    left: 20px;
+/* Controls Container */
+#controls {
+    width: 100%;
+    height: 50vh;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    padding: 20px;
+    background-color: transparent; /* Removed gray coloring */
+}
+
+#joystickContainerMove, #joystickContainerFire {
+    position: fixed;
+    /* Set appropriate z-index to ensure they are above other elements */
+    z-index: 1000;
+    /* Prevent touch events from passing through */
+    touch-action: none;
     width: 100px;
     height: 100px;
-    background: rgba(255, 255, 255, 0.3);
     border-radius: 50%;
-    touch-action: none; /* Prevent default touch actions */
+    background: rgba(0, 0, 0, 0.3);
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-/* Joystick Knob Styling */
-.joystickKnob {
+#joystickContainerMove {
+    left: 20px;
+    bottom: 20px;
+}
+
+#joystickContainerFire {
+    right: 20px;
+    bottom: 20px;
+    background: rgba(255, 0, 0, 0.3); /* Adjusted for visual differentiation */
+}
+
+#joystickKnobMove, #joystickKnobFire {
     width: 60px;
     height: 60px;
-    background: rgba(0, 0, 0, 0.5);
     border-radius: 50%;
+    background: rgba(255, 255, 255, 0.7);
     transition: transform 0.1s ease;
 }
 
-/* Common Overlay Styling */
+/* Joystick Labels */
+.joystick-label {
+    position: absolute;
+    top: 130px; /* Positioned below the joystick */
+    width: 100%;
+    text-align: center;
+    font-size: 14px;
+    color: white;
+    user-select: none;
+    pointer-events: none;
+}
+
+
+
+/* Overlays Styling */
 #gameOverOverlay,
 #enemyRespawnOverlay {
     position: absolute;
     padding: 20px 40px;
     background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent background */
     color: #ffffff;
-    font-family: 'Montserrat', sans-serif; /* Apply Montserrat font */
     text-align: center;
     border-radius: 10px;
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
     z-index: 1000;
     display: none; /* Hidden by default */
     animation: fadeIn 0.5s ease;
-}
-
-/* Specific Styling for Game Over Overlay */
-#gameOverOverlay {
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
     font-size: 48px;
     font-weight: 700;
 }
 
-/* Specific Styling for Enemy Respawn Overlay */
 #enemyRespawnOverlay {
     top: 20px;
     left: 50%;
@@ -78,11 +130,36 @@
     to { opacity: 1; }
 }
 
-/* Optional: Style for Shoot Button */
-#shootButton {
+/* Restart Button Styling */
+#restartButton {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 15px 30px;
+    font-size: 24px;
+    border: none;
+    border-radius: 8px;
+    background-color: #4CAF50;
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.3s, transform 0.1s;
+    z-index: 1002;
+}
+
+#restartButton:hover {
+    background-color: #45a049;
+}
+
+#restartButton:active {
+    transform: scale(0.95);
+}
+
+/* Optional: Style for Action Buttons (if needed) */
+.control-button {
     position: absolute;
     bottom: 20px;
-    right: 20px;
     width: 60px;
     height: 60px;
     border-radius: 50%;
@@ -99,10 +176,10 @@
     transition: background-color 0.3s, transform 0.1s;
 }
 
-#shootButton:hover {
+.control-button:hover {
     background-color: rgba(255, 255, 255, 1);
 }
 
-#shootButton:active {
+.control-button:active {
     transform: scale(0.95);
 }
