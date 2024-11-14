@@ -95,7 +95,36 @@ html, body {
     pointer-events: none;
 }
 
+/* Simplified Jump Button */
+.jump-button {
+    position: fixed;
+    bottom: 20px; /* Align with joysticks */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 80px;
+    z-index: 1000;
+    touch-action: none;
+}
 
+/* Jump Knob */
+.jump-knob {
+    width: 60px;
+    height: 60px;
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+/* Active State for Jump Knob */
+.jump-knob.active {
+    background-color: rgba(255, 255, 255, 1);
+}
 
 /* Overlays Styling */
 #gameOverOverlay,
