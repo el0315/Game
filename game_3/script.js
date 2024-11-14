@@ -848,6 +848,23 @@ function createObstaclePhysics(position, shape, obstacleMesh) {
 }
 
 
+// Function to calculate joystick direction vector
+function getJoystickDirectionVector(angle) {
+    return new THREE.Vector3(
+        Math.cos(angle),
+        0,
+        Math.sin(angle)
+    ).normalize();
+}
+
+// Function to transform local direction to world space
+function transformDirectionToWorldSpace(localDirection) {
+    const worldDirection = localDirection.clone();
+    worldDirection.applyQuaternion(camera.quaternion);
+    return worldDirection.normalize();
+}
+
+
 // **New Function to Add Event Listeners for Shooting Joystick**
 function addShootingJoystickEventListeners() {
     // Shooting Joystick Event Handlers
@@ -1055,6 +1072,16 @@ function updatePlayerPosition() {
     const origin = transform.getOrigin();
     player.position.set(origin.x(), origin.y(), origin.z());
 }
+
+function updatePlayerRotation() {
+    // Create a quaternion based on yaw
+    const quaternion = new THREE.Quaternion();
+    quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+
+    // Apply the quaternion to the player mesh
+    player.quaternion.copy(quaternion);
+}
+
 
 
 function updateEnemyPosition(deltaTime) {
@@ -1374,29 +1401,28 @@ function attemptToFireShot() {
     }
 }
 
-// **Function to Fire a Shot in the Direction of the Shooting Joystick**
 function fireShot() {
     if (!playerControlsEnabled) return; // Ensure controls are enabled
 
     // Calculate shooting direction based on joystickFireAngle
-    const direction = new THREE.Vector3(
-        Math.cos(joystickFireAngle),
-        0,
-        Math.sin(joystickFireAngle)
-    ).normalize();
+    const localDirection = getJoystickDirectionVector(joystickFireAngle);
+
+    // Transform direction to world space using camera's quaternion
+    const worldDirection = transformDirectionToWorldSpace(localDirection);
 
     // Get player's current position
     const playerPosition = new THREE.Vector3();
     playerPosition.copy(player.position);
 
-    // Create and fire the projectile
-    createProjectile(playerPosition, direction, 'player');
+    // Create and fire the projectile with the correct direction
+    createProjectile(playerPosition, worldDirection, 'player');
 
     // Limit the number of projectiles
     if (projectiles.length > maxProjectiles) {
         removeOldestProjectile();
     }
 }
+
 
 // **Function to Reset the Shooting Joystick**
 function resetFireJoystick() {
@@ -1415,7 +1441,8 @@ function animate() {
     // Update physics world
     updatePhysics(deltaTime);
 
-    // Update player position
+    // Update player rotation and position
+    updatePlayerRotation();
     updatePlayerPosition();
 
     // Update enemy AI (movement and shooting)
