@@ -31,8 +31,8 @@ const enemySpeed = 2; // Adjust the speed as needed
 let enemyHealth = 3; // Current health
 const maxEnemyHealth = 3; // Maximum health
 // Enemy AI Configuration
-const enemyMoveTowardsPlayerFrequency = 15; // Seconds between movement direction updates
-const enemyShootFrequency = 15; // Seconds between shooting actions
+const enemyMoveTowardsPlayerFrequency = 1; // Seconds between movement direction updates
+const enemyShootFrequency = 2; // Seconds between shooting actions
 
 // Internal tracking variables
 let lastEnemyMoveTime = 0;
