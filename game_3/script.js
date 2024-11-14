@@ -1436,7 +1436,7 @@ function initializeScene() {
     }
     geometry.computeVertexNormals();
 
-    const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+    const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x17593e });
     ground = new THREE.Mesh(geometry, groundMaterial);
     ground.receiveShadow = true;
     ground.castShadow = true;
