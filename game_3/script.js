@@ -6,6 +6,38 @@ const playerRadius = 0.5;
 const playerSpeed = 10;
 const rotationSpeed = 0.015;
 let moveDirection = new THREE.Vector3();
+let playerControlsEnabled = true;
+
+let playerHealth = 5; // Current player health
+const maxPlayerHealth = 5; // Maximum player health
+
+let enemyCanShoot = true;
+
+let enemy, enemyBody;
+const enemyRadius = 0.5; // Same as player radius
+let enemyMoveDirection = new THREE.Vector3();
+const enemySpeed = 2; // Adjust the speed as needed
+let enemyHealth = 3; // Current health
+const maxEnemyHealth = 3; // Maximum health
+// Enemy AI Configuration
+const enemyMoveTowardsPlayerFrequency = 0.5; // Seconds between movement direction updates
+const enemyShootFrequency = 0.5; // Seconds between shooting actions
+
+// Internal tracking variables
+let lastEnemyMoveTime = 0;
+let lastEnemyShootTime = 0;
+let totalElapsedTime = 0; // Total time since the game started
+
+
+// Collision Groups
+const COL_GROUP_PLAYER = 1 << 0;             // 1
+const COL_GROUP_OBSTACLE = 1 << 2;           // 4
+const COL_GROUP_ENEMY = 1 << 3;              // 8
+const COL_GROUP_TERRAIN = 1 << 4;            // 16
+const COL_GROUP_PLAYER_PROJECTILE = 1 << 5;  // 32
+const COL_GROUP_ENEMY_PROJECTILE = 1 << 6;   // 64
+
+
 
 // Terrain parameters
 const terrainWidthExtents = 100;
@@ -22,6 +54,620 @@ let ammoHeightData = null;
 // Hill parameters for terrain generation
 const hillFrequency = 15;   // Adjust this value for more or fewer hills (lower value = fewer hills)
 const hillAmplitude = 0.5; // Adjust this value for the height of the hills (higher value = taller hills)
+
+// Global variables for projectiles
+let projectiles = [];
+const projectileSpeed = 50;
+const projectileRadius = 0.2;
+const projectileMass = 1;
+const maxProjectiles = 100; // Limit the number of active projectiles
+
+// Function to handle shooting
+function handleShootStart(event) {
+    if (!playerControlsEnabled) return; // Prevent shooting when controls are disabled
+    event.preventDefault();
+
+    // Get the player's position and direction
+    const playerPosition = new THREE.Vector3();
+    playerPosition.copy(player.position);
+
+    // Calculate the shooting direction based on player rotation (yaw and pitch)
+    const direction = new THREE.Vector3(
+        -Math.sin(yaw) * Math.cos(pitch),
+        Math.sin(pitch),
+        -Math.cos(yaw) * Math.cos(pitch)
+    ).normalize();
+
+    // Create the projectile with shooterType 'player'
+    createProjectile(playerPosition, direction, 'player');
+
+    // Limit the number of projectiles
+    if (projectiles.length > maxProjectiles) {
+        removeOldestProjectile();
+    }
+}
+
+
+function createProjectile(position, direction, shooterType = 'player') {
+    // Create a copy of the position to avoid modifying the original
+    const spawnPosition = position.clone();
+
+    // Offset the spawn position slightly in front of the shooter
+    const spawnOffset = direction.clone().multiplyScalar(playerRadius + projectileRadius + 0.1); // 0.1 is a small buffer
+    spawnPosition.add(spawnOffset);
+
+    // Define projectile color based on shooterType
+    const projectileColor = shooterType === 'player' ? 0xff0000 : 0x0000ff; // Player: red, Enemy: blue
+
+    // Create Three.js mesh for the projectile
+    const projectileMaterial = new THREE.MeshStandardMaterial({ color: projectileColor });
+    const projectileMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(projectileRadius, 16, 16),
+        projectileMaterial
+    );
+    projectileMesh.castShadow = true;
+    projectileMesh.receiveShadow = true;
+    projectileMesh.position.copy(spawnPosition);
+
+    scene.add(projectileMesh);
+
+    // Create Ammo.js physics body for the projectile
+    const transform = new Ammo.btTransform();
+    transform.setIdentity();
+    transform.setOrigin(new Ammo.btVector3(spawnPosition.x, spawnPosition.y, spawnPosition.z));
+
+    const motionState = new Ammo.btDefaultMotionState(transform);
+    const shape = new Ammo.btSphereShape(projectileRadius);
+    shape.setMargin(0.05);
+
+    const localInertia = new Ammo.btVector3(0, 0, 0);
+    shape.calculateLocalInertia(projectileMass, localInertia);
+
+    const rbInfo = new Ammo.btRigidBodyConstructionInfo(
+        projectileMass,
+        motionState,
+        shape,
+        localInertia
+    );
+    const body = new Ammo.btRigidBody(rbInfo);
+
+    // Associate the Three.js mesh with the Ammo.js body
+    body.threeObject = projectileMesh;
+    body.shooterType = shooterType; // Add shooterType to the body for collision handling
+
+    // Set the velocity of the projectile
+    const velocity = direction.clone().multiplyScalar(projectileSpeed);
+    body.setLinearVelocity(new Ammo.btVector3(velocity.x, velocity.y, velocity.z));
+
+    // Disable deactivation so the projectile doesn't sleep
+    body.setActivationState(4);
+
+    // Determine collision group and mask based on shooterType
+    let collisionGroup, collisionMask;
+    if (shooterType === 'player') {
+        collisionGroup = COL_GROUP_PLAYER_PROJECTILE;
+        collisionMask = COL_GROUP_OBSTACLE | COL_GROUP_ENEMY | COL_GROUP_TERRAIN;
+    } else if (shooterType === 'enemy') {
+        collisionGroup = COL_GROUP_ENEMY_PROJECTILE;
+        collisionMask = COL_GROUP_OBSTACLE | COL_GROUP_PLAYER | COL_GROUP_TERRAIN;
+    } else {
+        collisionGroup = COL_GROUP_PLAYER_PROJECTILE; // Default to player projectile
+        collisionMask = COL_GROUP_OBSTACLE | COL_GROUP_ENEMY | COL_GROUP_TERRAIN;
+    }
+
+    physicsWorld.addRigidBody(
+        body,
+        collisionGroup, // Collision group
+        collisionMask // Collides with these groups
+    );
+
+    // Track the projectile
+    projectiles.push({ mesh: projectileMesh, body: body });
+}
+
+
+
+// Function to remove the oldest projectile
+function removeOldestProjectile() {
+    const oldest = projectiles.shift();
+    scene.remove(oldest.mesh);
+    physicsWorld.removeRigidBody(oldest.body);
+}
+
+function checkProjectileCollisions() {
+    const dispatcher = physicsWorld.getDispatcher();
+    const numManifolds = dispatcher.getNumManifolds();
+
+    for (let i = 0; i < numManifolds; i++) {
+        const contactManifold = dispatcher.getManifoldByIndexInternal(i);
+        const body0 = Ammo.castObject(contactManifold.getBody0(), Ammo.btRigidBody);
+        const body1 = Ammo.castObject(contactManifold.getBody1(), Ammo.btRigidBody);
+
+        // Check for player projectile colliding with enemy
+        if ((isPlayerProjectileBody(body0) && isEnemyBody(body1)) || (isPlayerProjectileBody(body1) && isEnemyBody(body0))) {
+            handleProjectileEnemyCollision(body0, body1);
+        }
+        // Check for enemy projectile colliding with player
+        else if ((isEnemyProjectileBody(body0) && isPlayerBody(body1)) || (isEnemyProjectileBody(body1) && isPlayerBody(body0))) {
+            handleProjectilePlayerCollision(body0, body1);
+        }
+        // Check for player projectiles colliding with obstacles
+        else if ((isPlayerProjectileBody(body0) && isObstacleBody(body1)) || (isPlayerProjectileBody(body1) && isObstacleBody(body0))) {
+            handleProjectileCollision(body0, body1);
+        }
+        // Check for enemy projectiles colliding with obstacles
+        else if ((isEnemyProjectileBody(body0) && isObstacleBody(body1)) || (isEnemyProjectileBody(body1) && isObstacleBody(body0))) {
+            handleProjectileCollision(body0, body1);
+        }
+    }
+}
+
+
+function isPlayerBody(body) {
+    return body === playerBody;
+}
+
+function handleProjectilePlayerCollision(body0, body1) {
+    // Identify which body is the enemy projectile
+    let projectileBody;
+    if (isEnemyProjectileBody(body0)) {
+        projectileBody = body0;
+    } else {
+        projectileBody = body1;
+    }
+
+    // Remove the projectile
+    const index = projectiles.findIndex(projectile => projectile.body === projectileBody);
+    if (index !== -1) {
+        const projectile = projectiles[index];
+        scene.remove(projectile.mesh);
+        physicsWorld.removeRigidBody(projectile.body);
+        projectiles.splice(index, 1);
+    }
+
+    // Apply damage to the player
+    handlePlayerDamage(1); // Adjust damage amount as needed
+}
+
+function showGameOverOverlay() {
+    const overlay = document.getElementById('gameOverOverlay');
+    if (overlay) {
+        overlay.style.display = 'flex';
+    }
+}
+
+function hideGameOverOverlay() {
+    const overlay = document.getElementById('gameOverOverlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+}
+
+
+
+
+function isEnemyBody(body) {
+    return body === enemyBody;
+}
+
+function handleProjectileEnemyCollision(body0, body1) {
+    // Identify which body is the player projectile
+    let projectileBody;
+    if (isPlayerProjectileBody(body0)) {
+        projectileBody = body0;
+    } else {
+        projectileBody = body1;
+    }
+
+    // Remove the projectile
+    const index = projectiles.findIndex(projectile => projectile.body === projectileBody);
+    if (index !== -1) {
+        const projectile = projectiles[index];
+        scene.remove(projectile.mesh);
+        physicsWorld.removeRigidBody(projectile.body);
+        projectiles.splice(index, 1);
+    }
+
+    // Decrease enemy health
+    enemyHealth--;
+
+    if (enemyHealth > 0) {
+        // Update health bar
+        updateEnemyHealthBar();
+        // Apply hit effect
+        applyEnemyHitEffect();
+    } else {
+        // Enemy defeated, handle respawn
+        destroyEnemy();
+    }
+}
+
+
+function isPlayerProjectileBody(body) {
+    return projectiles.some(projectile => projectile.body === body && projectile.body.shooterType === 'player');
+}
+
+function isEnemyProjectileBody(body) {
+    return projectiles.some(projectile => projectile.body === body && projectile.body.shooterType === 'enemy');
+}
+
+
+function createHealthBarTexture(healthPercentage) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 16;
+    const context = canvas.getContext('2d');
+
+    // Draw background (red)
+    context.fillStyle = '#ff0000';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw foreground (green) based on health
+    context.fillStyle = '#00ff00';
+    context.fillRect(0, 0, canvas.width * healthPercentage, canvas.height);
+
+    // Optional: Add border
+    context.strokeStyle = '#000000';
+    context.lineWidth = 2;
+    context.strokeRect(0, 0, canvas.width, canvas.height);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    return texture;
+}
+
+
+function updatePlayerHealthBar() {
+    const healthPercentage = playerHealth / maxPlayerHealth;
+    // Clamp healthPercentage between 0 and 1
+    const clampedHealth = Math.max(0, Math.min(1, healthPercentage));
+
+    // Update the sprite's texture
+    if (player.healthBarTexture) {
+        const newTexture = createHealthBarTexture(clampedHealth);
+        player.healthBarSprite.material.map.dispose(); // Dispose of the old texture
+        player.healthBarSprite.material.map = newTexture;
+        player.healthBarSprite.material.needsUpdate = true;
+
+        // Update the stored texture reference
+        player.healthBarTexture = newTexture;
+    }
+}
+
+function updateEnemyHealthBar() {
+    const healthPercentage = enemyHealth / maxEnemyHealth;
+    // Clamp healthPercentage between 0 and 1
+    const clampedHealth = Math.max(0, Math.min(1, healthPercentage));
+
+    // Update the sprite's texture
+    if (enemy.healthBarTexture) {
+        const newTexture = createHealthBarTexture(clampedHealth);
+        enemy.healthBarSprite.material.map.dispose(); // Dispose of the old texture
+        enemy.healthBarSprite.material.map = newTexture;
+        enemy.healthBarSprite.material.needsUpdate = true;
+
+        // Update the stored texture reference
+        enemy.healthBarTexture = newTexture;
+    }
+}
+
+
+function updateHealthBars() {
+    // Update Enemy Health Bar
+    if (enemy.healthBarSprite) {
+        updateEnemyHealthBar();
+    }
+
+    // Update Player Health Bar
+    if (player.healthBarSprite) {
+        updatePlayerHealthBar();
+    }
+}
+
+
+function applyEnemyHitEffect() {
+    // Change the enemy's color to red briefly
+    enemy.material.color.set(0xff0000);
+
+    // Reset the color after a short delay
+    setTimeout(() => {
+        enemy.material.color.set(0x800080); // Purple color
+    }, 200); // Duration in milliseconds
+}
+
+function destroyEnemy() {
+    // Remove enemy from scene
+    scene.remove(enemy);
+
+    // Remove enemy from physics world
+    physicsWorld.removeRigidBody(enemyBody);
+
+    // Prevent enemy from shooting
+    enemyCanShoot = false;
+
+    // Show respawn indicator with countdown
+    showEnemyRespawnOverlayWithCountdown(5); // 5 seconds
+
+    // Schedule respawn after a delay (e.g., 5 seconds)
+    setTimeout(() => {
+        respawnEnemy();
+    }, 5000); // 5000 milliseconds = 5 seconds
+}
+
+
+
+function respawnEnemy() {
+    // Reset enemy health
+    enemyHealth = maxEnemyHealth;
+
+    // Reset enemy position
+    const startPosition = new THREE.Vector3(0, terrainMaxHeight + enemyRadius + 1, -10);
+    enemy.position.copy(startPosition);
+
+    // Reset enemy physics body
+    const transform = new Ammo.btTransform();
+    transform.setIdentity();
+    transform.setOrigin(new Ammo.btVector3(startPosition.x, startPosition.y, startPosition.z));
+    enemyBody.setWorldTransform(transform);
+    enemyBody.getMotionState().setWorldTransform(transform);
+
+    // Re-add enemy to scene
+    scene.add(enemy);
+
+    // Re-add enemy to physics world
+    physicsWorld.addRigidBody(
+        enemyBody,
+        COL_GROUP_ENEMY, // Collision group
+        COL_GROUP_PLAYER | COL_GROUP_PLAYER_PROJECTILE | COL_GROUP_OBSTACLE | COL_GROUP_TERRAIN // Collision mask
+    );
+
+    // Reset health bar to full health
+    updateEnemyHealthBar();
+
+    // Reset enemy's material color in case it was changed
+    enemy.material.color.set(0x800080); // Purple color
+
+    // Allow enemy to shoot again
+    enemyCanShoot = true;
+
+    // Hide respawn indicator
+    hideEnemyRespawnOverlay();
+}
+
+
+function showEnemyRespawnOverlayWithCountdown(seconds) {
+    const overlay = document.getElementById('enemyRespawnOverlay');
+    if (overlay) {
+        overlay.style.display = 'block';
+        overlay.innerText = `Enemy Respawning in ${seconds}...`;
+
+        // Start countdown
+        let remaining = seconds;
+        const countdownInterval = setInterval(() => {
+            remaining--;
+            if (remaining > 0) {
+                overlay.innerText = `Enemy Respawning in ${remaining}...`;
+            } else {
+                clearInterval(countdownInterval);
+                overlay.innerText = 'Enemy Respawning...';
+            }
+        }, 1000);
+    }
+}
+
+
+function hideEnemyRespawnOverlay() {
+    const overlay = document.getElementById('enemyRespawnOverlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+}
+
+
+function createEnemyHealthBar() {
+    // Prevent creating multiple health bars
+    if (enemy.healthBarSprite) return;
+
+    // Initial health percentage
+    const healthPercentage = enemyHealth / maxEnemyHealth;
+
+    // Create sprite material with initial texture
+    const texture = createHealthBarTexture(healthPercentage);
+    const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+
+    // Create sprite
+    const sprite = new THREE.Sprite(spriteMaterial);
+    sprite.scale.set(2, 0.25, 1); // Adjust size as needed
+    sprite.position.set(0, enemyRadius + 0.6, 0); // Position slightly above the enemy
+
+    // Add sprite to enemy
+    enemy.add(sprite);
+
+    // Store references for later updates
+    enemy.healthBarSprite = sprite;
+    enemy.healthBarTexture = texture;
+}
+
+
+function createPlayerHealthBar() {
+    // Prevent creating multiple health bars
+    if (player.healthBarSprite) return;
+
+    // Initial health percentage
+    const healthPercentage = playerHealth / maxPlayerHealth;
+
+    // Create sprite material with initial texture
+    const texture = createHealthBarTexture(healthPercentage);
+    const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+
+    // Create sprite
+    const sprite = new THREE.Sprite(spriteMaterial);
+    sprite.scale.set(2, 0.25, 1); // Adjust size as needed
+    sprite.position.set(0, playerRadius + 0.6, 0); // Position slightly above the player
+
+    // Add sprite to player
+    player.add(sprite);
+
+    // Store references for later updates
+    player.healthBarSprite = sprite;
+    player.healthBarTexture = texture;
+}
+
+
+function handleShootStart(event) {
+    event.preventDefault();
+
+    // Get the player's position and direction
+    const playerPosition = new THREE.Vector3();
+    playerPosition.copy(player.position);
+
+    // Calculate the shooting direction based on player rotation (yaw and pitch)
+    const direction = new THREE.Vector3(
+        -Math.sin(yaw) * Math.cos(pitch),
+        Math.sin(pitch),
+        -Math.cos(yaw) * Math.cos(pitch)
+    ).normalize();
+
+    // Create the projectile with shooterType 'player'
+    createProjectile(playerPosition, direction, 'player');
+
+    // Limit the number of projectiles
+    if (projectiles.length > maxProjectiles) {
+        removeOldestProjectile();
+    }
+}
+
+function handlePlayerDamage(damageAmount) {
+    playerHealth -= damageAmount;
+    playerHealth = Math.max(playerHealth, 0); // Prevent negative health
+
+    if (playerHealth > 0) {
+        // Update health bar
+        updatePlayerHealthBar();
+        // Apply hit effect
+        applyPlayerHitEffect();
+    } else {
+        // Player is dead, handle respawn
+        handlePlayerDeath();
+    }
+}
+
+function applyPlayerHitEffect() {
+    // Change the player's color to red briefly
+    player.material.color.set(0xff0000);
+
+    // Reset the color after a short delay
+    setTimeout(() => {
+        player.material.color.set(0x4682B4); // Original color
+    }, 200); // Duration in milliseconds
+}
+
+function handlePlayerDeath() {
+    // Remove player from scene
+    scene.remove(player);
+
+    // Remove player from physics world
+    physicsWorld.removeRigidBody(playerBody);
+
+    // Disable player controls
+    disablePlayerControls();
+
+    // Schedule respawn after a delay (e.g., 5 seconds)
+    setTimeout(() => {
+        respawnPlayer();
+    }, 5000); // 5000 milliseconds = 5 seconds
+}
+
+function disablePlayerControls() {
+    playerControlsEnabled = false;
+    // Optionally, provide visual feedback (e.g., dim the screen or show a "Game Over" overlay)
+    showGameOverOverlay();
+}
+
+function enablePlayerControls() {
+    playerControlsEnabled = true;
+    // Remove visual feedback
+    hideGameOverOverlay();
+}
+
+
+function respawnPlayer() {
+    // Reset player health
+    playerHealth = maxPlayerHealth;
+
+    // Reset player position
+    const startPosition = new THREE.Vector3(0, terrainMaxHeight + playerRadius + 1, 0);
+    player.position.copy(startPosition);
+
+    // Reset player physics body
+    const transform = new Ammo.btTransform();
+    transform.setIdentity();
+    transform.setOrigin(new Ammo.btVector3(startPosition.x, startPosition.y, startPosition.z));
+    playerBody.setWorldTransform(transform);
+    playerBody.getMotionState().setWorldTransform(transform);
+
+    // Re-add player to scene
+    scene.add(player);
+
+    // Re-add player to physics world
+    physicsWorld.addRigidBody(
+        playerBody,
+        COL_GROUP_PLAYER, // Collision group
+        COL_GROUP_OBSTACLE | COL_GROUP_ENEMY | COL_GROUP_TERRAIN | COL_GROUP_ENEMY_PROJECTILE // Collides with these groups
+    );
+
+    // Reset health bar to full health
+    updatePlayerHealthBar();
+
+    // Reset player's material color in case it was changed
+    player.material.color.set(0x4682B4); // Original color
+
+    // Enable player controls
+    enablePlayerControls();
+}
+
+
+
+
+// Helper functions to identify projectiles and obstacles
+function isProjectileBody(body) {
+    return projectiles.some(projectile => projectile.body === body);
+}
+
+function isObstacleBody(body) {
+    return obstacles.some(obstacle => obstacle.userData.physicsBody === body);
+}
+
+function handleProjectileCollision(body0, body1) {
+    // Identify which body is the projectile
+    let projectileBody, obstacleBody;
+    if (isPlayerProjectileBody(body0)) {
+        projectileBody = body0;
+        obstacleBody = body1;
+    } else if (isPlayerProjectileBody(body1)) {
+        projectileBody = body1;
+        obstacleBody = body0;
+    } else if (isEnemyProjectileBody(body0)) {
+        projectileBody = body0;
+        obstacleBody = body1;
+    } else if (isEnemyProjectileBody(body1)) {
+        projectileBody = body1;
+        obstacleBody = body0;
+    }
+
+    // Remove the projectile
+    const index = projectiles.findIndex(projectile => projectile.body === projectileBody);
+    if (index !== -1) {
+        const projectile = projectiles[index];
+        scene.remove(projectile.mesh);
+        physicsWorld.removeRigidBody(projectile.body);
+        projectiles.splice(index, 1);
+    }
+
+    // Optionally, apply effects to the obstacle
+    // For example, you could remove the obstacle or apply a force
+}
+
 
 // Joystick elements
 let joystickContainerMove, joystickKnobMove;
@@ -55,7 +701,12 @@ function initializePhysics() {
     const groundMass = 0;
     const groundMotionState = new Ammo.btDefaultMotionState(groundTransform);
     const groundBody = new Ammo.btRigidBody(new Ammo.btRigidBodyConstructionInfo(groundMass, groundMotionState, groundShape, new Ammo.btVector3(0, 0, 0)));
-    physicsWorld.addRigidBody(groundBody);
+    // After creating groundBody
+    physicsWorld.addRigidBody(
+        groundBody,
+        COL_GROUP_TERRAIN, // Collision group
+        COL_GROUP_PLAYER | COL_GROUP_PLAYER_PROJECTILE | COL_GROUP_ENEMY_PROJECTILE | COL_GROUP_OBSTACLE | COL_GROUP_ENEMY // Collides with these groups
+    );
 
     // Player physics
     const playerShape = new Ammo.btSphereShape(playerRadius);
@@ -76,12 +727,42 @@ function initializePhysics() {
     // Set friction and restitution
     playerBody.setFriction(0.8);
     playerBody.setRestitution(0.2);
+    physicsWorld.addRigidBody(
+        playerBody,
+        COL_GROUP_PLAYER, // Collision group
+        COL_GROUP_OBSTACLE | COL_GROUP_ENEMY | COL_GROUP_TERRAIN | COL_GROUP_ENEMY_PROJECTILE // Collides with these groups
+    );
 
-    physicsWorld.addRigidBody(playerBody);
 
-    // Obstacles physics
-    createObstaclePhysics(new THREE.Vector3(5, 2.5, 5), new Ammo.btCylinderShape(new Ammo.btVector3(0.5, 2.5, 0.5)));
-    createObstaclePhysics(new THREE.Vector3(3, 1, 3), new Ammo.btBoxShape(new Ammo.btVector3(1, 1, 1)));
+    // Enemy physics
+    const enemyShape = new Ammo.btSphereShape(enemyRadius);
+    const enemyTransform = new Ammo.btTransform();
+    enemyTransform.setIdentity();
+    enemyTransform.setOrigin(new Ammo.btVector3(0, terrainMaxHeight + enemyRadius + 1, -10)); // Start enemy at a position
+    const enemyMass = 1;
+    const enemyInertia = new Ammo.btVector3(0, 0, 0);
+    enemyShape.calculateLocalInertia(enemyMass, enemyInertia);
+    const enemyMotionState = new Ammo.btDefaultMotionState(enemyTransform);
+    const enemyRbInfo = new Ammo.btRigidBodyConstructionInfo(enemyMass, enemyMotionState, enemyShape, enemyInertia);
+    enemyBody = new Ammo.btRigidBody(enemyRbInfo);
+    enemyBody.setActivationState(4);
+
+    // Set damping for realistic physics
+    enemyBody.setDamping(0.2, 0.9); // Linear damping, angular damping
+
+    // Set friction and restitution
+    enemyBody.setFriction(0.8);
+    enemyBody.setRestitution(0.2);
+
+    // Associate the Three.js mesh with the Ammo.js body
+    enemyBody.threeObject = enemy;
+
+    physicsWorld.addRigidBody(
+        enemyBody,
+        COL_GROUP_ENEMY, // Collision group
+        COL_GROUP_PLAYER | COL_GROUP_PLAYER_PROJECTILE | COL_GROUP_OBSTACLE | COL_GROUP_TERRAIN // Collides with these groups
+    );
+
 }
 
 function generateHeight(width, depth, minHeight, maxHeight) {
@@ -154,7 +835,7 @@ function createTerrainShape() {
     return heightFieldShape;
 }
 
-function createObstaclePhysics(position, shape) {
+function createObstaclePhysics(position, shape, obstacleMesh) {
     const obstacleTransform = new Ammo.btTransform();
     obstacleTransform.setIdentity();
     obstacleTransform.setOrigin(new Ammo.btVector3(position.x, position.y, position.z));
@@ -162,8 +843,21 @@ function createObstaclePhysics(position, shape) {
     const obstacleMotionState = new Ammo.btDefaultMotionState(obstacleTransform);
     const obstacleRbInfo = new Ammo.btRigidBodyConstructionInfo(obstacleMass, obstacleMotionState, shape, new Ammo.btVector3(0, 0, 0));
     const obstacleBody = new Ammo.btRigidBody(obstacleRbInfo);
-    physicsWorld.addRigidBody(obstacleBody);
+
+    // Store the physics body in the mesh's userData
+    obstacleMesh.userData.physicsBody = obstacleBody;
+
+    // Associate the Three.js object with the Ammo.js body
+    obstacleBody.threeObject = obstacleMesh;
+
+    // Add the obstacle to the physics world with collision groups
+    physicsWorld.addRigidBody(
+        obstacleBody,
+        COL_GROUP_OBSTACLE, // Collision group
+        COL_GROUP_PLAYER | COL_GROUP_PLAYER_PROJECTILE | COL_GROUP_ENEMY_PROJECTILE | COL_GROUP_ENEMY | COL_GROUP_TERRAIN // Collides with these groups
+    );
 }
+
 
 function initializeScene() {
     scene = new THREE.Scene();
@@ -229,24 +923,106 @@ function initializeScene() {
     player.castShadow = true;
     scene.add(player);
 
+    // Create Player Health Bar
+    createPlayerHealthBar();
+
+    // Initialize Player Health
+    playerHealth = maxPlayerHealth;
+    updatePlayerHealthBar();
+
+    // Enemy
+    const enemyMaterial = new THREE.MeshStandardMaterial({ color: 0x800080 }); // Purple color
+    enemy = new THREE.Mesh(new THREE.SphereGeometry(enemyRadius, 32, 32), enemyMaterial);
+    enemy.castShadow = true;
+    scene.add(enemy);
+
+    // Initialize Enemy Health
+    enemyHealth = maxEnemyHealth;
+
+    // Create Enemy Health Bar
+    createEnemyHealthBar();
+
     // Obstacles
     const obstacleMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
+
+    // Pillar
     const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 5, 32), obstacleMaterial);
     pillar.position.set(5, 2.5, 5);
-    obstacles.push(pillar);
+    pillar.castShadow = true;
+    pillar.receiveShadow = true;
     scene.add(pillar);
 
+    // Create physics for the pillar and associate the mesh
+    createObstaclePhysics(pillar.position, new Ammo.btCylinderShape(new Ammo.btVector3(0.5, 2.5, 0.5)), pillar);
+
+    // Cube
     const cube = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), new THREE.MeshStandardMaterial({ color: 0x8B4513 }));
     cube.position.set(3, 1, 3);
-    obstacles.push(cube);
+    cube.castShadow = true;
+    cube.receiveShadow = true;
     scene.add(cube);
 
+    // Create physics for the cube and associate the mesh
+    createObstaclePhysics(cube.position, new Ammo.btBoxShape(new Ammo.btVector3(1, 1, 1)), cube);
+
+    obstacles.push(pillar, cube);
+    
     // Update shadow properties on obstacles
     obstacles.forEach(obstacle => {
         obstacle.castShadow = true;
         obstacle.receiveShadow = true;
     });
-}
+
+
+        // Create the shoot button
+        createShootButton();
+    }
+    
+    function createShootButton() {
+        const button = document.createElement('button');
+        button.id = 'shootButton';
+        button.innerText = '⦿'; // Unicode character for a minimalistic icon
+        button.style.position = 'absolute';
+        button.style.bottom = '20px';
+        button.style.right = '20px';
+        button.style.width = '60px';
+        button.style.height = '60px';
+        button.style.borderRadius = '50%';
+        button.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+        button.style.color = '#000';
+        button.style.border = 'none';
+        button.style.outline = 'none';
+        button.style.fontSize = '32px';
+        button.style.display = 'flex';
+        button.style.alignItems = 'center';
+        button.style.justifyContent = 'center';
+        button.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+        button.style.cursor = 'pointer';
+        button.style.transition = 'background-color 0.3s, transform 0.1s';
+    
+        // Hover effect (for desktop)
+        button.addEventListener('mouseenter', () => {
+            button.style.backgroundColor = 'rgba(255, 255, 255, 1)';
+        });
+        button.addEventListener('mouseleave', () => {
+            button.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+        });
+    
+        // Touch feedback
+        button.addEventListener('touchstart', () => {
+            button.style.transform = 'scale(0.95)';
+        }, false);
+        button.addEventListener('touchend', () => {
+            button.style.transform = 'scale(1)';
+        }, false);
+    
+        // Add event listener for shooting
+        button.addEventListener('touchstart', handleShootStart, false);
+        button.addEventListener('mousedown', handleShootStart, false);
+    
+        document.body.appendChild(button);
+    }
+    
 
 function updatePlayerPosition() {
     if (joystickMoveAngle !== null) {
@@ -282,6 +1058,153 @@ function updatePlayerPosition() {
     player.position.set(origin.x(), origin.y(), origin.z());
 }
 
+
+function updateEnemyPosition(deltaTime) {
+    // If the enemy has reached a boundary, change direction
+    if (Math.abs(enemy.position.x) > terrainWidthExtents / 2 - enemyRadius) {
+        enemyMoveDirection.x *= -1;
+    }
+    if (Math.abs(enemy.position.z) > terrainDepthExtents / 2 - enemyRadius) {
+        enemyMoveDirection.z *= -1;
+    }
+
+    // Apply random movement changes occasionally
+    if (Math.random() < 0.02) { // Adjust the frequency of direction changes
+        enemyMoveDirection.x = (Math.random() - 0.5) * 2;
+        enemyMoveDirection.z = (Math.random() - 0.5) * 2;
+        enemyMoveDirection.normalize();
+    }
+
+    // Set the enemy's velocity
+    const velocity = new Ammo.btVector3(
+        enemyMoveDirection.x * enemySpeed,
+        enemyBody.getLinearVelocity().y(), // Preserve vertical velocity
+        enemyMoveDirection.z * enemySpeed
+    );
+    enemyBody.setLinearVelocity(velocity);
+
+    // Update the enemy's position based on physics
+    const transform = new Ammo.btTransform();
+    enemyBody.getMotionState().getWorldTransform(transform);
+    const origin = transform.getOrigin();
+    enemy.position.set(origin.x(), origin.y(), origin.z());
+}
+
+function updateEnemyAI(deltaTime) {
+    // Movement Towards Player
+    if (totalElapsedTime - lastEnemyMoveTime > enemyMoveTowardsPlayerFrequency) {
+        moveEnemyTowardsPlayer();
+        lastEnemyMoveTime = totalElapsedTime;
+    }
+
+    // Shooting at Player
+    if (totalElapsedTime - lastEnemyShootTime > enemyShootFrequency) {
+        enemyShootAtPlayer();
+        lastEnemyShootTime = totalElapsedTime;
+    }
+
+    // Sync enemy mesh position with physics
+    syncEnemyPosition();
+}
+
+function syncEnemyPosition() {
+    const transform = new Ammo.btTransform();
+    enemyBody.getMotionState().getWorldTransform(transform);
+    const origin = transform.getOrigin();
+    enemy.position.set(origin.x(), origin.y(), origin.z());
+}
+
+
+function moveEnemyTowardsPlayer() {
+    // Calculate direction vector from enemy to player
+    const directionToPlayer = new THREE.Vector3();
+    directionToPlayer.subVectors(player.position, enemy.position).normalize();
+
+    // Update enemy's movement direction
+    enemyMoveDirection.copy(directionToPlayer);
+
+    // Set enemy's velocity towards the player
+    const desiredVelocity = new Ammo.btVector3(
+        enemyMoveDirection.x * enemySpeed,
+        enemyBody.getLinearVelocity().y(), // Preserve vertical velocity
+        enemyMoveDirection.z * enemySpeed
+    );
+    enemyBody.setLinearVelocity(desiredVelocity);
+}
+
+function enemyShootAtPlayer() {
+    if (!enemyCanShoot) return; // Prevent shooting during respawn
+
+    // Get the enemy's current position
+    const enemyPosition = new THREE.Vector3();
+    enemyPosition.copy(enemy.position);
+
+    // Calculate direction vector from enemy to player
+    const direction = new THREE.Vector3();
+    direction.subVectors(player.position, enemy.position).normalize();
+
+    // Create the projectile with shooterType 'enemy'
+    createProjectile(enemyPosition, direction, 'enemy');
+
+    // Limit the number of projectiles
+    if (projectiles.length > maxProjectiles) {
+        removeOldestProjectile();
+    }
+}
+
+
+function updateProjectiles() {
+    // Iterate over all projectiles
+    projectiles.forEach((projectile, index) => {
+        const transform = new Ammo.btTransform();
+        projectile.body.getMotionState().getWorldTransform(transform);
+        const origin = transform.getOrigin();
+        projectile.mesh.position.set(origin.x(), origin.y(), origin.z());
+
+        // Optionally remove projectile if it goes out of bounds or slows down
+        const velocity = projectile.body.getLinearVelocity();
+        const speed = velocity.length();
+
+        // Remove projectiles that have slowed down or fallen below the terrain
+        if (speed < 0.1 || projectile.mesh.position.y < -10) {
+            // Remove from scene
+            scene.remove(projectile.mesh);
+
+            // Remove physics body
+            physicsWorld.removeRigidBody(projectile.body);
+
+            // Remove from projectiles array
+            projectiles.splice(index, 1);
+        }
+    });
+}
+
+
+function updatePhysics(deltaTime) {
+    // Step the physics simulation
+    physicsWorld.stepSimulation(deltaTime, 10);
+
+    // Update the player's position based on the physics simulation
+    const playerTransform = new Ammo.btTransform();
+    playerBody.getMotionState().getWorldTransform(playerTransform);
+    const playerOrigin = playerTransform.getOrigin();
+    player.position.set(playerOrigin.x(), playerOrigin.y(), playerOrigin.z());
+
+    // Update the enemy's position
+    const enemyTransform = new Ammo.btTransform();
+    enemyBody.getMotionState().getWorldTransform(enemyTransform);
+    const enemyOrigin = enemyTransform.getOrigin();
+    enemy.position.set(enemyOrigin.x(), enemyOrigin.y(), enemyOrigin.z());
+
+    // Update the projectiles' positions and handle their lifecycle
+    updateProjectiles();
+
+    // Check for collisions between projectiles and obstacles/enemy
+    checkProjectileCollisions();
+}
+
+
+
 function resetMoveJoystick() {
     joystickMoveAngle = null;
     joystickKnobMove.style.transform = 'translate(0px, 0px)';
@@ -296,6 +1219,7 @@ function resetMoveJoystick() {
 
 // Joystick Event Handlers
 function handleMoveJoystickStart(event) {
+    if (!playerControlsEnabled) return; // Prevent movement when controls are disabled
     const rect = joystickContainerMove.getBoundingClientRect();
     const dx = event.clientX - rect.left - 50;
     const dy = event.clientY - rect.top - 50;
@@ -307,6 +1231,7 @@ function handleMoveJoystickStart(event) {
 }
 
 function handleMoveJoystick(event) {
+    if (!playerControlsEnabled) return; // Prevent movement when controls are disabled
     const rect = joystickContainerMove.getBoundingClientRect();
     let dx = event.clientX - rect.left - 50;
     let dy = event.clientY - rect.top - 50;
@@ -321,6 +1246,7 @@ function handleMoveJoystick(event) {
     joystickKnobMove.style.transform = `translate(${dx}px, ${dy}px)`;
     joystickMoveAngle = Math.atan2(dy, dx);
 }
+
 
 // Touch Event Handlers for Movement and Rotation
 document.addEventListener('touchstart', (e) => {
@@ -365,6 +1291,7 @@ document.addEventListener('touchend', (e) => {
     e.preventDefault();
 });
 
+
 function updateCameraPosition() {
     const cameraDistance = 10;
     const offsetX = cameraDistance * Math.cos(pitch) * Math.sin(yaw);
@@ -382,14 +1309,29 @@ function updateCameraPosition() {
 function animate() {
     requestAnimationFrame(animate);
 
-    const deltaTime = 1 / 60;
-    physicsWorld.stepSimulation(deltaTime, 10);
+    const deltaTime = 1 / 60; // Assuming 60 FPS
+    totalElapsedTime += deltaTime;
 
+    // Update physics world
+    updatePhysics(deltaTime);
+
+    // Update player position
     updatePlayerPosition();
+
+    // Update enemy AI (movement and shooting)
+    updateEnemyAI(deltaTime);
+
+    // Update camera position
     updateCameraPosition();
 
+    // Update health bars to face the camera
+    updateHealthBars();
+
+    // Render the scene
     renderer.render(scene, camera);
 }
+
+
 
 loadAmmoAndStartGame();
 
