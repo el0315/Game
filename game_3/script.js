@@ -1103,6 +1103,8 @@ function createTrees(count) {
             new THREE.MeshStandardMaterial({ color: 0x8B4513 })
         );
         trunk.position.y = (trunkHeight / 2); // Position trunk so its base is at y=0
+        trunk.castShadow = true
+        trunk.receiveShadow = true
         tree.add(trunk);
 
         // Foliage
@@ -1112,6 +1114,8 @@ function createTrees(count) {
             new THREE.MeshStandardMaterial({ color: 0x228B22 })
         );
         foliage.position.y = trunkHeight + (foliageHeight / 2); // Position foliage on top of the trunk
+        foliage.castShadow = true; // Enable shadow casting
+        foliage.receiveShadow = true; // Enable shadow receiving
         tree.add(foliage);
 
         // Position on terrain
@@ -1144,7 +1148,7 @@ function createTrees(count) {
         scene.add(tree);
         trees.push(tree); // If you have a separate trees array
         obstacles.push(tree); // If trees are considered obstacles
-
+        
         // Optional: Add physics body if trees should interact physically
         // Example: Approximate the tree as a compound shape or use a cylinder
         const trunkShape = new Ammo.btCylinderShape(new Ammo.btVector3(0.2, trunkHeight / 2, 0.2));
@@ -1163,6 +1167,7 @@ function createTrees(count) {
         compoundShape.addChildShape(transformFoliage, foliageShape);
 
         createObstaclePhysics(tree.position, compoundShape, tree);
+        
     }
 }
 
@@ -1436,7 +1441,7 @@ function initializeScene() {
     }
     geometry.computeVertexNormals();
 
-    const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x17593e });
+    const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x17593e});
     ground = new THREE.Mesh(geometry, groundMaterial);
     ground.receiveShadow = true;
     ground.castShadow = true;
