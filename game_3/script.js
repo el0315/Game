@@ -31,13 +31,31 @@ const enemySpeed = 2; // Adjust the speed as needed
 let enemyHealth = 3; // Current health
 const maxEnemyHealth = 3; // Maximum health
 // Enemy AI Configuration
-const enemyMoveTowardsPlayerFrequency = 1; // Seconds between movement direction updates
-const enemyShootFrequency = 2; // Seconds between shooting actions
+const enemyMoveTowardsPlayerFrequency = 15; // Seconds between movement direction updates
+const enemyShootFrequency = 15; // Seconds between shooting actions
+
+// Enemy Jump Mechanics Constants
+const enemyJumpForce = 5;        // Upward force applied during a jump
+const enemyJumpInterval = 5000;   // Time between jumps in milliseconds (e.g., every 5 seconds)
+
+// Enemy Jump Timer
+let enemyJumpTimer = 0;
+
 
 // Internal tracking variables
 let lastEnemyMoveTime = 0;
 let lastEnemyShootTime = 0;
 let totalElapsedTime = 0; // Total time since the game started
+
+// Jump Mechanics Constants
+const jumpForce = 20;         // Upward force applied during a jump
+
+// Jump State Variables
+let jumpStartTime = null;
+let isJumping = false;
+
+// References to Jump Button Elements
+let jumpButton, jumpRing, jumpKnob;
 
 
 // Collision Groups
@@ -848,6 +866,125 @@ function createObstaclePhysics(position, shape, obstacleMesh) {
 }
 
 
+// Initialize Jump Button Elements and Event Listeners
+function initializeJumpButton() {
+    jumpButton = document.getElementById('jumpButton');
+    jumpKnob = jumpButton.querySelector('.jump-knob');
+
+    // Add Pointer Event Listeners
+    jumpKnob.addEventListener('pointerdown', handleJumpPointerDown, { passive: false });
+}
+
+
+// Handle Jump Button Press
+function handleJumpPointerDown(event) {
+    if (!playerControlsEnabled) return; // Prevent jumping when controls are disabled
+
+    // Check if the player is on the ground before allowing a jump
+    if (!isPlayerOnGround()) return;
+
+    // Apply the jump to the player's physics body
+    applyJump();
+
+    // Add active class for visual feedback
+    jumpKnob.classList.add('active');
+
+    // Remove active class after a short delay to simulate button press effect
+    setTimeout(() => {
+        jumpKnob.classList.remove('active');
+    }, 150); // Duration in milliseconds
+}
+
+
+// Handle Jump Button Release
+function handleJumpPointerUp(event) {
+    if (!isJumping) return;
+
+    // Calculate hold duration
+    const holdDuration = Date.now() - jumpStartTime;
+    isJumping = false;
+
+    // Remove active class
+    jumpKnob.classList.remove('active');
+
+    // Calculate jump force based on hold duration
+    const clampedHoldTime = Math.min(holdDuration, maxHoldTime);
+    const jumpForce = minJumpForce + ((clampedHoldTime / maxHoldTime) * (maxJumpForce - minJumpForce));
+
+    console.log(`Jump held for ${clampedHoldTime} ms, applying force: ${jumpForce}`);
+
+    // Apply the jump to the player's physics body
+    applyJump(jumpForce);
+
+    // Reset the jump ring
+    jumpRing.style.background = `conic-gradient(
+        rgba(255, 255, 255, 0.5) 0deg,
+        rgba(255, 255, 255, 0.5) 0deg
+    )`;
+
+    // Prevent event propagation
+    event.preventDefault();
+    event.stopPropagation();
+}
+
+// Update the Jump Ring Visual Indicator
+function updateJumpRing() {
+    if (!isJumping) return;
+
+    const elapsed = Date.now() - jumpStartTime;
+    const progress = Math.min(elapsed / maxHoldTime, 1);
+    const angle = progress * 360;
+
+    // Update the ring's conic gradient to show progress
+    jumpRing.style.background = `conic-gradient(
+        rgba(255, 255, 255, 0.5) ${angle}deg,
+        rgba(255, 255, 255, 0.5) ${angle}deg
+    )`;
+
+    if (progress < 1) {
+        requestAnimationFrame(updateJumpRing);
+    }
+}
+
+function applyJump() {
+    // Get the current velocity of the player
+    const currentVelocity = playerBody.getLinearVelocity();
+
+    // Apply an upward impulse based on the jump force
+    playerBody.setLinearVelocity(new Ammo.btVector3(
+        currentVelocity.x(),
+        jumpForce,
+        currentVelocity.z()
+    ));
+
+    // Optional: Play a jump sound or trigger a visual effect here
+    console.log('Player jumped with force:', jumpForce);
+}
+
+
+function isPlayerOnGround() {
+    const rayFrom = new Ammo.btVector3(player.position.x, player.position.y, player.position.z);
+    const rayTo = new Ammo.btVector3(player.position.x, player.position.y - 1.1, player.position.z); // Slightly below the player
+
+    const rayCallback = new Ammo.ClosestRayResultCallback(rayFrom, rayTo);
+    physicsWorld.rayTest(rayFrom, rayTo, rayCallback);
+
+    const onGround = rayCallback.hasHit();
+
+    Ammo.destroy(rayFrom);
+    Ammo.destroy(rayTo);
+    Ammo.destroy(rayCallback);
+
+    return onGround;
+}
+
+
+// Call this function within initializeScene
+initializeJumpButton();
+
+
+
+
 // Function to calculate joystick direction vector
 function getJoystickDirectionVector(angle) {
     return new THREE.Vector3(
@@ -926,6 +1063,16 @@ function initializeScene() {
         e.preventDefault();
         e.stopPropagation(); // Prevent event from reaching document
     }, { passive: false });
+
+    // Enemy Jump Timer Initialization
+    enemyJumpTimer = 0;
+
+    // Initialize Jump Button
+    initializeJumpButton();
+
+
+    // Initialize Jump Button
+    initializeJumpButton();
 
     // Renderer setup
     renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gameCanvas') });
@@ -1128,6 +1275,14 @@ function updateEnemyAI(deltaTime) {
         lastEnemyShootTime = totalElapsedTime;
     }
 
+    // Update enemy jump timer
+    enemyJumpTimer += deltaTime * 1000; // Convert to milliseconds
+
+    if (enemyJumpTimer >= enemyJumpInterval) {
+        performEnemyJump();
+        enemyJumpTimer = 0; // Reset timer
+    }
+
     // Sync enemy mesh position with physics
     syncEnemyPosition();
 }
@@ -1137,6 +1292,39 @@ function syncEnemyPosition() {
     enemyBody.getMotionState().getWorldTransform(transform);
     const origin = transform.getOrigin();
     enemy.position.set(origin.x(), origin.y(), origin.z());
+}
+
+function performEnemyJump() {
+    // Check if enemy is on the ground to prevent mid-air jumps
+    if (!isEnemyOnGround()) return;
+
+    // Get the current velocity of the enemy
+    const currentVelocity = enemyBody.getLinearVelocity();
+
+    // Apply an upward impulse based on the jump force
+    enemyBody.setLinearVelocity(new Ammo.btVector3(
+        currentVelocity.x(),
+        enemyJumpForce,
+        currentVelocity.z()
+    ));
+
+    console.log('Enemy performed a jump.');
+}
+
+function isEnemyOnGround() {
+    const rayFrom = new Ammo.btVector3(enemy.position.x, enemy.position.y, enemy.position.z);
+    const rayTo = new Ammo.btVector3(enemy.position.x, enemy.position.y - 1.1, enemy.position.z); // Slightly below the enemy
+
+    const rayCallback = new Ammo.ClosestRayResultCallback(rayFrom, rayTo);
+    physicsWorld.rayTest(rayFrom, rayTo, rayCallback);
+
+    const onGround = rayCallback.hasHit();
+
+    Ammo.destroy(rayFrom);
+    Ammo.destroy(rayTo);
+    Ammo.destroy(rayCallback);
+
+    return onGround;
 }
 
 
@@ -1445,7 +1633,7 @@ function animate() {
     updatePlayerRotation();
     updatePlayerPosition();
 
-    // Update enemy AI (movement and shooting)
+    // Update enemy AI (movement, shooting, jumping)
     updateEnemyAI(deltaTime);
 
     // Update camera position
@@ -1457,6 +1645,7 @@ function animate() {
     // Render the scene
     renderer.render(scene, camera);
 }
+
 
 
 
