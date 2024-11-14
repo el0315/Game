@@ -18,10 +18,8 @@
 
     <!-- Control Window -->
     <div id="controls">
-        <!-- Joystick Container for Movement (Left Side) -->
-        <div id="joystickContainerMove">
-            <div id="joystickKnobMove" class="joystickKnob"></div>
-            <div class="joystick-label">Move</div> <!-- Label for Move -->
+        <div id="joystickContainerMove" class="joystick-container">
+            <div id="joystickKnobMove" class="joystick-knob"></div>
         </div>
 
         <!-- Simplified Jump Button -->
@@ -29,13 +27,10 @@
             <div class="jump-knob"></div>
         </div>
 
-
-        <!-- Joystick Container for Shooting (Right Side) -->
-        <div id="joystickContainerFire">
-            <div id="joystickKnobFire" class="joystickKnob"></div>
-            <div class="joystick-label">Shoot</div> <!-- Label for Shoot -->
+                <!-- Shooting Button -->
+        <div id="shootButton" class="shoot-button">
+            <div class="shoot-knob"></div>
         </div>
-
 
         <!-- Hidden Action Buttons (if needed) -->
         <button id="bButton" class="control-button action-button" style="display: none;">B</button>
