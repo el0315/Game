@@ -7,6 +7,9 @@ const minPitch = -Math.PI / 6;  // New minimum pitch (looking 45 degrees down)
 
 let joystickMoveAngle = null, movementTouchId = null, rotationTouchId = null, lastTouchX = 0, lastTouchY = 0;
 
+const maxAccuracyDeviation = 15; // Maximum deviation in degrees
+
+
 // New shooting joystick variables
 let joystickFireAngle = null;
 let firingTouchId = null;
@@ -31,8 +34,8 @@ const enemySpeed = 2; // Adjust the speed as needed
 let enemyHealth = 3; // Current health
 const maxEnemyHealth = 3; // Maximum health
 // Enemy AI Configuration
-const enemyMoveTowardsPlayerFrequency = 15; // Seconds between movement direction updates
-const enemyShootFrequency = 15; // Seconds between shooting actions
+const enemyMoveTowardsPlayerFrequency = 1; // Seconds between movement direction updates
+const enemyShootFrequency = 3; // Seconds between shooting actions
 
 // Enemy Jump Mechanics Constants
 const enemyJumpForce = 5;        // Upward force applied during a jump
@@ -56,7 +59,8 @@ let isJumping = false;
 
 // References to Jump Button Elements
 let jumpButton, jumpRing, jumpKnob;
-
+// References to Shooting Button Elements
+let shootButton, shootKnob;
 
 // Collision Groups
 const COL_GROUP_PLAYER = 1 << 0;             // 1
@@ -93,83 +97,53 @@ const projectileMass = 1;
 const maxProjectiles = 100; // Limit the number of active projectiles
 
 
-
-function createProjectile(position, direction, shooterType = 'player') {
-    // Create a copy of the position to avoid modifying the original
-    const spawnPosition = position.clone();
-
-    // Offset the spawn position slightly in front of the shooter
-    const spawnOffset = direction.clone().multiplyScalar(playerRadius + projectileRadius + 0.1); // 0.1 is a small buffer
-    spawnPosition.add(spawnOffset);
-
-    // Define projectile color based on shooterType
-    const projectileColor = shooterType === 'player' ? 0xff0000 : 0x0000ff; // Player: red, Enemy: blue
-
-    // Create Three.js mesh for the projectile
-    const projectileMaterial = new THREE.MeshStandardMaterial({ color: projectileColor });
-    const projectileMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(projectileRadius, 16, 16),
-        projectileMaterial
-    );
-    projectileMesh.castShadow = true;
-    projectileMesh.receiveShadow = true;
-    projectileMesh.position.copy(spawnPosition);
-
+function createProjectile(position, direction, owner) {
+    // Create projectile mesh
+    const projectileGeometry = new THREE.SphereGeometry(projectileRadius, 16, 16);
+    const projectileMaterial = new THREE.MeshStandardMaterial({ color: owner === 'player' ? 0xffff00 : 0xff0000 }); // Yellow for player, red for enemy
+    const projectileMesh = new THREE.Mesh(projectileGeometry, projectileMaterial);
+    projectileMesh.position.copy(position);
     scene.add(projectileMesh);
 
     // Create Ammo.js physics body for the projectile
-    const transform = new Ammo.btTransform();
-    transform.setIdentity();
-    transform.setOrigin(new Ammo.btVector3(spawnPosition.x, spawnPosition.y, spawnPosition.z));
-
-    const motionState = new Ammo.btDefaultMotionState(transform);
+    const mass = projectileMass;
     const shape = new Ammo.btSphereShape(projectileRadius);
     shape.setMargin(0.05);
 
-    const localInertia = new Ammo.btVector3(0, 0, 0);
-    shape.calculateLocalInertia(projectileMass, localInertia);
+    const transform = new Ammo.btTransform();
+    transform.setIdentity();
+    transform.setOrigin(new Ammo.btVector3(position.x, position.y, position.z));
+    const motionState = new Ammo.btDefaultMotionState(transform);
 
-    const rbInfo = new Ammo.btRigidBodyConstructionInfo(
-        projectileMass,
-        motionState,
-        shape,
-        localInertia
-    );
+    const localInertia = new Ammo.btVector3(0, 0, 0);
+    shape.calculateLocalInertia(mass, localInertia);
+
+    const rbInfo = new Ammo.btRigidBodyConstructionInfo(mass, motionState, shape, localInertia);
     const body = new Ammo.btRigidBody(rbInfo);
+    body.setFriction(0);
+    body.setRestitution(0.5);
+    body.setActivationState(4); // Disable deactivation
+
+    // Assign shooterType for collision detection
+    body.shooterType = owner; // 'player' or 'enemy'
+
+    // Set collision groups and masks
+    if (owner === 'player') {
+        physicsWorld.addRigidBody(body, COL_GROUP_PLAYER_PROJECTILE, COL_GROUP_ENEMY | COL_GROUP_OBSTACLE | COL_GROUP_TERRAIN);
+    } else if (owner === 'enemy') {
+        physicsWorld.addRigidBody(body, COL_GROUP_ENEMY_PROJECTILE, COL_GROUP_PLAYER | COL_GROUP_OBSTACLE | COL_GROUP_TERRAIN);
+    }
+
+    // Set velocity based on direction and speed
+    body.setLinearVelocity(new Ammo.btVector3(direction.x * projectileSpeed, direction.y * projectileSpeed, direction.z * projectileSpeed));
 
     // Associate the Three.js mesh with the Ammo.js body
     body.threeObject = projectileMesh;
-    body.shooterType = shooterType; // Add shooterType to the body for collision handling
-
-    // Set the velocity of the projectile
-    const velocity = direction.clone().multiplyScalar(projectileSpeed);
-    body.setLinearVelocity(new Ammo.btVector3(velocity.x, velocity.y, velocity.z));
-
-    // Disable deactivation so the projectile doesn't sleep
-    body.setActivationState(4);
-
-    // Determine collision group and mask based on shooterType
-    let collisionGroup, collisionMask;
-    if (shooterType === 'player') {
-        collisionGroup = COL_GROUP_PLAYER_PROJECTILE;
-        collisionMask = COL_GROUP_OBSTACLE | COL_GROUP_ENEMY | COL_GROUP_TERRAIN;
-    } else if (shooterType === 'enemy') {
-        collisionGroup = COL_GROUP_ENEMY_PROJECTILE;
-        collisionMask = COL_GROUP_OBSTACLE | COL_GROUP_PLAYER | COL_GROUP_TERRAIN;
-    } else {
-        collisionGroup = COL_GROUP_PLAYER_PROJECTILE; // Default to player projectile
-        collisionMask = COL_GROUP_OBSTACLE | COL_GROUP_ENEMY | COL_GROUP_TERRAIN;
-    }
-
-    physicsWorld.addRigidBody(
-        body,
-        collisionGroup, // Collision group
-        collisionMask // Collides with these groups
-    );
 
     // Track the projectile
-    projectiles.push({ mesh: projectileMesh, body: body });
+    projectiles.push({ body: body, mesh: projectileMesh });
 }
+
 
 
 
@@ -209,9 +183,6 @@ function checkProjectileCollisions() {
 }
 
 
-function isPlayerBody(body) {
-    return body === playerBody;
-}
 
 function handleProjectilePlayerCollision(body0, body1) {
     // Identify which body is the enemy projectile
@@ -251,11 +222,6 @@ function hideGameOverOverlay() {
 
 
 
-
-function isEnemyBody(body) {
-    return body === enemyBody;
-}
-
 function handleProjectileEnemyCollision(body0, body1) {
     // Identify which body is the player projectile
     let projectileBody;
@@ -288,7 +254,6 @@ function handleProjectileEnemyCollision(body0, body1) {
     }
 }
 
-
 function isPlayerProjectileBody(body) {
     return projectiles.some(projectile => projectile.body === body && projectile.body.shooterType === 'player');
 }
@@ -296,6 +261,19 @@ function isPlayerProjectileBody(body) {
 function isEnemyProjectileBody(body) {
     return projectiles.some(projectile => projectile.body === body && projectile.body.shooterType === 'enemy');
 }
+
+function isPlayerBody(body) {
+    return body === playerBody;
+}
+
+function isEnemyBody(body) {
+    return body === enemyBody;
+}
+
+function isObstacleBody(body) {
+    return obstacles.some(obstacle => obstacle.userData.physicsBody === body);
+}
+
 
 
 function createHealthBarTexture(healthPercentage) {
@@ -630,9 +608,6 @@ function respawnPlayer() {
 
     // Enable player controls
     enablePlayerControls();
-
-    // **Reset Shooting Joystick State**
-    resetFireJoystick();
 }
 
 
@@ -641,9 +616,7 @@ function isProjectileBody(body) {
     return projectiles.some(projectile => projectile.body === body);
 }
 
-function isObstacleBody(body) {
-    return obstacles.some(obstacle => obstacle.userData.physicsBody === body);
-}
+
 
 function handleProjectileCollision(body0, body1) {
     // Identify which body is the projectile
@@ -979,10 +952,64 @@ function isPlayerOnGround() {
 }
 
 
-// Call this function within initializeScene
-initializeJumpButton();
 
+function initializeShootingButton() {
+    shootButton = document.getElementById('shootButton');
+    shootKnob = shootButton.querySelector('.shoot-knob');
 
+    // Add Pointer Event Listener
+    shootKnob.addEventListener('pointerdown', handleShootPointerDown, { passive: false });
+}
+
+function handleShootPointerDown(event) {
+    // Prevent multiple triggers if needed
+    if (!playerControlsEnabled) return; // Ensure controls are enabled
+
+    // Perform the shoot action
+    shootAtEnemy();
+
+    // Add active class for visual feedback
+    shootKnob.classList.add('active');
+
+    // Remove active class after a short delay
+    setTimeout(() => {
+        shootKnob.classList.remove('active');
+    }, 150); // Duration in milliseconds
+
+    // Prevent event propagation
+    event.preventDefault();
+    event.stopPropagation();
+}
+
+function shootAtEnemy() {
+    // Ensure enemy exists and is alive
+    if (!enemy || enemyHealth <= 0) return;
+
+    // Get player's and enemy's positions
+    const playerPosition = new THREE.Vector3();
+    playerPosition.copy(player.position);
+
+    const enemyPosition = new THREE.Vector3();
+    enemyPosition.copy(enemy.position);
+
+    // Calculate direction vector from player to enemy
+    const direction = new THREE.Vector3();
+    direction.subVectors(enemyPosition, playerPosition).normalize();
+
+    // Introduce random deviation based on accuracy
+    const deviation = THREE.MathUtils.degToRad(Math.random() * maxAccuracyDeviation * 2 - maxAccuracyDeviation); // Random angle between -max and +max
+    const axis = new THREE.Vector3(0, 1, 0); // Rotate around Y-axis for horizontal deviation
+
+    const quaternion = new THREE.Quaternion();
+    quaternion.setFromAxisAngle(axis, deviation);
+
+    direction.applyQuaternion(quaternion).normalize();
+
+    // Create and fire the projectile with shooterType 'player'
+    createProjectile(playerPosition, direction, 'player');
+
+    console.log(`Player fired a projectile towards direction: (${direction.x.toFixed(2)}, ${direction.y.toFixed(2)}, ${direction.z.toFixed(2)})`);
+}
 
 
 // Function to calculate joystick direction vector
@@ -1002,32 +1029,6 @@ function transformDirectionToWorldSpace(localDirection) {
 }
 
 
-// **New Function to Add Event Listeners for Shooting Joystick**
-function addShootingJoystickEventListeners() {
-    // Shooting Joystick Event Handlers
-    joystickKnobFire.addEventListener('pointerdown', (e) => {
-        firingTouchId = e.pointerId;
-        handleFireJoystickStart(e);
-        e.preventDefault();
-        e.stopPropagation(); // Prevent event from reaching document
-    }, { passive: false });
-
-    joystickKnobFire.addEventListener('pointermove', (e) => {
-        if (e.pointerId === firingTouchId) {
-            handleFireJoystick(e);
-        }
-        e.preventDefault();
-        e.stopPropagation(); // Prevent event from reaching document
-    }, { passive: false });
-
-    joystickKnobFire.addEventListener('pointerup', (e) => {
-        resetFireJoystick();
-        firingTouchId = null;
-        e.preventDefault();
-        e.stopPropagation(); // Prevent event from reaching document
-    }, { passive: false });
-}
-
 
 function initializeScene() {
     scene = new THREE.Scene();
@@ -1035,10 +1036,6 @@ function initializeScene() {
     // Initialize joystick elements
     joystickContainerMove = document.getElementById('joystickContainerMove');
     joystickKnobMove = document.getElementById('joystickKnobMove');
-
-    // **Add these references for the shooting joystick**
-    joystickContainerFire = document.getElementById('joystickContainerFire');
-    joystickKnobFire = document.getElementById('joystickKnobFire');
 
 
         // Movement Joystick Event Handlers
@@ -1069,10 +1066,7 @@ function initializeScene() {
 
     // Initialize Jump Button
     initializeJumpButton();
-
-
-    // Initialize Jump Button
-    initializeJumpButton();
+    initializeShootingButton();
 
     // Renderer setup
     renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gameCanvas') });
@@ -1084,8 +1078,6 @@ function initializeScene() {
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 20, 30); // Adjusted camera position
     scene.add(camera);
-
-    addShootingJoystickEventListeners();
 
     // Lighting
     const hemisphereLight = new THREE.HemisphereLight(0xffd27f, 0x5e3b1d, 0.8);
@@ -1357,41 +1349,53 @@ function enemyShootAtPlayer() {
     const direction = new THREE.Vector3();
     direction.subVectors(player.position, enemy.position).normalize();
 
-    // Create the projectile with shooterType 'enemy'
+    // Introduce random deviation for enemy projectiles if desired (optional)
+    const deviation = THREE.MathUtils.degToRad(Math.random() * maxAccuracyDeviation * 2 - maxAccuracyDeviation); // Optional: Add some inaccuracy
+    const axis = new THREE.Vector3(0, 1, 0); // Rotate around Y-axis for horizontal deviation
+
+    const quaternion = new THREE.Quaternion();
+    quaternion.setFromAxisAngle(axis, deviation);
+
+    direction.applyQuaternion(quaternion).normalize();
+
+    // Create and fire the projectile with shooterType 'enemy'
     createProjectile(enemyPosition, direction, 'enemy');
+
+    console.log(`Enemy fired a projectile towards direction: (${direction.x.toFixed(2)}, ${direction.y.toFixed(2)}, ${direction.z.toFixed(2)})`);
 
     // Limit the number of projectiles
     if (projectiles.length > maxProjectiles) {
-        removeOldestProjectile();
+        removeProjectile(0); // Remove the oldest projectile
     }
 }
 
 
+
 function updateProjectiles() {
-    // Iterate over all projectiles
     projectiles.forEach((projectile, index) => {
-        const transform = new Ammo.btTransform();
-        projectile.body.getMotionState().getWorldTransform(transform);
-        const origin = transform.getOrigin();
-        projectile.mesh.position.set(origin.x(), origin.y(), origin.z());
+        const mesh = projectile.mesh;
 
-        // Optionally remove projectile if it goes out of bounds or slows down
-        const velocity = projectile.body.getLinearVelocity();
-        const speed = velocity.length();
-
-        // Remove projectiles that have slowed down or fallen below the terrain
-        if (speed < 0.1 || projectile.mesh.position.y < -10) {
-            // Remove from scene
-            scene.remove(projectile.mesh);
-
-            // Remove physics body
-            physicsWorld.removeRigidBody(projectile.body);
-
-            // Remove from projectiles array
-            projectiles.splice(index, 1);
+        // Optional: Remove projectiles that are out of bounds to optimize performance
+        if (mesh.position.length() > 500) { // Example boundary
+            removeProjectile(index);
+            return;
         }
+
+        // No homing behavior; projectiles continue in their initial direction
     });
 }
+
+
+function removeProjectile(index) {
+    const projectile = projectiles[index];
+    scene.remove(projectile.mesh);
+    physicsWorld.removeRigidBody(projectile.body);
+    Ammo.destroy(projectile.body.getMotionState());
+    Ammo.destroy(projectile.body.getCollisionShape());
+    projectiles.splice(index, 1);
+}
+
+
 
 
 function updatePhysics(deltaTime) {
@@ -1410,12 +1414,31 @@ function updatePhysics(deltaTime) {
     const enemyOrigin = enemyTransform.getOrigin();
     enemy.position.set(enemyOrigin.x(), enemyOrigin.y(), enemyOrigin.z());
 
-    // Update the projectiles' positions and handle their lifecycle
-    updateProjectiles();
+    // Update all projectiles
+    projectiles.forEach((projectile, index) => {
+        const mesh = projectile.mesh;
+        const body = projectile.body;
 
-    // Check for collisions between projectiles and obstacles/enemy
+        // Get the transform from Ammo.js
+        const transform = new Ammo.btTransform();
+        body.getMotionState().getWorldTransform(transform);
+        const origin = transform.getOrigin();
+        const rotation = transform.getRotation();
+
+        // Update mesh position and rotation
+        mesh.position.set(origin.x(), origin.y(), origin.z());
+        mesh.quaternion.set(rotation.x(), rotation.y(), rotation.z(), rotation.w());
+
+        // Optional: Remove projectiles that are out of bounds to optimize performance
+        if (mesh.position.length() > 500) { // Example boundary
+            removeProjectile(index);
+        }
+    });
+
+    // Check for collisions between projectiles and other objects
     checkProjectileCollisions();
 }
+
 
 
 
@@ -1483,11 +1506,8 @@ document.addEventListener('touchstart', (e) => {
             movementTouchId = touch.identifier;
             handleMoveJoystickStart(touch);
         }
-        else if (isTouchWithinJoystick(touch, joystickContainerFire) && firingTouchId === null) {
-            firingTouchId = touch.identifier;
-            handleFireJoystickStart(touch);
-        }
-        else if (!isTouchWithinJoystick(touch, joystickContainerMove) && !isTouchWithinJoystick(touch, joystickContainerFire) && rotationTouchId === null) {
+        
+        else if (!isTouchWithinJoystick(touch, joystickContainerMove) && rotationTouchId === null) {
             rotationTouchId = touch.identifier;
             lastTouchX = touch.clientX;
             lastTouchY = touch.clientY;
@@ -1548,33 +1568,6 @@ function updateCameraPosition() {
 }
 
 
-// **Handler Function When Shooting Joystick is Pressed**
-function handleFireJoystickStart(event) {
-    if (!playerControlsEnabled) return; // Prevent shooting when controls are disabled
-    handleFireJoystick(event);
-}
-
-// **Handler Function for Shooting Joystick Movement**
-function handleFireJoystick(event) {
-    const rect = joystickContainerFire.getBoundingClientRect();
-    let offsetX = event.clientX - rect.left - rect.width / 2;
-    let offsetY = event.clientY - rect.top - rect.height / 2;
-    const distance = Math.sqrt(offsetX * offsetX + offsetY * offsetY);
-    const maxDistance = rect.width / 2;
-
-    if (distance > maxDistance) {
-        const angle = Math.atan2(offsetY, offsetX);
-        offsetX = Math.cos(angle) * maxDistance;
-        offsetY = Math.sin(angle) * maxDistance;
-    }
-
-    joystickKnobFire.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
-    joystickFireAngle = Math.atan2(offsetY, offsetX);
-
-    // Attempt to fire a shot if cooldown has passed
-    attemptToFireShot();
-}
-
 // **Function to Attempt Firing a Shot with Cooldown**
 function attemptToFireShot() {
     const currentTime = Date.now();
@@ -1612,14 +1605,6 @@ function fireShot() {
 }
 
 
-// **Function to Reset the Shooting Joystick**
-function resetFireJoystick() {
-    joystickFireAngle = null;
-    joystickKnobFire.style.transform = `translate(0px, 0px)`;
-    isFiring = false;
-}
-
-
 function animate() {
     requestAnimationFrame(animate);
 
@@ -1645,6 +1630,8 @@ function animate() {
     // Render the scene
     renderer.render(scene, camera);
 }
+
+
 
 
 
