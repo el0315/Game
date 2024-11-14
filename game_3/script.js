@@ -38,7 +38,7 @@ const enemyMoveTowardsPlayerFrequency = 1; // Seconds between movement direction
 const enemyShootFrequency = 3; // Seconds between shooting actions
 
 // Enemy Jump Mechanics Constants
-const enemyJumpForce = 5;        // Upward force applied during a jump
+const enemyJumpForce = 10;        // Upward force applied during a jump
 const enemyJumpInterval = 5000;   // Time between jumps in milliseconds (e.g., every 5 seconds)
 
 // Enemy Jump Timer
@@ -51,7 +51,7 @@ let lastEnemyShootTime = 0;
 let totalElapsedTime = 0; // Total time since the game started
 
 // Jump Mechanics Constants
-const jumpForce = 20;         // Upward force applied during a jump
+const jumpForce = 10;         // Upward force applied during a jump
 
 // Jump State Variables
 let jumpStartTime = null;
