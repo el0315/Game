@@ -4,6 +4,12 @@ let collectibles = [];
 let trees = [];
 let rotatingSpikes = [];
 
+
+// Windmill blades rotation speed and update interval
+let windmillRotationSpeed = 0.1;
+let windmillUpdateInterval = 10; // frames between updates to reduce frequent updates
+let windmillFrameCounter = 0; // frame counter for updating windmill
+
 // Add other arrays as needed
 
 
@@ -1172,6 +1178,70 @@ function createTrees(count) {
     }
 }
 
+function createWindmill(position = new THREE.Vector3(), scale = 3, heightOffset = 2) {
+    const windmill = new THREE.Group();
+
+    // Base
+    const baseGeometry = new THREE.CylinderGeometry(0.4, 0.4, 0.3, 16);
+    const baseMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+    const base = new THREE.Mesh(baseGeometry, baseMaterial);
+    base.position.y = 0.15; // Center the base on the ground
+    windmill.add(base);
+
+    // Tower
+    const towerGeometry = new THREE.CylinderGeometry(0.15, 0.15, 1.5, 8);
+    const towerMaterial = new THREE.MeshStandardMaterial({ color: 0xCD853F });
+    const tower = new THREE.Mesh(towerGeometry, towerMaterial);
+    tower.position.y = base.position.y + 0.75 + 0.15; // Place tower on top of base
+    windmill.add(tower);
+
+    // Hub
+    const hubGeometry = new THREE.CylinderGeometry(0.1, 0.1, 0.1, 8);
+    const hubMaterial = new THREE.MeshStandardMaterial({ color: 0x555555 });
+    const hub = new THREE.Mesh(hubGeometry, hubMaterial);
+    hub.position.y = tower.position.y + 0.75 + 0.05; // Place hub on top of the tower
+    windmill.add(hub);
+
+    // Blades
+    const bladeGeometry = new THREE.BoxGeometry(1.5, 0.05, 0.1);
+    const bladeMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFFF });
+    const blades = new THREE.Group();
+
+    for (let i = 0; i < 4; i++) {
+        const blade = new THREE.Mesh(bladeGeometry, bladeMaterial);
+        blade.position.x = 0; // Center each blade at the edge of the hub
+        blade.position.z = 0.2;
+        blade.rotation.z = (i * Math.PI) / 3; // Rotate each blade by 90 degrees
+        blades.add(blade);
+    }
+    blades.position.set(0, hub.position.y, 0); // Position blades at the hub level
+    windmill.add(blades);
+
+    // Set scale and position of the windmill, including height offset
+    windmill.scale.set(scale, scale, scale);
+    windmill.position.copy(position);
+    windmill.position.y += heightOffset; // Apply the height offset to raise the windmill
+
+    // Store the blades group for animation
+    windmill.userData = { blades };
+
+    return windmill;
+}
+
+
+
+function animateWindmillBlades() {
+    // Only rotate the windmill blades every few frames
+    if (windmillFrameCounter % windmillUpdateInterval === 0) {
+        if (windmill && windmill.userData.blades) {
+            windmill.userData.blades.rotation.z += windmillRotationSpeed;
+        }
+    }
+    windmillFrameCounter++;
+}
+
+
+
 function createFireflies() {
     const fireflyMaterial = new THREE.PointsMaterial({
         color: 0xFFFFAA,   // Light yellow for glow effect
@@ -1607,7 +1677,14 @@ function initializeScene() {
     // Obstacles
     const obstacleMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
 
-    
+    // Add windmill to the scene
+
+    windmillPosition = new THREE.Vector3(5, getTerrainHeightAt(5, 5), 5);
+    windmill = createWindmill(windmillPosition, 2, -0.5); // Adjust heightOffset as needed
+    scene.add(windmill);
+
+
+
 
     // **LOD Setup Moved Inside initializeScene()**
     const lod = new THREE.LOD();
@@ -2282,6 +2359,9 @@ function animate() {
 
     // Update camera position
     updateCameraPosition();
+
+    // Rotate windmill blades at a controlled interval
+    animateWindmillBlades();
 
     // Update health bars to face the camera
     updateHealthBars();
