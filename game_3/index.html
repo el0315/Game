@@ -16,25 +16,36 @@
         <canvas id="gameCanvas"></canvas>
     </div>
 
-    <!-- Control Window -->
+    <!-- Controls Container -->
     <div id="controls">
+        <!-- Movement Joystick -->
         <div id="joystickContainerMove" class="joystick-container">
             <div id="joystickKnobMove" class="joystick-knob"></div>
         </div>
 
-        <!-- Simplified Jump Button -->
+        <!-- Jump Button -->
         <div id="jumpButton" class="jump-button">
             <div class="jump-knob"></div>
         </div>
 
-                <!-- Shooting Button -->
+        <!-- Shoot Button -->
         <div id="shootButton" class="shoot-button">
             <div class="shoot-knob"></div>
+        </div>
+
+        <!-- Chop Button (Initially Hidden) -->
+        <div id="chopButton" class="chop-button" style="display: none;">
+            <button>Chop</button>
         </div>
 
         <!-- Hidden Action Buttons (if needed) -->
         <button id="bButton" class="control-button action-button" style="display: none;">B</button>
         <button id="aButton" class="control-button action-button" style="display: none;">A</button>
+    </div>
+
+    <!-- Inventory Display -->
+    <div id="inventory" class="inventory">
+        <span id="logCount">Logs: 0</span>
     </div>
 
     <!-- Overlays -->
