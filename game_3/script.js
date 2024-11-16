@@ -139,7 +139,7 @@ let projectiles = [];
 const projectileSpeed = 50;
 const projectileRadius = 0.2;
 const projectileMass = 1;
-const maxProjectiles = 100; // Limit the number of active projectiles
+const maxProjectiles = 20; // Limit the number of active projectiles
 
 
 
@@ -1430,50 +1430,60 @@ function handleLogCollection() {
 }
 
 function createFireflies() {
-    const fireflyMaterial = new THREE.PointsMaterial({
-        color: 0xFFFFAA,   // Light yellow for glow effect
-        size: 0.2,
+    const fireflyGeometry = new THREE.CircleGeometry(0.1, 2); // Simplified geometry
+    const fireflyMaterial = new THREE.MeshBasicMaterial({
+        color: 0xFFFFAA,
         transparent: true,
-        opacity: 0.8
+        opacity: 0.8,
+        side: THREE.DoubleSide
     });
 
+    const fireflyCount = 100;
+    const fireflyMesh = new THREE.InstancedMesh(fireflyGeometry, fireflyMaterial, fireflyCount);
+    const dummy = new THREE.Object3D();
+
     for (let i = 0; i < fireflyCount; i++) {
-        const fireflyGeometry = new THREE.BufferGeometry();
         const position = new THREE.Vector3(
             (Math.random() - 0.5) * fireflyRange,
-            Math.random() * 10 + 5,  // Keep them in the air, 5-15 units up
+            Math.random() * 10 + 5,
             (Math.random() - 0.5) * fireflyRange
         );
-
-        // Avoid spotlight region (around [5, 50, -5])
-        if (position.distanceTo(new THREE.Vector3(5, 50, -5)) > 30) { // 30 is a safe spotlight radius
-            fireflyGeometry.setAttribute('position', new THREE.Float32BufferAttribute(position.toArray(), 3));
-            const firefly = new THREE.Points(fireflyGeometry, fireflyMaterial);
-            firefly.position.copy(position);
-            scene.add(firefly);
-            fireflies.push(firefly);
-        }
+        dummy.position.copy(position);
+        dummy.updateMatrix();
+        fireflyMesh.setMatrixAt(i, dummy.matrix);
     }
+
+    scene.add(fireflyMesh);
+    fireflies.push(fireflyMesh);
 }
 
 function updateFireflies() {
-    fireflies.forEach(firefly => {
-        // Move firefly slightly in a random direction
-        firefly.position.x += (Math.random() - 0.5) * fireflySpeed;
-        firefly.position.y += (Math.random() - 0.5) * fireflySpeed;
-        firefly.position.z += (Math.random() - 0.5) * fireflySpeed;
+    const dummy = new THREE.Object3D();
+    fireflies.forEach(fireflyMesh => {
+        for (let i = 0; i < fireflyMesh.count; i++) {
+            fireflyMesh.getMatrixAt(i, dummy.matrix);
+            dummy.position.setFromMatrixPosition(dummy.matrix);
+            
+            // Move slightly
+            dummy.position.x += (Math.random() - 0.5) * fireflySpeed;
+            dummy.position.y += (Math.random() - 0.5) * fireflySpeed;
+            dummy.position.z += (Math.random() - 0.5) * fireflySpeed;
 
-        // Ensure fireflies stay within defined range and out of spotlight area
-        const spotlightCenter = new THREE.Vector3(5, 50, -5);
-        const distanceToSpotlight = firefly.position.distanceTo(spotlightCenter);
-        if (distanceToSpotlight < 30 || firefly.position.length() > fireflyRange) {
-            // If too close to spotlight, reposition firefly
-            firefly.position.set(
-                (Math.random() - 0.5) * fireflyRange,
-                Math.random() * 10 + 5,
-                (Math.random() - 0.5) * fireflyRange
-            );
+            // Reposition if out of bounds
+            const spotlightCenter = new THREE.Vector3(5, 50, -5);
+            const distanceToSpotlight = dummy.position.distanceTo(spotlightCenter);
+            if (distanceToSpotlight < 30 || dummy.position.length() > fireflyRange) {
+                dummy.position.set(
+                    (Math.random() - 0.5) * fireflyRange,
+                    Math.random() * 10 + 5,
+                    (Math.random() - 0.5) * fireflyRange
+                );
+            }
+
+            dummy.updateMatrix();
+            fireflyMesh.setMatrixAt(i, dummy.matrix);
         }
+        fireflyMesh.instanceMatrix.needsUpdate = true;
     });
 }
 
@@ -1808,8 +1818,8 @@ function initializeScene() {
     spotlight.angle = Math.PI / 4;
     spotlight.penumbra = 0.3;
 
-    spotlight.shadow.mapSize.width = 4096;
-    spotlight.shadow.mapSize.height = 4096;
+    spotlight.shadow.mapSize.width = 1024;
+    spotlight.shadow.mapSize.height = 1024;
     spotlight.shadow.bias = -0.000001;
     scene.add(spotlight);
 
@@ -1911,25 +1921,23 @@ function initializeScene() {
 }
 
 
+// Define reusable vectors and quaternions at the top
+const tempVector = new THREE.Vector3();
+const tempQuaternion = new THREE.Quaternion();
+
 function updatePlayerPosition() {
     if (joystickMoveAngle !== null) {
-        // Calculate the movement direction based on joystick angle
         moveDirection.set(Math.cos(joystickMoveAngle), 0, Math.sin(joystickMoveAngle));
+        tempQuaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+        moveDirection.applyQuaternion(tempQuaternion).normalize();
 
-        // Apply player rotation to movement direction
-        const quaternion = new THREE.Quaternion();
-        quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
-        moveDirection.applyQuaternion(quaternion);
-
-        // Adjust velocity for responsive control
         const desiredVelocity = new Ammo.btVector3(
             moveDirection.x * playerSpeed,
-            playerBody.getLinearVelocity().y(), // Preserve vertical velocity
+            playerBody.getLinearVelocity().y(),
             moveDirection.z * playerSpeed
         );
         playerBody.setLinearVelocity(desiredVelocity);
     } else {
-        // Gradually reduce player speed when joystick is released
         const currentVelocity = playerBody.getLinearVelocity();
         playerBody.setLinearVelocity(new Ammo.btVector3(
             currentVelocity.x() * 0.9,
@@ -1938,12 +1946,12 @@ function updatePlayerPosition() {
         ));
     }
 
-    // Sync player mesh position with physics
     const transform = new Ammo.btTransform();
     playerBody.getMotionState().getWorldTransform(transform);
     const origin = transform.getOrigin();
     player.position.set(origin.x(), origin.y(), origin.z());
 }
+
 
 function updatePlayerRotation() {
     // Create a quaternion based on yaw
@@ -2123,15 +2131,21 @@ function removeProjectile(index) {
     const projectile = projectiles[index];
     scene.remove(projectile.mesh);
     physicsWorld.removeRigidBody(projectile.body);
-    Ammo.destroy(projectile.body.getMotionState());
+    
+    // Properly destroy Ammo.js objects
+    const motionState = projectile.body.getMotionState();
+    if (motionState) Ammo.destroy(motionState);
     Ammo.destroy(projectile.body.getCollisionShape());
+    Ammo.destroy(projectile.body);
+    
     projectiles.splice(index, 1);
 }
 
 
+const maxSubSteps = 5; // Reduced from 10
 function updatePhysics(deltaTime) {
-    // Step the physics simulation
-    physicsWorld.stepSimulation(deltaTime, 10);
+    physicsWorld.stepSimulation(deltaTime, maxSubSteps);
+    
 
     // Update the player's position based on the physics simulation
     const playerTransform = new Ammo.btTransform();
@@ -2544,15 +2558,20 @@ function fireShot() {
     }
 }
 
+let lastFrameTime = performance.now();
+
 function animate() {
     requestAnimationFrame(animate);
+    
+    const now = performance.now();
+    const deltaTime = (now - lastFrameTime) / 1000; // Convert to seconds
+    lastFrameTime = now;
 
-    const deltaTime = 1 / 60; // Assuming 60 FPS
-    totalElapsedTime += deltaTime;
+    // Clamp deltaTime to avoid large jumps
+    const clampedDeltaTime = Math.min(deltaTime, 0.05);
 
-    // Update physics world
-    updatePhysics(deltaTime);
-
+    // Update physics with clamped deltaTime
+    updatePhysics(clampedDeltaTime);
     // Update player rotation and position
     updatePlayerRotation();
     updatePlayerPosition();
