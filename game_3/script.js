@@ -3,6 +3,19 @@ let obstacles = [];
 let collectibles = [];
 let trees = [];
 let rotatingSpikes = [];
+let logs = [];
+
+// Player Inventory
+let playerInventory = {
+    logs: 0,
+};
+
+// Define proximity threshold (e.g., 3 units)
+const chopProximity = 3;
+
+// Variable to store the current target tree
+let currentTargetTree = null;
+
 
 // Add other arrays as needed
 
@@ -43,7 +56,7 @@ let enemyHealth = 3; // Current health
 const maxEnemyHealth = 3; // Maximum health
 // Enemy AI Configuration
 const enemyMoveTowardsPlayerFrequency = 1; // Seconds between movement direction updates
-const enemyShootFrequency = 3; // Seconds between shooting actions
+const enemyShootFrequency = 30; // Seconds between shooting actions
 
 // Enemy Jump Mechanics Constants
 const enemyJumpForce = 10;        // Upward force applied during a jump
@@ -218,6 +231,178 @@ function checkProjectileCollisions() {
 
 
 
+function checkTreeProximity() {
+    currentTargetTree = null; // Reset target
+
+    trees.forEach((tree, index) => {
+        const distance = player.position.distanceTo(tree.position);
+        //console.log(`Checking distance to Tree ${index + 1}: ${distance.toFixed(2)} units`);
+
+        if (distance <= chopProximity && !tree.isBeingChopped) {
+            currentTargetTree = tree;
+            console.log(`Player is near Tree ${index + 1}. Displaying Chop button.`);
+        }
+    });
+
+    // Show or hide the chop button based on proximity
+    if (currentTargetTree) {
+        showChopButton();
+    } else {
+        hideChopButton();
+    }
+}
+
+
+function addToInventory(item, quantity = 1) {
+    if (playerInventory.hasOwnProperty(item)) {
+        playerInventory[item] += quantity;
+    } else {
+        playerInventory[item] = quantity;
+    }
+    updateInventoryUI();
+}
+
+function removeFromInventory(item, quantity = 1) {
+    if (playerInventory.hasOwnProperty(item)) {
+        playerInventory[item] = Math.max(playerInventory[item] - quantity, 0);
+        updateInventoryUI();
+    }
+}
+
+
+// References to the chop button
+const chopButton = document.getElementById('chopButton');
+const chopButtonElement = chopButton.querySelector('button');
+
+// Function to show the chop button
+function showChopButton() {
+    chopButton.style.display = 'flex';
+    console.log('Chop button displayed.');
+}
+
+// Function to hide the chop button
+function hideChopButton() {
+    chopButton.style.display = 'none';
+    console.log('Chop button hidden.');
+}
+
+chopButtonElement.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    console.log('Chop button pressed.');
+    if (currentTargetTree && playerControlsEnabled) {
+        console.log('Initiating chopping on currentTargetTree.');
+        initiateChopping(currentTargetTree);
+    } else {
+        console.log('No valid target to chop or controls disabled.');
+    }
+});
+
+
+function initiateChopping(tree) {
+    tree.isBeingChopped = true; // Prevent re-chopping
+
+
+    // Simulate chopping progress over time
+    const chopDuration = 1000; // Duration in milliseconds
+    const chopSteps = 10;
+    let chopsDone = 0;
+
+    const chopInterval = setInterval(() => {
+        chopsDone++;
+        // Optionally, update a progress bar or visual indicator
+
+        if (chopsDone >= chopSteps) {
+            clearInterval(chopInterval);
+            chopTree(tree);
+        }
+    }, chopDuration / chopSteps);
+}
+
+
+function chopTree(tree) {
+    console.log('Chopping Tree:', tree);
+    
+    // Ensure tree exists in scene
+    if (!tree) {
+        console.error('Chop action called on undefined tree.');
+        return;
+    }
+
+    // Initiate rotation animation to tip the tree
+    const initialRotation = { x: tree.rotation.x, y: tree.rotation.y, z: tree.rotation.z };
+    const tippedRotation = { x: tree.rotation.x + Math.PI / 2, y: tree.rotation.y, z: tree.rotation.z }; // 90 degrees on X-axis
+
+    const rotationTween = new TWEEN.Tween(initialRotation)
+        .to(tippedRotation, 500) // 500ms duration
+        .easing(TWEEN.Easing.Quadratic.Out)
+        .onUpdate(() => {
+            tree.rotation.set(initialRotation.x, initialRotation.y, initialRotation.z);
+        })
+        .onComplete(() => {
+            console.log('Tipping animation completed. Removing tree and spawning logs.');
+            // After tipping, remove the tree from scene and physics
+            removeTree(tree);
+
+            // Spawn logs at tree's position
+            spawnLogs(tree.position);
+        })
+        .onStart(() => {
+            console.log('Tipping animation started.');
+        })
+        .start();
+    
+    console.log('Tipping animation started for the tree.');
+}
+
+
+
+function removeTree(tree) {
+    console.log('Removing Tree:', tree);
+    
+    // Remove from physics world
+    if (tree.physicsBody) {
+        physicsWorld.removeRigidBody(tree.physicsBody);
+        Ammo.destroy(tree.physicsBody.getMotionState());
+        Ammo.destroy(tree.physicsBody.getCollisionShape());
+        tree.physicsBody = null; // Prevent future references
+        console.log('Physics body removed from the tree.');
+    } else {
+        console.warn('Tree has no physicsBody to remove.');
+    }
+    
+    // Remove all child meshes (trunk and foliage) from the scene
+    tree.children.forEach(child => {
+        scene.remove(child);
+    });
+    console.log('Removed all child meshes from the scene.');
+
+    // Remove tree from Three.js scene
+    scene.remove(tree);
+    console.log('Tree removed from the Three.js scene.');
+    
+    // Remove from trees array
+    const treeIndex = trees.indexOf(tree);
+    if (treeIndex > -1) {
+        trees.splice(treeIndex, 1);
+        console.log(`Tree ${treeIndex + 1} removed from trees array.`);
+    }
+
+    // Remove from obstacles array if necessary
+    const obstacleIndex = obstacles.indexOf(tree);
+    if (obstacleIndex > -1) {
+        obstacles.splice(obstacleIndex, 1);
+        console.log(`Tree ${obstacleIndex + 1} removed from obstacles array.`);
+    }
+    
+    // Spawn logs at tree's position
+    spawnLogs(tree.position);
+    console.log('Logs spawned at the tree\'s position.');
+}
+
+
+
+
 function handleProjectilePlayerCollision(body0, body1) {
     // Identify which body is the enemy projectile
     let projectileBody;
@@ -308,7 +493,13 @@ function isObstacleBody(body) {
     return obstacles.some(obstacle => obstacle.userData.physicsBody === body);
 }
 
-
+// Initialize Inventory UI
+function updateInventoryUI() {
+    const logCountElement = document.getElementById('logCount');
+    if (logCountElement) {
+        logCountElement.innerText = `Logs: ${playerInventory.logs}`;
+    }
+}
 
 function createHealthBarTexture(healthPercentage) {
     const canvas = document.createElement('canvas');
@@ -1101,22 +1292,22 @@ function createTrees(count) {
         const trunkHeight = Math.random() * 1 + 1; // Random trunk height between 1 and 2
         const trunk = new THREE.Mesh(
             new THREE.CylinderGeometry(0.2, 0.2, trunkHeight, 8),
-            new THREE.MeshStandardMaterial({ color: 0x8B4513 })
+            new THREE.MeshStandardMaterial({ color: 0x8B4513 }) // SaddleBrown color
         );
-        trunk.position.y = (trunkHeight / 2); // Position trunk so its base is at y=0
-        trunk.castShadow = true
-        trunk.receiveShadow = true
+        trunk.position.y = trunkHeight / 2; // Position trunk so its base is at y=0
+        trunk.castShadow = true;
+        trunk.receiveShadow = true;
         tree.add(trunk);
 
         // Foliage
         const foliageHeight = Math.random() * 2 + 1; // Random foliage height between 1 and 3
         const foliage = new THREE.Mesh(
             new THREE.ConeGeometry(0.8, foliageHeight, 8),
-            new THREE.MeshStandardMaterial({ color: 0x228B22 })
+            new THREE.MeshStandardMaterial({ color: 0x228B22 }) // ForestGreen color
         );
-        foliage.position.y = trunkHeight + (foliageHeight / 2); // Position foliage on top of the trunk
-        foliage.castShadow = true; // Enable shadow casting
-        foliage.receiveShadow = true; // Enable shadow receiving
+        foliage.position.y = trunkHeight + foliageHeight / 2; // Position foliage on top of the trunk
+        foliage.castShadow = true;
+        foliage.receiveShadow = true;
         tree.add(foliage);
 
         // Position on terrain
@@ -1133,25 +1324,26 @@ function createTrees(count) {
         // Log terrain height and tree position for debugging
         console.log(`Tree ${i + 1}: Terrain Height = ${terrainHeight}, Total Tree Height = ${totalTreeHeight}`);
 
+        // Correct Y-position: set tree base to terrainHeight
         tree.position.set(
             position.x,
-            terrainHeight + (totalTreeHeight / 2) - 2,
+            terrainHeight, // Base at terrain height
             position.z
         );
 
         // Avoid overlapping with player/enemy
         if (position.distanceTo(player.position) < 5 || position.distanceTo(enemy.position) < 5) {
+            console.log(`Tree ${i + 1} overlaps with player or enemy. Repositioning.`);
             i--;
             continue;
         }
 
         // Add tree to scene and tracking arrays
         scene.add(tree);
-        trees.push(tree); // If you have a separate trees array
-        obstacles.push(tree); // If trees are considered obstacles
-        
-        // Optional: Add physics body if trees should interact physically
-        // Example: Approximate the tree as a compound shape or use a cylinder
+        trees.push(tree); // Separate trees array
+        obstacles.push(tree); // Trees as obstacles
+
+        // Create Ammo.js physics body for the tree
         const trunkShape = new Ammo.btCylinderShape(new Ammo.btVector3(0.2, trunkHeight / 2, 0.2));
         const foliageShape = new Ammo.btConeShape(0.8, foliageHeight);
 
@@ -1168,8 +1360,73 @@ function createTrees(count) {
         compoundShape.addChildShape(transformFoliage, foliageShape);
 
         createObstaclePhysics(tree.position, compoundShape, tree);
-        
+        console.log(`Tree ${i + 1} created and physics body assigned.`);
     }
+}
+
+
+
+function spawnLogs(position) {
+    const logCount = 1; // Number of logs per tree
+    for (let i = 0; i < logCount; i++) {
+        // Create log mesh
+        const logGeometry = new THREE.CylinderGeometry(0.1, 0.1, 1, 8);
+        const logMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); // Brown color
+        const logMesh = new THREE.Mesh(logGeometry, logMaterial);
+        logMesh.position.copy(position).add(new THREE.Vector3(
+            (Math.random() - 0.5) * 1, // Slight random offset
+            0.5,
+            (Math.random() - 0.5) * 1
+        ));
+        logMesh.castShadow = true;
+        logMesh.receiveShadow = true;
+        scene.add(logMesh);
+
+        // Create Ammo.js physics body for the log
+        const logShape = new Ammo.btCylinderShape(new Ammo.btVector3(0.1, 0.5, 0.1));
+        const logTransform = new Ammo.btTransform();
+        logTransform.setIdentity();
+        logTransform.setOrigin(new Ammo.btVector3(logMesh.position.x, logMesh.position.y, logMesh.position.z));
+        const logMass = 1; // Adjust mass as needed
+        const logMotionState = new Ammo.btDefaultMotionState(logTransform);
+        const logLocalInertia = new Ammo.btVector3(0, 0, 0);
+        logShape.calculateLocalInertia(logMass, logLocalInertia);
+        const logRbInfo = new Ammo.btRigidBodyConstructionInfo(logMass, logMotionState, logShape, logLocalInertia);
+        const logBody = new Ammo.btRigidBody(logRbInfo);
+        logBody.setFriction(0.5);
+        logBody.setRestitution(0.1);
+        physicsWorld.addRigidBody(logBody);
+
+        // Associate the Three.js mesh with the Ammo.js body
+        logBody.threeObject = logMesh;
+
+        // Track the log
+        logs.push({ mesh: logMesh, body: logBody });
+
+        console.log(`Log ${i + 1} spawned at position: (${logMesh.position.x.toFixed(2)}, ${logMesh.position.y.toFixed(2)}, ${logMesh.position.z.toFixed(2)})`);
+    }
+}
+
+
+
+// Handle Log Collection Function (as defined earlier)
+function handleLogCollection() {
+    logs.forEach((log, index) => {
+        if (player.position.distanceTo(log.mesh.position) <= 1) { // Collection range
+            // Add log to inventory
+            playerInventory.logs += 1;
+            updateInventoryUI();
+
+            // Remove log from scene and physics world
+            scene.remove(log.mesh);
+            physicsWorld.removeRigidBody(log.body);
+
+            // Remove from logs array
+            logs.splice(index, 1);
+
+            console.log('Log collected!');
+        }
+    });
 }
 
 function createFireflies() {
@@ -1319,18 +1576,20 @@ function getTerrainHeightAt(x, z) {
 }
 
 
-
 function createObstaclePhysics(position, shape, obstacleMesh) {
     const obstacleTransform = new Ammo.btTransform();
     obstacleTransform.setIdentity();
     obstacleTransform.setOrigin(new Ammo.btVector3(position.x, position.y, position.z));
-    const obstacleMass = 0;
+    
+    const obstacleMass = 0; // Static object
     const obstacleMotionState = new Ammo.btDefaultMotionState(obstacleTransform);
-    const obstacleRbInfo = new Ammo.btRigidBodyConstructionInfo(obstacleMass, obstacleMotionState, shape, new Ammo.btVector3(0, 0, 0));
+    const localInertia = new Ammo.btVector3(0, 0, 0); // No inertia for static objects
+    
+    const obstacleRbInfo = new Ammo.btRigidBodyConstructionInfo(obstacleMass, obstacleMotionState, shape, localInertia);
     const obstacleBody = new Ammo.btRigidBody(obstacleRbInfo);
 
-    // Store the physics body in the mesh's userData
-    obstacleMesh.userData.physicsBody = obstacleBody;
+    // Store the physics body directly on the tree object
+    obstacleMesh.physicsBody = obstacleBody;
 
     // Associate the Three.js object with the Ammo.js body
     obstacleBody.threeObject = obstacleMesh;
@@ -1339,9 +1598,13 @@ function createObstaclePhysics(position, shape, obstacleMesh) {
     physicsWorld.addRigidBody(
         obstacleBody,
         COL_GROUP_OBSTACLE, // Collision group
-        COL_GROUP_PLAYER | COL_GROUP_PLAYER_PROJECTILE | COL_GROUP_ENEMY_PROJECTILE | COL_GROUP_ENEMY | COL_GROUP_TERRAIN // Collides with these groups
+        COL_GROUP_PLAYER | COL_GROUP_PLAYER_PROJECTILE | COL_GROUP_ENEMY_PROJECTILE | COL_GROUP_ENEMY | COL_GROUP_TERRAIN // Collision mask
     );
+
+    console.log('Physics body created and associated with Tree:', obstacleMesh);
 }
+
+
 
 
 // Initialize Jump Button Elements and Event Listeners
@@ -1644,6 +1907,7 @@ function initializeScene() {
     createTrees(100);              // Adjust count as needed
     createWaterBodies(5);          // Creates water bodies
     createRotatingSpikes(5);       // Creates rotating spikes
+    updateInventoryUI();
 }
 
 
@@ -1865,8 +2129,6 @@ function removeProjectile(index) {
 }
 
 
-
-
 function updatePhysics(deltaTime) {
     // Step the physics simulation
     physicsWorld.stepSimulation(deltaTime, 10);
@@ -1906,7 +2168,31 @@ function updatePhysics(deltaTime) {
 
     // Check for collisions between projectiles and other objects
     checkProjectileCollisions();
+
+    // Update trees and logs
+    trees.forEach(tree => {
+        const transform = new Ammo.btTransform();
+        tree.physicsBody.getMotionState().getWorldTransform(transform);
+        const origin = transform.getOrigin();
+        tree.position.set(origin.x(), origin.y(), origin.z());
+
+        // Update rotation
+        const rotation = transform.getRotation();
+        tree.quaternion.set(rotation.x(), rotation.y(), rotation.z(), rotation.w());
+    });
+
+    logs.forEach(log => {
+        const transform = new Ammo.btTransform();
+        log.body.getMotionState().getWorldTransform(transform);
+        const origin = transform.getOrigin();
+        log.mesh.position.set(origin.x(), origin.y(), origin.z());
+
+        // Update rotation
+        const rotation = transform.getRotation();
+        log.mesh.quaternion.set(rotation.x(), rotation.y(), rotation.z(), rotation.w());
+    });
 }
+
 
 function checkCollisions() {
     const dispatcher = physicsWorld.getDispatcher();
@@ -2279,6 +2565,11 @@ function animate() {
 
     // Update rotating spikes
     updateRotatingSpikes(deltaTime);
+
+    checkTreeProximity();
+
+    // Handle log collection
+    handleLogCollection();
 
     // Update camera position
     updateCameraPosition();
