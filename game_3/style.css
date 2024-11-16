@@ -49,6 +49,7 @@ html, body {
     background-color: transparent; /* Removed gray coloring */
 }
 
+/* Movement Joystick */
 #joystickContainerMove {
     position: fixed;
     /* Set appropriate z-index to ensure they are above other elements */
@@ -69,7 +70,6 @@ html, body {
     bottom: 20px;
 }
 
-
 #joystickKnobMove {
     width: 60px;
     height: 60px;
@@ -78,7 +78,7 @@ html, body {
     transition: transform 0.1s ease;
 }
 
-/* Shooting Button */
+/* Shoot Button */
 .shoot-button {
     position: fixed;
     bottom: 20px; /* Align with other controls */
@@ -107,7 +107,6 @@ html, body {
 .shoot-knob.active {
     background-color: rgba(255, 0, 0, 1); /* Opaque red on active */
 }
-
 
 /* Simplified Jump Button */
 .jump-button {
@@ -138,6 +137,58 @@ html, body {
 /* Active State for Jump Knob */
 .jump-knob.active {
     background-color: rgba(255, 255, 255, 1);
+}
+
+/* Chop Button */
+.chop-button {
+    position: fixed;
+    bottom: 120px; /* Positioned above the Shoot button */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 80px;
+    z-index: 1000;
+    touch-action: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Chop Button Styling */
+.chop-button button {
+    width: 60px;
+    height: 60px;
+    background-color: rgba(139, 69, 19, 0.8); /* SaddleBrown color */
+    border: none;
+    border-radius: 50%;
+    color: #FFFFFF;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.chop-button button:hover {
+    background-color: rgba(139, 69, 19, 1); /* Opaque on hover */
+}
+
+.chop-button button:active {
+    transform: scale(0.95);
+    background-color: rgba(139, 69, 19, 1); /* Darker color on active */
+}
+
+/* Inventory Display */
+#inventory {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    padding: 10px 20px;
+    background-color: rgba(0, 0, 0, 0.5);
+    color: #FFFFFF;
+    border-radius: 5px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 18px;
+    z-index: 1000;
 }
 
 /* Overlays Styling */
@@ -225,4 +276,9 @@ html, body {
 
 .control-button:active {
     transform: scale(0.95);
+}
+
+/* Inventory Styling Enhancements */
+#inventory {
+    font-weight: 600;
 }
