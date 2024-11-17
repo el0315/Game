@@ -56,7 +56,7 @@ let enemyHealth = 3; // Current health
 const maxEnemyHealth = 3; // Maximum health
 // Enemy AI Configuration
 const enemyMoveTowardsPlayerFrequency = 1; // Seconds between movement direction updates
-const enemyShootFrequency = 30; // Seconds between shooting actions
+const enemyShootFrequency = 5; // Seconds between shooting actions
 
 // Enemy Jump Mechanics Constants
 const enemyJumpForce = 10;        // Upward force applied during a jump
