@@ -56,7 +56,7 @@ let enemyHealth = 3; // Current health
 const maxEnemyHealth = 3; // Maximum health
 // Enemy AI Configuration
 const enemyMoveTowardsPlayerFrequency = 1; // Seconds between movement direction updates
-const enemyShootFrequency = 5; // Seconds between shooting actions
+const enemyShootFrequency = 1; // Seconds between shooting actions
 
 // Enemy Jump Mechanics Constants
 const enemyJumpForce = 10;        // Upward force applied during a jump
@@ -1285,7 +1285,7 @@ function createBoatPhysics(boat) {
 const repairProximity = 5; // Distance threshold for showing the message
 let isNearBoat = false;
 
-const repairLogRequirement = 10; // Define the log requirement for repairing
+const repairLogRequirement = 0; // Define the log requirement for repairing
 
 function checkBoatProximity() {
     if (!destroyedBoat || boatRepaired) return;
@@ -1316,7 +1316,7 @@ function createRepairMessage() {
     canvas.height = 64;
 
     // Draw message background
-    context.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    context.fillStyle = 'rgba(0, 0, 0, 0.3)';
     context.fillRect(0, 0, canvas.width, canvas.height);
 
     // Draw text
@@ -1361,41 +1361,58 @@ function repairBoat() {
 }
 
 
-
-
-
 function completeBoatRepair() {
     console.log('Boat repair completed!');
     scene.remove(destroyedBoat); // Remove the destroyed boat
 
-    // Create and add the repaired boat
+    // Create a new group for the repaired boat
     const repairedBoat = new THREE.Group();
 
-    const repairedBase = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.5, 0.5, 5, 16),
-        new THREE.MeshStandardMaterial({ color: 0x8B4513 })
-    );
-    repairedBase.rotation.z = Math.PI / 2;
-    repairedBase.position.set(0, 0.5, 0);
-    repairedBoat.add(repairedBase);
+    // Create the hull (simple cylinder)
+    const hullGeometry = new THREE.CylinderGeometry(0.5, 0.5, 4, 8); // Small cylinder
+    const hullMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); // Wooden color
+    const hullMesh = new THREE.Mesh(hullGeometry, hullMaterial);
+    hullMesh.rotation.z = Math.PI / 2; // Rotate horizontally
+    hullMesh.position.y = 0.5; // Slightly above water level
+    repairedBoat.add(hullMesh);
 
-    const mast = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.1, 0.1, 3, 16),
-        new THREE.MeshStandardMaterial({ color: 0xFFFFFF })
-    );
-    mast.position.set(0, 2, 0);
-    repairedBoat.add(mast);
+    // Create the mast
+    const mastGeometry = new THREE.CylinderGeometry(0.1, 0.1, 3, 8); // Thin vertical cylinder
+    const mastMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFFF }); // White color
+    const mastMesh = new THREE.Mesh(mastGeometry, mastMaterial);
+    mastMesh.position.y = 2.5; // Centered vertically above the hull
+    repairedBoat.add(mastMesh);
 
+    // Create a simple sail
+    const sailGeometry = new THREE.PlaneGeometry(2, 3); // Small rectangular sail
+    const sailMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFFFFFF,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.8,
+    });
+    const sailMesh = new THREE.Mesh(sailGeometry, sailMaterial);
+    sailMesh.position.y = 3; // Attached to the mast
+    sailMesh.position.z = -0.5; // Slightly behind the mast
+    repairedBoat.add(sailMesh);
+
+    // Add rudder (small rectangle at the back)
+    const rudderGeometry = new THREE.BoxGeometry(0.2, 0.5, 0.1);
+    const rudderMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+    const rudderMesh = new THREE.Mesh(rudderGeometry, rudderMaterial);
+    rudderMesh.position.set(-2.1, 0.5, 0); // Positioned at the back of the hull
+    repairedBoat.add(rudderMesh);
+
+    // Add the repaired boat to the scene
     repairedBoat.position.copy(destroyedBoat.position);
+    repairedBoat.position.y += 0.5; // Ensure it sits properly in the water
     scene.add(repairedBoat);
 
-    // Hide the repair message
-    if (repairMessageMesh) {
-        repairMessageMesh.visible = false;
-    }
-
-    console.log('Repaired boat added to the scene!');
+    console.log('Simplified repaired boat added to the scene!');
 }
+
+
+
 const actionButtonText = document.getElementById('actionButtonText');
 const actionButtonIcon = document.getElementById('actionButtonIcon');
 const actionButton = document.getElementById('actionButton');
@@ -2265,14 +2282,10 @@ function updateEnemyAI(deltaTime) {
     }
 
     // Shooting at Player
-    if (totalElapsedTime - lastEnemyShootTime > enemyShootFrequency) {
-        enemyShootAtPlayer();
-        lastEnemyShootTime = totalElapsedTime;
-    }
+    enemyShootAtPlayer(); // Ensure this is called each frame
 
     // Update enemy jump timer
     enemyJumpTimer += deltaTime * 1000; // Convert to milliseconds
-
     if (enemyJumpTimer >= enemyJumpInterval) {
         performEnemyJump();
         enemyJumpTimer = 0; // Reset timer
@@ -2281,6 +2294,7 @@ function updateEnemyAI(deltaTime) {
     // Sync enemy mesh position with physics
     syncEnemyPosition();
 }
+
 
 function syncEnemyPosition() {
     const transform = new Ammo.btTransform();
@@ -2344,6 +2358,12 @@ function enemyShootAtPlayer() {
     if (!enemyCanShoot) return; // Prevent shooting during respawn
     if (!playerControlsEnabled) return; // Prevent shooting if player is dead or respawning
 
+    // Check if the enemy can shoot based on frequency
+    if (totalElapsedTime - lastEnemyShootTime < enemyShootFrequency) return;
+
+    // Update the last shot time
+    lastEnemyShootTime = totalElapsedTime;
+
     // Get the enemy's current position
     const enemyPosition = new THREE.Vector3();
     enemyPosition.copy(enemy.position);
@@ -2352,8 +2372,8 @@ function enemyShootAtPlayer() {
     const direction = new THREE.Vector3();
     direction.subVectors(player.position, enemy.position).normalize();
 
-    // Introduce random deviation for enemy projectiles if desired (optional)
-    const deviation = THREE.MathUtils.degToRad(Math.random() * maxAccuracyDeviation * 2 - maxAccuracyDeviation); // Optional: Add some inaccuracy
+    // Introduce random deviation for enemy projectiles
+    const deviation = THREE.MathUtils.degToRad(Math.random() * maxAccuracyDeviation * 2 - maxAccuracyDeviation);
     const axis = new THREE.Vector3(0, 1, 0); // Rotate around Y-axis for horizontal deviation
 
     const quaternion = new THREE.Quaternion();
@@ -2361,16 +2381,18 @@ function enemyShootAtPlayer() {
 
     direction.applyQuaternion(quaternion).normalize();
 
+    // Debugging log
+    console.log(`Enemy firing at player! Direction: ${direction.x.toFixed(2)}, ${direction.y.toFixed(2)}, ${direction.z.toFixed(2)}`);
+
     // Create and fire the projectile with shooterType 'enemy'
     createProjectile(enemyPosition, direction, 'enemy');
-
-    console.log(`Enemy fired a projectile towards direction: (${direction.x.toFixed(2)}, ${direction.y.toFixed(2)}, ${direction.z.toFixed(2)})`);
 
     // Limit the number of projectiles
     if (projectiles.length > maxProjectiles) {
         removeProjectile(0); // Remove the oldest projectile
     }
 }
+
 
 
 
