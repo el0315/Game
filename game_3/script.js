@@ -1415,7 +1415,7 @@ function completeBoatRepair() {
 
     // Position repaired boat
     repairedBoat.position.copy(destroyedBoat.position);
-    repairedBoat.position.y -= 0.7;
+    repairedBoat.position.y += 0;
     scene.add(repairedBoat);
 
     // Add physics to the repaired boat if necessary
