@@ -1311,7 +1311,7 @@ function createBoatPhysics(boat, isRepaired = false) {
 const repairProximity = 5; // Distance threshold for showing the message
 let isNearBoat = false;
 
-const repairLogRequirement = 0; // Define the log requirement for repairing
+const repairLogRequirement = 10; // Define the log requirement for repairing
 
 function checkBoatProximity() {
     if (!destroyedBoat || boatRepaired) return;
