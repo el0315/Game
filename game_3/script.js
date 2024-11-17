@@ -125,14 +125,11 @@ const terrainWidth = 64;
 const terrainDepth = 64;
 const terrainHalfWidth = terrainWidth / 2;
 const terrainHalfDepth = terrainDepth / 2;
-const terrainMaxHeight = 4; // Maximum height of the terrain
+const terrainMaxHeight = 15; // Maximum height of the terrain
 const terrainMinHeight = 1; // Minimum height of the terrain
 let heightData = null;
 let ammoHeightData = null;
 
-// Hill parameters for terrain generation
-const hillFrequency = 10;   // Adjust this value for more or fewer hills (lower value = fewer hills)
-const hillAmplitude = 1; // Adjust this value for the height of the hills (higher value = taller hills)
 
 // Global variables for projectiles
 let projectiles = [];
@@ -1535,7 +1532,7 @@ function createFireflies() {
         side: THREE.DoubleSide
     });
 
-    const fireflyCount = 100;
+    const fireflyCount = 25;
     const fireflyMesh = new THREE.InstancedMesh(fireflyGeometry, fireflyMaterial, fireflyCount);
     const dummy = new THREE.Object3D();
 
@@ -1943,9 +1940,9 @@ function initializeScene() {
 
     // **Call Environmental Feature Creation Functions**
     createRandomObstacles(10);    // Adjust count as needed
-    createCollectibles(15);       // Adjust count as needed
-    createTrees(100);              // Adjust count as needed
-    createWaterBodies(5);          // Creates water bodies
+    createCollectibles(5);       // Adjust count as needed
+    createTrees(50);              // Adjust count as needed
+    createWaterBodies(1);          // Creates water bodies
     createRotatingSpikes(5);       // Creates rotating spikes
     updateInventoryUI();
 }
@@ -2175,7 +2172,6 @@ function removeProjectile(index) {
 const maxSubSteps = 5; // Reduced from 10
 function updatePhysics(deltaTime) {
     physicsWorld.stepSimulation(deltaTime, maxSubSteps);
-    
 
     // Update the player's position based on the physics simulation
     const playerTransform = new Ammo.btTransform();
@@ -2205,7 +2201,7 @@ function updatePhysics(deltaTime) {
         mesh.quaternion.set(rotation.x(), rotation.y(), rotation.z(), rotation.w());
 
         // Optional: Remove projectiles that are out of bounds to optimize performance
-        if (mesh.position.length() > 500) { // Example boundary
+        if (mesh.position.length() > 500) {
             removeProjectile(index);
         }
     });
@@ -2213,18 +2209,21 @@ function updatePhysics(deltaTime) {
     // Check for collisions between projectiles and other objects
     checkProjectileCollisions();
 
-    // Update trees and logs
+    // Only update trees marked as being chopped
     trees.forEach(tree => {
-        const transform = new Ammo.btTransform();
-        tree.physicsBody.getMotionState().getWorldTransform(transform);
-        const origin = transform.getOrigin();
-        tree.position.set(origin.x(), origin.y(), origin.z());
+        if (tree.isBeingChopped) {
+            const transform = new Ammo.btTransform();
+            tree.physicsBody.getMotionState().getWorldTransform(transform);
+            const origin = transform.getOrigin();
+            tree.position.set(origin.x(), origin.y(), origin.z());
 
-        // Update rotation
-        const rotation = transform.getRotation();
-        tree.quaternion.set(rotation.x(), rotation.y(), rotation.z(), rotation.w());
+            // Update rotation
+            const rotation = transform.getRotation();
+            tree.quaternion.set(rotation.x(), rotation.y(), rotation.z(), rotation.w());
+        }
     });
 
+    // Update logs (dynamic objects)
     logs.forEach(log => {
         const transform = new Ammo.btTransform();
         log.body.getMotionState().getWorldTransform(transform);
@@ -2236,6 +2235,7 @@ function updatePhysics(deltaTime) {
         log.mesh.quaternion.set(rotation.x(), rotation.y(), rotation.z(), rotation.w());
     });
 }
+
 
 
 function checkCollisions() {
