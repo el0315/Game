@@ -1291,7 +1291,7 @@ function createBoatPhysics(boat, isRepaired = false) {
 const repairProximity = 5; // Distance threshold for showing the message
 let isNearBoat = false;
 
-const repairLogRequirement = 10; // Define the log requirement for repairing
+const repairLogRequirement = 0; // Define the log requirement for repairing
 
 function checkBoatProximity() {
     if (!destroyedBoat || boatRepaired) return;
@@ -1367,12 +1367,16 @@ function repairBoat() {
 }
 
 
+// Add a global variable to store the repaired boat
+let repairedBoat = null;
+
+// Modify the completeBoatRepair function
 function completeBoatRepair() {
     console.log('Boat repair completed!');
     scene.remove(destroyedBoat);
 
     // Create a new group for the repaired boat
-    const repairedBoat = new THREE.Group();
+    repairedBoat = new THREE.Group();
 
     // Hull
     const hullGeometry = new THREE.CylinderGeometry(0.5, 0.5, 4, 8);
@@ -1414,8 +1418,75 @@ function completeBoatRepair() {
     repairedBoat.position.y -= 0.7;
     scene.add(repairedBoat);
 
+    // Add physics to the repaired boat if necessary
+    // (You can implement physics similar to destroyedBoat if required)
 
-    console.log('Simplified repaired boat added to the scene!');
+    // Reset boat repaired flag
+    boatRepaired = true;
+
+    // Show a message indicating the boat is ready to board
+    console.log('Boat is ready to be boarded!');
+}
+
+
+function checkBoatBoardingProximity() {
+    if (!repairedBoat || boatBoarded) return; // Only proceed if boat is repaired and not yet boarded
+
+    const distance = player.position.distanceTo(repairedBoat.position);
+    const boardProximity = 3; // Define how close the player needs to be to board
+
+    if (distance <= boardProximity) {
+        showActionButton('Board Boat', initiateBoarding, 'boardBoat');
+    } else {
+        hideActionButton('boardBoat');
+    }
+}
+
+let boatBoarded = false; // Flag to prevent multiple boarding
+
+function initiateBoarding() {
+    if (boatBoarded) return; // Prevent boarding again
+
+    // Hide the "Board Boat" button
+    hideActionButton('boardBoat');
+
+    // Disable player controls
+    playerControlsEnabled = false;
+
+    // Define the target position on the boat where the player will board
+    const targetPosition = new THREE.Vector3(
+        repairedBoat.position.x + 1, // Adjust based on boat's geometry
+        repairedBoat.position.y + 1.5, // Slightly above the boat's deck
+        repairedBoat.position.z
+    );
+
+    // Create a TWEEN animation to move the player to the target position
+    const playerStartPos = player.position.clone();
+    const tween = new TWEEN.Tween(player.position)
+        .to(targetPosition, 1000) // 1 second duration
+        .easing(TWEEN.Easing.Quadratic.Out)
+        .onUpdate(() => {
+            // Optionally, add rotation or other effects during the move
+        })
+        .onComplete(() => {
+            console.log('Player has boarded the boat!');
+            boatBoarded = true; // Set the flag to true
+            hideActionButton('boardBoat');
+            // Attach the player to the boat for future movements
+            repairedBoat.add(player); // Add to boat's hierarchy
+            player.position.set(1, 1.5, 0); // Reset relative position
+
+            // Proceed to the next level
+            proceedToNextLevel();
+        })
+        .start();
+}
+
+
+function proceedToNextLevel() {
+    // For testing, we'll simply log a message. Implement actual level transition here.
+    console.log('Transitioning to the next level...');
+    // Example: window.location.href = 'nextLevel.html';
 }
 
 
@@ -1424,18 +1495,20 @@ const actionButtonText = document.getElementById('actionButtonText');
 const actionButtonIcon = document.getElementById('actionButtonIcon');
 const actionButton = document.getElementById('actionButton');
 
-// Current action callback
+// Current action callback and context
 let currentAction = null;
 let currentActionContext = null; // Tracks the active context for the action button
 const actionPriorities = {
     repairBoat: 2,
     chopTree: 1,
+    boardBoat: 3
 }; // Higher values mean higher priority
 
 /**
  * Show the multifunctional action button.
  * @param {string} message - The text to display on the button.
  * @param {function|null} actionCallback - The function to call when the button is pressed.
+ * @param {string} context - The context identifier for priority management.
  */
 function showActionButton(message, actionCallback, context) {
     // Prevent lower-priority actions from overriding
@@ -1451,10 +1524,9 @@ function showActionButton(message, actionCallback, context) {
     currentActionContext = context; // Update the context
 }
 
-
-
 /**
  * Hide the multifunctional action button.
+ * @param {string} context - The context identifier to ensure correct hiding.
  */
 function hideActionButton(context) {
     // Only hide the button if the current context matches
@@ -1465,6 +1537,7 @@ function hideActionButton(context) {
         currentActionContext = null;
     }
 }
+
 
 
 // Attach event listener to the button
@@ -1590,65 +1663,6 @@ function startRain() {
     }
 
     animateRain();
-}
-
-// Call updateFlood inside your animate loop
-function animate() {
-    requestAnimationFrame(animate);
-
-    const now = performance.now();
-    const deltaTime = (now - lastFrameTime) / 1000; // Convert to seconds
-    lastFrameTime = now;
-
-    // Clamp deltaTime to avoid large jumps
-    const clampedDeltaTime = Math.min(deltaTime, 0.05);
-
-    // Update total elapsed time
-    totalElapsedTime += clampedDeltaTime;
-
-    // Update physics with clamped deltaTime
-    updatePhysics(clampedDeltaTime);
-
-    checkOutOfBounds();
-
-    // Update player rotation and position
-    updatePlayerRotation();
-    updatePlayerPosition();
-
-    // Update fireflies each frame
-    updateFireflies();
-
-    // Update proximity for the destroyed boat
-    checkBoatProximity();
-
-    // Update enemy AI (movement, shooting, jumping)
-    updateEnemyAI(deltaTime);
-
-    // Update rotating spikes
-    updateRotatingSpikes(deltaTime);
-
-    checkTreeProximity();
-
-    // Handle log collection
-    handleLogCollection();
-
-    // Update camera position
-    updateCameraPosition();
-
-    // Update health bars to face the camera
-    updateHealthBars();
-
-    // Check for collisions
-    checkCollisions();
-
-    // Update flood progression
-    updateFlood();
-
-    // Update TWEEN animations
-    TWEEN.update();
-
-    // Render the scene
-    renderer.render(scene, camera);
 }
 
 
@@ -3044,7 +3058,6 @@ function checkOutOfBounds() {
 
 
 let lastFrameTime = performance.now();
-
 function animate() {
     requestAnimationFrame(animate);
     
@@ -3066,11 +3079,16 @@ function animate() {
     // Update player rotation and position
     updatePlayerRotation();
     updatePlayerPosition();
+
     // Update fireflies each frame
     updateFireflies();
 
     // Update proximity for the destroyed boat
     checkBoatProximity();
+
+    // Check proximity to boarded boat
+    checkBoatBoardingProximity();
+
     // Update enemy AI (movement, shooting, jumping)
     updateEnemyAI(deltaTime);
 
@@ -3091,12 +3109,16 @@ function animate() {
     // Check for collisions
     checkCollisions();
 
-    // **Update TWEEN animations**
+    // Update flood progression
+    updateFlood();
+
+    // Update TWEEN animations
     TWEEN.update();
 
     // Render the scene
     renderer.render(scene, camera);
 }
+
 
 
 
