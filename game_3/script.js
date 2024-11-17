@@ -1214,20 +1214,20 @@ function emitSmoke(obstacleMesh, coneHeight) {
     }, emitInterval);
 }
 
+
 let destroyedBoat, repairMessage;
 
 let boatRepaired = false; // Track if the boat is repaired
 
-// Add the boat to the scene
 function createDestroyedBoat() {
     destroyedBoat = new THREE.Group();
 
     // Boat base (cylinder)
     const baseGeometry = new THREE.CylinderGeometry(0.5, 0.5, 5, 16);
-    const baseMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); // Same color as logs
+    const baseMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
     const baseMesh = new THREE.Mesh(baseGeometry, baseMaterial);
-    baseMesh.rotation.z = Math.PI / 2; // Rotate to lie flat
-    baseMesh.position.set(0, 0.5, 0); // Adjust height
+    baseMesh.rotation.z = Math.PI / 2;
+    baseMesh.position.set(0, 0.5, 0);
     destroyedBoat.add(baseMesh);
 
     // Boat fragments (broken pieces)
@@ -1253,7 +1253,10 @@ function createDestroyedBoat() {
 
     // Create the repair message
     createRepairMessage();
+
+
 }
+
 
 function showRepairMessage() {
     if (repairMessageMesh) {
@@ -1268,18 +1271,41 @@ function hideRepairMessage() {
 }
 
 // Add collision detection for the boat
-function createBoatPhysics(boat) {
-    const compoundShape = new Ammo.btCompoundShape();
+function createBoatPhysics(boat, isRepaired = false) {
+    // Approximate the boat with a cylinder physics body
+    const cylinderHeight = isRepaired ? 4 : 5; // Approximate height of the repaired/destroyed boat
+    const cylinderRadius = 2; // Approximate radius
+    const boatShape = new Ammo.btCylinderShape(new Ammo.btVector3(cylinderRadius, cylinderHeight / 2, cylinderRadius));
 
-    boat.children.forEach(child => {
-        const shape = new Ammo.btCylinderShape(new Ammo.btVector3(0.5, 2.5, 0.5));
-        const transform = new Ammo.btTransform();
-        transform.setIdentity();
-        transform.setOrigin(new Ammo.btVector3(child.position.x, child.position.y, child.position.z));
-        compoundShape.addChildShape(transform, shape);
-    });
+    const transform = new Ammo.btTransform();
+    transform.setIdentity();
+    transform.setOrigin(new Ammo.btVector3(
+        boat.position.x,
+        boat.position.y + cylinderHeight / 2, // Center the physics body
+        boat.position.z
+    ));
 
-    createObstaclePhysics(boat.position, compoundShape, boat);
+    const mass = 0; // Static object
+    const localInertia = new Ammo.btVector3(0, 0, 0);
+    const motionState = new Ammo.btDefaultMotionState(transform);
+
+    const rbInfo = new Ammo.btRigidBodyConstructionInfo(mass, motionState, boatShape, localInertia);
+    const body = new Ammo.btRigidBody(rbInfo);
+
+    body.setCollisionFlags(body.getCollisionFlags() | 2); // Set as a static object
+
+    // Add the physics body to the world
+    physicsWorld.addRigidBody(
+        body,
+        COL_GROUP_OBSTACLE, // Group for obstacles
+        COL_GROUP_PLAYER | COL_GROUP_ENEMY // Collides with player and enemy
+    );
+
+    // Associate the Ammo.js body with the Three.js object
+    boat.userData.physicsBody = body;
+    body.threeObject = boat;
+
+    console.log(`${isRepaired ? 'Repaired' : 'Destroyed'} boat physics created using a cylinder.`);
 }
 
 const repairProximity = 5; // Distance threshold for showing the message
@@ -1303,7 +1329,6 @@ function checkBoatProximity() {
         hideActionButton('repairBoat');
     }
 }
-
 
 
 let repairMessageMesh = null;
@@ -1362,31 +1387,30 @@ function repairBoat() {
 }
 
 
-
 function completeBoatRepair() {
     console.log('Boat repair completed!');
-    scene.remove(destroyedBoat); // Remove the destroyed boat
+    scene.remove(destroyedBoat);
 
     // Create a new group for the repaired boat
     const repairedBoat = new THREE.Group();
 
-    // Create the hull (simple cylinder)
-    const hullGeometry = new THREE.CylinderGeometry(0.5, 0.5, 4, 8); // Small cylinder
-    const hullMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); // Wooden color
+    // Hull
+    const hullGeometry = new THREE.CylinderGeometry(0.5, 0.5, 4, 8);
+    const hullMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
     const hullMesh = new THREE.Mesh(hullGeometry, hullMaterial);
-    hullMesh.rotation.z = Math.PI / 2; // Rotate horizontally
-    hullMesh.position.y = 0.5; // Slightly above water level
+    hullMesh.rotation.z = Math.PI / 2;
+    hullMesh.position.y = 0.5;
     repairedBoat.add(hullMesh);
 
-    // Create the mast
-    const mastGeometry = new THREE.CylinderGeometry(0.1, 0.1, 3, 8); // Thin vertical cylinder
-    const mastMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFFF }); // White color
+    // Mast
+    const mastGeometry = new THREE.CylinderGeometry(0.1, 0.1, 3, 8);
+    const mastMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFFF });
     const mastMesh = new THREE.Mesh(mastGeometry, mastMaterial);
-    mastMesh.position.y = 2.5; // Centered vertically above the hull
+    mastMesh.position.y = 2.5;
     repairedBoat.add(mastMesh);
 
-    // Create a simple sail
-    const sailGeometry = new THREE.PlaneGeometry(2, 3); // Small rectangular sail
+    // Sail
+    const sailGeometry = new THREE.PlaneGeometry(2, 3);
     const sailMaterial = new THREE.MeshStandardMaterial({
         color: 0xFFFFFF,
         side: THREE.DoubleSide,
@@ -1394,21 +1418,22 @@ function completeBoatRepair() {
         opacity: 0.8,
     });
     const sailMesh = new THREE.Mesh(sailGeometry, sailMaterial);
-    sailMesh.position.y = 3; // Attached to the mast
-    sailMesh.position.z = -0.5; // Slightly behind the mast
+    sailMesh.position.y = 3;
+    sailMesh.position.z = -0.5;
     repairedBoat.add(sailMesh);
 
-    // Add rudder (small rectangle at the back)
+    // Rudder
     const rudderGeometry = new THREE.BoxGeometry(0.2, 0.5, 0.1);
     const rudderMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
     const rudderMesh = new THREE.Mesh(rudderGeometry, rudderMaterial);
-    rudderMesh.position.set(-2.1, 0.5, 0); // Positioned at the back of the hull
+    rudderMesh.position.set(-2.1, 0.5, 0);
     repairedBoat.add(rudderMesh);
 
-    // Add the repaired boat to the scene
+    // Position repaired boat
     repairedBoat.position.copy(destroyedBoat.position);
-    repairedBoat.position.y -= 0.7; // Ensure it sits properly in the water
+    repairedBoat.position.y -= 0.7;
     scene.add(repairedBoat);
+
 
     console.log('Simplified repaired boat added to the scene!');
 }
