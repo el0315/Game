@@ -1477,14 +1477,180 @@ actionButton.addEventListener('pointerdown', (event) => {
 });
 
 
+let water; // Reference to the water body
+let floodStartTime = null; // Track when the flood begins
+const floodDuration = 120; // Duration of the flood in seconds
+const maxWaterScale = 5; // Maximum scale for the water
+
 function createWaterBodies() {
     const waterGeometry = new THREE.PlaneGeometry(20, 20);
     const waterMaterial = new THREE.MeshPhongMaterial({ color: 0x1E90FF, transparent: true, opacity: 0.6 });
-    const water = new THREE.Mesh(waterGeometry, waterMaterial);
+    water = new THREE.Mesh(waterGeometry, waterMaterial);
     water.rotation.x = -Math.PI / 2;
     water.position.set(10, getTerrainHeightAt(10, 10) + 0.1, 10); // Slightly above terrain
+    water.scale.set(1, 1, 1); // Initial scale
     scene.add(water);
+
+    // Start the rain and flood sequence when the water is created
+    startRainAndFlood();
 }
+
+function startRainAndFlood() {
+    floodStartTime = performance.now(); // Record the start time
+    startRain(); // Begin the rain particle effect
+}
+
+function updateFlood() {
+    if (!floodStartTime) return;
+
+    const elapsedTime = (performance.now() - floodStartTime) / 1000; // Time since the flood began in seconds
+    const progress = Math.min(elapsedTime / floodDuration, 1); // Normalize progress between 0 and 1
+
+    // Gradually increase the size of the water body
+    const scale = 1 + (maxWaterScale - 1) * progress;
+    water.scale.set(scale, 1, scale);
+
+    // Optionally, raise the water level over time
+    const newHeight = getTerrainHeightAt(10, 10) + 0.1 + progress * 2; // Adjust height over time
+    water.position.y = newHeight;
+}
+
+function startRain() {
+    const rainParticleCount = 1000; // Initial number of rain particles
+    const rainGeometry = new THREE.BufferGeometry();
+    const rainPositions = [];
+
+    for (let i = 0; i < rainParticleCount; i++) {
+        const x = (Math.random() - 0.5) * terrainWidthExtents * 2;
+        const y = Math.random() * 100 + 20;
+        const z = (Math.random() - 0.5) * terrainDepthExtents * 2;
+        rainPositions.push(x, y, z);
+    }
+
+    rainGeometry.setAttribute('position', new THREE.Float32BufferAttribute(rainPositions, 3));
+
+    const rainMaterial = new THREE.PointsMaterial({
+        color: 0x87CEEB,
+        size: 0.1,
+        transparent: true,
+        opacity: 0.8
+    });
+
+    const rain = new THREE.Points(rainGeometry, rainMaterial);
+    scene.add(rain);
+
+    // Animate rain falling
+    function animateRain() {
+        const positions = rain.geometry.attributes.position.array;
+
+        for (let i = 0; i < positions.length; i += 3) {
+            positions[i + 1] -= 0.5; // Move Y downward
+
+            // Reset particles that fall below the terrain
+            if (positions[i + 1] < getTerrainHeightAt(positions[i], positions[i + 2]) + 1) {
+                positions[i] = (Math.random() - 0.5) * terrainWidthExtents * 2;
+                positions[i + 1] = Math.random() * 100 + 20;
+                positions[i + 2] = (Math.random() - 0.5) * terrainDepthExtents * 2;
+            }
+        }
+
+        rain.geometry.attributes.position.needsUpdate = true; // Mark positions for update
+
+        // Gradually increase rain density
+        if (rainGeometry.attributes.position.count < 5000) {
+            const additionalParticles = [];
+            for (let i = 0; i < 100; i++) {
+                const x = (Math.random() - 0.5) * terrainWidthExtents * 2;
+                const y = Math.random() * 100 + 20;
+                const z = (Math.random() - 0.5) * terrainDepthExtents * 2;
+                additionalParticles.push(x, y, z);
+            }
+            if (rainGeometry.attributes.position.count < 5000) {
+                const currentPositions = rainGeometry.attributes.position.array;
+                const additionalParticles = new Float32Array(300); // 100 particles, 3 values (x, y, z) each
+            
+                for (let i = 0; i < 100; i++) {
+                    const offset = i * 3;
+                    additionalParticles[offset] = (Math.random() - 0.5) * terrainWidthExtents * 2;
+                    additionalParticles[offset + 1] = Math.random() * 100 + 20;
+                    additionalParticles[offset + 2] = (Math.random() - 0.5) * terrainDepthExtents * 2;
+                }
+            
+                // Create a new Float32Array to hold the combined positions
+                const combinedPositions = new Float32Array(currentPositions.length + additionalParticles.length);
+                combinedPositions.set(currentPositions);
+                combinedPositions.set(additionalParticles, currentPositions.length);
+            
+                rainGeometry.setAttribute('position', new THREE.Float32BufferAttribute(combinedPositions, 3));
+            }
+            
+        }
+
+        requestAnimationFrame(animateRain);
+    }
+
+    animateRain();
+}
+
+// Call updateFlood inside your animate loop
+function animate() {
+    requestAnimationFrame(animate);
+
+    const now = performance.now();
+    const deltaTime = (now - lastFrameTime) / 1000; // Convert to seconds
+    lastFrameTime = now;
+
+    // Clamp deltaTime to avoid large jumps
+    const clampedDeltaTime = Math.min(deltaTime, 0.05);
+
+    // Update total elapsed time
+    totalElapsedTime += clampedDeltaTime;
+
+    // Update physics with clamped deltaTime
+    updatePhysics(clampedDeltaTime);
+
+    checkOutOfBounds();
+
+    // Update player rotation and position
+    updatePlayerRotation();
+    updatePlayerPosition();
+
+    // Update fireflies each frame
+    updateFireflies();
+
+    // Update proximity for the destroyed boat
+    checkBoatProximity();
+
+    // Update enemy AI (movement, shooting, jumping)
+    updateEnemyAI(deltaTime);
+
+    // Update rotating spikes
+    updateRotatingSpikes(deltaTime);
+
+    checkTreeProximity();
+
+    // Handle log collection
+    handleLogCollection();
+
+    // Update camera position
+    updateCameraPosition();
+
+    // Update health bars to face the camera
+    updateHealthBars();
+
+    // Check for collisions
+    checkCollisions();
+
+    // Update flood progression
+    updateFlood();
+
+    // Update TWEEN animations
+    TWEEN.update();
+
+    // Render the scene
+    renderer.render(scene, camera);
+}
+
 
 function createRotatingSpikePhysics(spikeMesh) {
     const mass = 0; // Static object
@@ -2112,7 +2278,7 @@ function initializeScene() {
 
     // Sky
     sky = new THREE.Sky();
-    sky.scale.setScalar(450000);
+    sky.scale.setScalar(100);
     const sun = new THREE.Vector3(5, 1, -10);
     sky.material.uniforms['sunPosition'].value.copy(sun);
     scene.add(sky);
