@@ -1095,7 +1095,6 @@ function createRandomObstacles(count) {
 
                 shape = new Ammo.btConeShape(radius, height);
 
-
                 break;
 
             default:
@@ -1114,18 +1113,116 @@ function createRandomObstacles(count) {
         createObstaclePhysics(obstacleMesh.position, shape, obstacleMesh);
         obstacles.push(obstacleMesh);
 
-
-                // Use this function to create smoke at the tip of each cone
-        obstacles.forEach(cone => {
-            const coneHeight = cone.geometry.parameters.height || 2; // Default height if undefined
-            const smokePosition = new THREE.Vector3(cone.position.x, cone.position.y, cone.position.z);
-            createCylinderSmokeEffect(smokePosition, coneHeight);
-        });
-    
-
+        // **Initialize sprite-based smoke pool for this obstacle**
+        createSpriteSmokeEffect(obstacleMesh, height);
     }
 }
 
+
+
+// Global variable to store the smoke texture
+let smokeTexture = null;
+
+// Function to create sprite-based smoke effect with pooling
+function createSpriteSmokeEffect(obstacleMesh, coneHeight) {
+    const smokePoolSize = 5; // Number of smoke sprites per obstacle
+    const smokeSprites = []; // Pool array for smoke sprites
+
+    for (let i = 0; i < smokePoolSize; i++) {
+        // Create a canvas to draw the smoke texture
+        const canvas = document.createElement('canvas');
+        canvas.width = 64;
+        canvas.height = 64;
+        const ctx = canvas.getContext('2d');
+
+        // Draw a radial gradient for the smoke
+        const gradient = ctx.createRadialGradient(32, 32, 10, 32, 32, 32);
+        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.6)'); // White center for visibility
+        gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.3)'); // Transparent edges
+        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)'); // Fully transparent
+
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Create a texture from the canvas
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+
+        // Create sprite material using the generated texture
+        const smokeMaterial = new THREE.SpriteMaterial({
+            map: texture,
+            transparent: true,
+            opacity: 0.5, // Start fully opaque
+            depthWrite: false,
+            depthTest: false, // Ensure it's rendered on top
+            blending: THREE.AdditiveBlending // Brighter blending mode
+        });
+
+        // Create the sprite
+        const smokeSprite = new THREE.Sprite(smokeMaterial);
+        smokeSprite.position.set(
+            obstacleMesh.position.x,
+            obstacleMesh.position.y + coneHeight + 0.5, // Position slightly above the obstacle
+            obstacleMesh.position.z
+        );
+        smokeSprite.scale.set(3, 3, 1); // Adjust size as needed
+        smokeSprite.renderOrder = 1; // Ensure it renders on top
+        scene.add(smokeSprite);
+
+        // Initialize sprite as inactive
+        smokeSprite.visible = false;
+
+        // Add to pool
+        smokeSprites.push(smokeSprite);
+    }
+
+    // Attach the smoke pool to the obstacle mesh for easy access
+    obstacleMesh.userData.smokePool = {
+        sprites: smokeSprites,
+        nextIndex: 0 // To keep track of which sprite to emit next
+    };
+
+    // Start emitting smoke
+    emitSmoke(obstacleMesh, coneHeight);
+}
+
+// Function to emit smoke continuously
+function emitSmoke(obstacleMesh, coneHeight) {
+    const smokePool = obstacleMesh.userData.smokePool;
+    const emitInterval = 1000; // Time between emissions in milliseconds
+
+    setInterval(() => {
+        const sprite = smokePool.sprites[smokePool.nextIndex];
+
+        // Reset sprite properties
+        sprite.position.set(
+            obstacleMesh.position.x,
+            obstacleMesh.position.y + coneHeight + 0.5,
+            obstacleMesh.position.z
+        );
+        sprite.scale.set(3, 3, 1);
+        sprite.material.opacity = 0.5;
+        sprite.visible = true;
+
+        // Animate upward movement
+        new TWEEN.Tween(sprite.position)
+            .to({ y: sprite.position.y + 2 }, 2000) // Move up by 2 units over 2 seconds
+            .easing(TWEEN.Easing.Quadratic.Out)
+            .start();
+
+        // Animate fading opacity
+        new TWEEN.Tween(sprite.material)
+            .to({ opacity: 0 }, 2000) // Fade out over 2 seconds
+            .easing(TWEEN.Easing.Quadratic.Out)
+            .onComplete(() => {
+                sprite.visible = false; // Hide sprite after fading
+            })
+            .start();
+
+        // Update nextIndex for pooling
+        smokePool.nextIndex = (smokePool.nextIndex + 1) % smokePool.sprites.length;
+    }, emitInterval);
+}
 
 
 function createWaterBodies() {
@@ -1497,73 +1594,6 @@ function darkenBackgroundLighting() {
     const hemisphereLight = new THREE.HemisphereLight(0x111111, 0x0d1b2a, 0.3);
     scene.add(hemisphereLight);
 }
-
-
-function createCylinderSmokeEffect(position, coneHeight) {
-    const smokeParticles = [];
-    const particleCount = 10; // Number of particles in the vertical stack
-    const particleSpacing = 0.2; // Space between particles
-
-    // Create individual circular particles to form a cylindrical smoke shape
-    for (let i = 0; i < particleCount; i++) {
-        const smokeGeometry = new THREE.CircleGeometry(0.2, 16);
-        const smokeMaterial = new THREE.MeshBasicMaterial({
-            color: 0x555555,
-            transparent: true,
-            opacity: 0.1,
-            side: THREE.DoubleSide,
-            blending: THREE.AdditiveBlending,
-            depthWrite: false
-        });
-
-        const smokeParticle = new THREE.Mesh(smokeGeometry, smokeMaterial);
-        
-        // Position each particle above the previous one to form a stack
-        smokeParticle.position.set(
-            position.x,
-            position.y + coneHeight + i * particleSpacing - 2.5,
-            position.z
-        );
-
-        scene.add(smokeParticle);
-        smokeParticles.push(smokeParticle);
-    }
-
-    // Function to animate the entire column of smoke particles
-    function animateSmoke() {
-        const time = Date.now() * 0.0001;
-
-        for (let i = 0; i < particleCount; i++) {
-            const particle = smokeParticles[i];
-
-            // Apply a slight upward movement
-            particle.position.y += 0.01;
-
-            // Add random horizontal drift using Perlin noise
-            particle.position.x += (perlinNoise(time + i, particle.position.y) - 0.5) * 0.005;
-            particle.position.z += (perlinNoise(particle.position.x, time + i) - 0.5) * 0.005;
-
-            // Adjust opacity to fade out as it rises
-            particle.material.opacity = Math.max(0, 0.1 - (particle.position.y - (position.y + coneHeight)) * 0.1);
-
-            // Reset position and opacity for continuous effect
-            if (particle.material.opacity <= 0) {
-                particle.position.set(
-                    position.x,
-                    position.y + coneHeight + i * particleSpacing,
-                    position.z
-                );
-                particle.material.opacity = 0.1;
-            }
-        }
-
-        requestAnimationFrame(animateSmoke);
-    }
-
-    animateSmoke();
-}
-
-
 
 
 function getTerrainHeightAt(x, z) {
@@ -2578,7 +2608,6 @@ function animate() {
     // Update fireflies each frame
     updateFireflies();
 
-
     // Update enemy AI (movement, shooting, jumping)
     updateEnemyAI(deltaTime);
 
@@ -2599,12 +2628,13 @@ function animate() {
     // Check for collisions
     checkCollisions();
 
-    // Update TWEEN animations
+    // **Update TWEEN animations**
     TWEEN.update();
 
     // Render the scene
     renderer.render(scene, camera);
 }
+
 
 
 loadAmmoAndStartGame();
