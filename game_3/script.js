@@ -1024,30 +1024,26 @@ function smoothHeightData(heightData, width, depth, iterations = 2) {
     return heightData;
 }
 
-
 function createTerrainShape() {
     const heightScale = 1;
     const upAxis = 1;
     const hdt = "PHY_FLOAT";
     const flipQuadEdges = false;
 
-    // Create height data buffer in Ammo heap
-    ammoHeightData = Ammo._malloc(4 * terrainWidth * terrainDepth);
-
-    // Copy the JavaScript height data array to the Ammo one
-    let p = 0;
-    let p2 = 0;
-    for (let j = 0; j < terrainDepth; j++) {
-        for (let i = 0; i < terrainWidth; i++) {
-            // Write 32-bit float data to memory
-            Ammo.HEAPF32[ammoHeightData + p2 >> 2] = heightData[p];
-            p++;
-            // 4 bytes/float
-            p2 += 4;
+    // Check if memory is already allocated
+    if (!ammoHeightData) {
+        const bufferSize = 4 * terrainWidth * terrainDepth; // 4 bytes per float
+        ammoHeightData = Ammo._malloc(bufferSize);
+        if (!ammoHeightData) {
+            console.error("Failed to allocate memory for terrain height data.");
+            return null;
         }
     }
 
-    // Create the heightfield physics shape
+    // Copy height data into Ammo.js heap
+    Ammo.HEAPF32.set(heightData, ammoHeightData >> 2);
+
+    // Create heightfield shape
     const heightFieldShape = new Ammo.btHeightfieldTerrainShape(
         terrainWidth,
         terrainDepth,
@@ -1060,7 +1056,7 @@ function createTerrainShape() {
         flipQuadEdges
     );
 
-    // Set horizontal scale
+    // Set horizontal scaling
     const scaleX = terrainWidthExtents / (terrainWidth - 1);
     const scaleZ = terrainDepthExtents / (terrainDepth - 1);
     heightFieldShape.setLocalScaling(new Ammo.btVector3(scaleX, 1, scaleZ));
@@ -1069,6 +1065,9 @@ function createTerrainShape() {
 
     return heightFieldShape;
 }
+
+
+
 function createRandomObstacles(count) {
     const obstacleTypes = ['cone']; // Add more types as needed
     for (let i = 0; i < count; i++) {
@@ -1267,10 +1266,11 @@ function createRotatingSpikePhysics(spikeMesh) {
 }
 
 
-
 function updateRotatingSpikes(deltaTime) {
     rotatingSpikes.forEach(spike => {
         spike.rotation.y += deltaTime; // Rotate over time
+        // Optionally, limit rotation angles to prevent floating-point precision issues
+        spike.rotation.y %= Math.PI * 2;
     });
 }
 
