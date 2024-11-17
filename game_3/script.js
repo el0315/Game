@@ -226,26 +226,20 @@ function checkProjectileCollisions() {
     }
 }
 
-
-
 function checkTreeProximity() {
-    currentTargetTree = null; // Reset target
+    let nearbyTree = null;
 
-    trees.forEach((tree, index) => {
+    trees.forEach(tree => {
         const distance = player.position.distanceTo(tree.position);
-        //console.log(`Checking distance to Tree ${index + 1}: ${distance.toFixed(2)} units`);
-
         if (distance <= chopProximity && !tree.isBeingChopped) {
-            currentTargetTree = tree;
-            console.log(`Player is near Tree ${index + 1}. Displaying Chop button.`);
+            nearbyTree = tree;
         }
     });
 
-    // Show or hide the chop button based on proximity
-    if (currentTargetTree) {
-        showChopButton();
+    if (nearbyTree) {
+        showActionButton('Chop Tree', () => initiateChopping(nearbyTree), 'chopTree');
     } else {
-        hideChopButton();
+        hideActionButton('chopTree');
     }
 }
 
@@ -1220,6 +1214,244 @@ function emitSmoke(obstacleMesh, coneHeight) {
     }, emitInterval);
 }
 
+let destroyedBoat, repairMessage;
+
+let boatRepaired = false; // Track if the boat is repaired
+
+// Add the boat to the scene
+function createDestroyedBoat() {
+    destroyedBoat = new THREE.Group();
+
+    // Boat base (cylinder)
+    const baseGeometry = new THREE.CylinderGeometry(0.5, 0.5, 5, 16);
+    const baseMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); // Same color as logs
+    const baseMesh = new THREE.Mesh(baseGeometry, baseMaterial);
+    baseMesh.rotation.z = Math.PI / 2; // Rotate to lie flat
+    baseMesh.position.set(0, 0.5, 0); // Adjust height
+    destroyedBoat.add(baseMesh);
+
+    // Boat fragments (broken pieces)
+    for (let i = 0; i < 3; i++) {
+        const fragmentGeometry = new THREE.CylinderGeometry(0.2, 0.2, 2, 8);
+        const fragmentMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
+        const fragmentMesh = new THREE.Mesh(fragmentGeometry, fragmentMaterial);
+        fragmentMesh.rotation.z = Math.PI / 2;
+        fragmentMesh.position.set((Math.random() - 0.5) * 2, 0.5, (Math.random() - 0.5) * 2);
+        fragmentMesh.rotation.y = Math.random() * Math.PI;
+        destroyedBoat.add(fragmentMesh);
+    }
+
+    // Position boat in water
+    const position = new THREE.Vector3(10, getTerrainHeightAt(10, 10) + 0.5, 10);
+    destroyedBoat.position.copy(position);
+
+    // Add to scene
+    scene.add(destroyedBoat);
+
+    // Add collision detection
+    createBoatPhysics(destroyedBoat);
+
+    // Create the repair message
+    createRepairMessage();
+}
+
+function showRepairMessage() {
+    if (repairMessageMesh) {
+        repairMessageMesh.visible = true;
+    }
+}
+
+function hideRepairMessage() {
+    if (repairMessageMesh) {
+        repairMessageMesh.visible = false;
+    }
+}
+
+// Add collision detection for the boat
+function createBoatPhysics(boat) {
+    const compoundShape = new Ammo.btCompoundShape();
+
+    boat.children.forEach(child => {
+        const shape = new Ammo.btCylinderShape(new Ammo.btVector3(0.5, 2.5, 0.5));
+        const transform = new Ammo.btTransform();
+        transform.setIdentity();
+        transform.setOrigin(new Ammo.btVector3(child.position.x, child.position.y, child.position.z));
+        compoundShape.addChildShape(transform, shape);
+    });
+
+    createObstaclePhysics(boat.position, compoundShape, boat);
+}
+
+const repairProximity = 5; // Distance threshold for showing the message
+let isNearBoat = false;
+
+const repairLogRequirement = 10; // Define the log requirement for repairing
+
+function checkBoatProximity() {
+    if (!destroyedBoat || boatRepaired) return;
+
+    const distance = player.position.distanceTo(destroyedBoat.position);
+    if (distance <= repairProximity) {
+        if (playerInventory.logs >= repairLogRequirement) {
+            showActionButton('Repair Boat', repairBoat, 'repairBoat');
+        } else {
+            hideActionButton('repairBoat');
+            showRepairMessage();
+        }
+    } else {
+        hideRepairMessage();
+        hideActionButton('repairBoat');
+    }
+}
+
+
+
+let repairMessageMesh = null;
+function createRepairMessage() {
+    if (!destroyedBoat) return;
+
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.width = 256;
+    canvas.height = 64;
+
+    // Draw message background
+    context.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw text
+    context.fillStyle = '#FFFFFF';
+    context.font = '18px Arial';
+    context.textAlign = 'center';
+    context.fillText('10 logs to repair the boat', canvas.width / 2, canvas.height / 2 + 8);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+
+    const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+    repairMessageMesh = new THREE.Sprite(spriteMaterial);
+
+    // Position the message slightly above the destroyed boat
+    repairMessageMesh.position.set(
+        destroyedBoat.position.x,
+        destroyedBoat.position.y + 2, // Adjust height
+        destroyedBoat.position.z
+    );
+    repairMessageMesh.scale.set(5, 2, 1); // Adjust size
+
+    scene.add(repairMessageMesh);
+    repairMessageMesh.visible = false; // Initially hidden
+}
+
+
+
+
+function repairBoat() {
+    if (boatRepaired) return; // Prevent multiple repairs
+
+    if (playerInventory.logs >= repairLogRequirement) {
+        removeFromInventory('logs', repairLogRequirement); // Deduct logs
+        completeBoatRepair(); // Perform the repair
+        boatRepaired = true; // Mark as repaired
+        //hideActionButton(); // Hide the button
+        hideRepairMessage(); // Ensure the message is hidden after repair
+    } else {
+        console.log('Not enough logs to repair the boat.');
+    }
+}
+
+
+
+
+
+function completeBoatRepair() {
+    console.log('Boat repair completed!');
+    scene.remove(destroyedBoat); // Remove the destroyed boat
+
+    // Create and add the repaired boat
+    const repairedBoat = new THREE.Group();
+
+    const repairedBase = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.5, 0.5, 5, 16),
+        new THREE.MeshStandardMaterial({ color: 0x8B4513 })
+    );
+    repairedBase.rotation.z = Math.PI / 2;
+    repairedBase.position.set(0, 0.5, 0);
+    repairedBoat.add(repairedBase);
+
+    const mast = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.1, 0.1, 3, 16),
+        new THREE.MeshStandardMaterial({ color: 0xFFFFFF })
+    );
+    mast.position.set(0, 2, 0);
+    repairedBoat.add(mast);
+
+    repairedBoat.position.copy(destroyedBoat.position);
+    scene.add(repairedBoat);
+
+    // Hide the repair message
+    if (repairMessageMesh) {
+        repairMessageMesh.visible = false;
+    }
+
+    console.log('Repaired boat added to the scene!');
+}
+const actionButtonText = document.getElementById('actionButtonText');
+const actionButtonIcon = document.getElementById('actionButtonIcon');
+const actionButton = document.getElementById('actionButton');
+
+// Current action callback
+let currentAction = null;
+let currentActionContext = null; // Tracks the active context for the action button
+const actionPriorities = {
+    repairBoat: 2,
+    chopTree: 1,
+}; // Higher values mean higher priority
+
+/**
+ * Show the multifunctional action button.
+ * @param {string} message - The text to display on the button.
+ * @param {function|null} actionCallback - The function to call when the button is pressed.
+ */
+function showActionButton(message, actionCallback, context) {
+    // Prevent lower-priority actions from overriding
+    if (currentActionContext && actionPriorities[context] <= actionPriorities[currentActionContext]) {
+        console.log(`Skipping action button update for context: ${context}`);
+        return;
+    }
+
+    console.log(`Updating action button for context: ${context}`);
+    actionButton.textContent = message;
+    actionButton.style.display = 'flex';
+    currentAction = actionCallback;
+    currentActionContext = context; // Update the context
+}
+
+
+
+/**
+ * Hide the multifunctional action button.
+ */
+function hideActionButton(context) {
+    // Only hide the button if the current context matches
+    if (currentActionContext === context) {
+        console.log(`Hiding action button for context: ${context}`);
+        actionButton.style.display = 'none';
+        currentAction = null;
+        currentActionContext = null;
+    }
+}
+
+
+// Attach event listener to the button
+actionButton.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (currentAction) {
+        currentAction(); // Execute the callback
+    }
+});
+
 
 function createWaterBodies() {
     const waterGeometry = new THREE.PlaneGeometry(20, 20);
@@ -1902,6 +2134,9 @@ function initializeScene() {
 
     // Create Enemy Health Bar
     createEnemyHealthBar();
+
+
+    createDestroyedBoat();
 
     
     // Obstacles
@@ -2608,6 +2843,8 @@ function animate() {
     // Update fireflies each frame
     updateFireflies();
 
+    // Update proximity for the destroyed boat
+    checkBoatProximity();
     // Update enemy AI (movement, shooting, jumping)
     updateEnemyAI(deltaTime);
 
