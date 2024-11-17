@@ -2276,11 +2276,19 @@ function initializeScene() {
     darkenBackgroundLighting();
     createFireflies();
 
-    // Sky
+    // === Sky Setup ===
+
     sky = new THREE.Sky();
-    sky.scale.setScalar(100);
-    const sun = new THREE.Vector3(5, 1, -10);
+    sky.scale.setScalar(450000); // Sky size
+    const sun = new THREE.Vector3(5, 1, -10); // Sun position
     sky.material.uniforms['sunPosition'].value.copy(sun);
+
+    // Adjust Mie scattering
+    sky.material.uniforms['mieCoefficient'].value = 0.00002; // Mie intensity
+    sky.material.uniforms['mieDirectionalG'].value = 0.7; // Scattering direction
+    sky.material.uniforms['rayleigh'].value = 1.5; // Rayleigh scattering
+    sky.material.needsUpdate = true;
+
     scene.add(sky);
 
     // Create terrain mesh
