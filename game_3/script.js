@@ -1285,7 +1285,7 @@ function createBoatPhysics(boat) {
 const repairProximity = 5; // Distance threshold for showing the message
 let isNearBoat = false;
 
-const repairLogRequirement = 10; // Define the log requirement for repairing
+const repairLogRequirement = 0; // Define the log requirement for repairing
 
 function checkBoatProximity() {
     if (!destroyedBoat || boatRepaired) return;
@@ -1345,7 +1345,6 @@ function createRepairMessage() {
 
 
 
-
 function repairBoat() {
     if (boatRepaired) return; // Prevent multiple repairs
 
@@ -1353,12 +1352,15 @@ function repairBoat() {
         removeFromInventory('logs', repairLogRequirement); // Deduct logs
         completeBoatRepair(); // Perform the repair
         boatRepaired = true; // Mark as repaired
-        hideActionButton(); // Hide the button
+        hideActionButton('repairBoat'); // Hide the button with correct context
         hideRepairMessage(); // Ensure the message is hidden after repair
+
+        console.log('Boat has been repaired. Repair button will no longer be shown.');
     } else {
         console.log('Not enough logs to repair the boat.');
     }
 }
+
 
 
 function completeBoatRepair() {
