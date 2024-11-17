@@ -2881,6 +2881,23 @@ function fireShot() {
     }
 }
 
+const outOfBoundsYThreshold = -10; // Threshold for detecting out-of-bounds
+
+function checkOutOfBounds() {
+    // Check player position
+    if (player.position.y < outOfBoundsYThreshold) {
+        console.log("Player is out of bounds! Respawning...");
+        respawnPlayer();
+    }
+
+    // Check enemy position
+    if (enemy.position.y < outOfBoundsYThreshold) {
+        console.log("Enemy is out of bounds! Respawning...");
+        respawnEnemy();
+    }
+}
+
+
 let lastFrameTime = performance.now();
 
 function animate() {
@@ -2898,6 +2915,9 @@ function animate() {
 
     // Update physics with clamped deltaTime
     updatePhysics(clampedDeltaTime);
+
+    checkOutOfBounds();
+
     // Update player rotation and position
     updatePlayerRotation();
     updatePlayerPosition();
