@@ -56,7 +56,7 @@ let enemyHealth = 3; // Current health
 const maxEnemyHealth = 3; // Maximum health
 // Enemy AI Configuration
 const enemyMoveTowardsPlayerFrequency = 1; // Seconds between movement direction updates
-const enemyShootFrequency = 1; // Seconds between shooting actions
+const enemyShootFrequency = 8; // Seconds between shooting actions
 
 // Enemy Jump Mechanics Constants
 const enemyJumpForce = 10;        // Upward force applied during a jump
@@ -1285,7 +1285,7 @@ function createBoatPhysics(boat) {
 const repairProximity = 5; // Distance threshold for showing the message
 let isNearBoat = false;
 
-const repairLogRequirement = 20; // Define the log requirement for repairing
+const repairLogRequirement = 10; // Define the log requirement for repairing
 
 function checkBoatProximity() {
     if (!destroyedBoat || boatRepaired) return;
@@ -1353,7 +1353,7 @@ function repairBoat() {
         removeFromInventory('logs', repairLogRequirement); // Deduct logs
         completeBoatRepair(); // Perform the repair
         boatRepaired = true; // Mark as repaired
-        //hideActionButton(); // Hide the button
+        hideActionButton(); // Hide the button
         hideRepairMessage(); // Ensure the message is hidden after repair
     } else {
         console.log('Not enough logs to repair the boat.');
@@ -2856,6 +2856,9 @@ function animate() {
 
     // Clamp deltaTime to avoid large jumps
     const clampedDeltaTime = Math.min(deltaTime, 0.05);
+
+    // Update total elapsed time
+    totalElapsedTime += clampedDeltaTime;
 
     // Update physics with clamped deltaTime
     updatePhysics(clampedDeltaTime);
