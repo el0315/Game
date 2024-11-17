@@ -261,38 +261,9 @@ function removeFromInventory(item, quantity = 1) {
 }
 
 
-// References to the chop button
-const chopButton = document.getElementById('chopButton');
-const chopButtonElement = chopButton.querySelector('button');
-
-// Function to show the chop button
-function showChopButton() {
-    chopButton.style.display = 'flex';
-    console.log('Chop button displayed.');
-}
-
-// Function to hide the chop button
-function hideChopButton() {
-    chopButton.style.display = 'none';
-    console.log('Chop button hidden.');
-}
-
-chopButtonElement.addEventListener('pointerdown', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    console.log('Chop button pressed.');
-    if (currentTargetTree && playerControlsEnabled) {
-        console.log('Initiating chopping on currentTargetTree.');
-        initiateChopping(currentTargetTree);
-    } else {
-        console.log('No valid target to chop or controls disabled.');
-    }
-});
-
-
 function initiateChopping(tree) {
     tree.isBeingChopped = true; // Prevent re-chopping
-
+    hideActionButton('chopTree'); // Ensure the button is hidden during chopping
 
     // Simulate chopping progress over time
     const chopDuration = 1000; // Duration in milliseconds
