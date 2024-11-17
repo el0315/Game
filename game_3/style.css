@@ -176,45 +176,6 @@ html, body {
 }
 
 
-
-/* Chop Button */
-.chop-button {
-    position: fixed;
-    bottom: 120px; /* Positioned above the Shoot button */
-    left: 50%;
-    transform: translateX(-50%);
-    width: 80px;
-    height: 80px;
-    z-index: 1000;
-    touch-action: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-/* Chop Button Styling */
-.chop-button button {
-    width: 60px;
-    height: 60px;
-    background-color: rgba(139, 69, 19, 0.8); /* SaddleBrown color */
-    border: none;
-    border-radius: 50%;
-    color: #FFFFFF;
-    font-size: 18px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.2s ease, transform 0.1s ease;
-}
-
-.chop-button button:hover {
-    background-color: rgba(139, 69, 19, 1); /* Opaque on hover */
-}
-
-.chop-button button:active {
-    transform: scale(0.95);
-    background-color: rgba(139, 69, 19, 1); /* Darker color on active */
-}
-
 /* Inventory Display */
 #inventory {
     position: fixed;
