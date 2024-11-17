@@ -1407,7 +1407,7 @@ function completeBoatRepair() {
 
     // Add the repaired boat to the scene
     repairedBoat.position.copy(destroyedBoat.position);
-    repairedBoat.position.y += 0.5; // Ensure it sits properly in the water
+    repairedBoat.position.y -= 0.7; // Ensure it sits properly in the water
     scene.add(repairedBoat);
 
     console.log('Simplified repaired boat added to the scene!');
