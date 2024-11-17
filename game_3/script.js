@@ -1270,20 +1270,27 @@ function hideRepairMessage() {
     }
 }
 
-// Add collision detection for the boat
 function createBoatPhysics(boat, isRepaired = false) {
     // Approximate the boat with a cylinder physics body
-    const cylinderHeight = isRepaired ? 4 : 5; // Approximate height of the repaired/destroyed boat
-    const cylinderRadius = 2; // Approximate radius
+    const cylinderHeight = isRepaired ? 4 : 5; // Approximate length of the repaired/destroyed boat
+    const cylinderRadius = 0.5; // Approximate radius
     const boatShape = new Ammo.btCylinderShape(new Ammo.btVector3(cylinderRadius, cylinderHeight / 2, cylinderRadius));
 
+    // Create a transform to rotate the cylinder
     const transform = new Ammo.btTransform();
     transform.setIdentity();
+
+    // Set the position of the boat's physics body
     transform.setOrigin(new Ammo.btVector3(
         boat.position.x,
-        boat.position.y + cylinderHeight / 2, // Center the physics body
+        boat.position.y + cylinderRadius, // Adjust to align with the boat's position
         boat.position.z
     ));
+
+    // Create a rotation quaternion for aligning the cylinder horizontally
+    const quaternion = new Ammo.btQuaternion();
+    quaternion.setValue(0, 0, Math.sin(Math.PI / 4), Math.cos(Math.PI / 4)); // 90 degrees around Z-axis
+    transform.setRotation(quaternion);
 
     const mass = 0; // Static object
     const localInertia = new Ammo.btVector3(0, 0, 0);
@@ -1305,8 +1312,10 @@ function createBoatPhysics(boat, isRepaired = false) {
     boat.userData.physicsBody = body;
     body.threeObject = boat;
 
-    console.log(`${isRepaired ? 'Repaired' : 'Destroyed'} boat physics created using a cylinder.`);
+    console.log(`${isRepaired ? 'Repaired' : 'Destroyed'} boat physics created with horizontal alignment.`);
 }
+
+
 
 const repairProximity = 5; // Distance threshold for showing the message
 let isNearBoat = false;
