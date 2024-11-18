@@ -175,7 +175,6 @@ html, body {
     background-color: rgba(0, 0, 139, 1); /* Darker color on active */
 }
 
-
 /* Inventory Display */
 #inventory {
     position: fixed;
@@ -215,6 +214,60 @@ html, body {
     color: #000000;
     font-size: 32px;
     font-weight: 600;
+}
+
+/* Fade Overlay */
+#fadeOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: black;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 1s ease;
+    z-index: 1000; /* Ensures it overlays other elements */
+}
+
+/* Level 2 Overlay */
+#level2Overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    z-index: 1001; /* Above the fade overlay */
+}
+
+#level2Overlay h1 {
+    font-size: 48px;
+    margin-bottom: 20px;
+}
+
+#level2Overlay button {
+    padding: 10px 20px;
+    font-size: 24px;
+    cursor: pointer;
+    border: none;
+    border-radius: 5px;
+    background-color: #4CAF50;
+    color: white;
+    transition: background-color 0.3s ease, transform 0.1s ease;
+}
+
+#level2Overlay button:hover {
+    background-color: #45a049;
+}
+
+#level2Overlay button:active {
+    transform: scale(0.95);
 }
 
 /* Animation for Fade In Effect */
@@ -280,4 +333,73 @@ html, body {
 /* Inventory Styling Enhancements */
 #inventory {
     font-weight: 600;
+}
+
+/* Responsive Adjustments for Mobile Devices */
+@media (max-width: 768px) {
+    /* Adjust joystick size */
+    #joystickContainerMove {
+        width: 80px;
+        height: 80px;
+    }
+
+    #joystickKnobMove {
+        width: 50px;
+        height: 50px;
+    }
+
+    /* Adjust shoot button size */
+    .shoot-button {
+        width: 70px;
+        height: 70px;
+    }
+
+    .shoot-knob {
+        width: 50px;
+        height: 50px;
+    }
+
+    /* Adjust jump button size */
+    .jump-button {
+        width: 70px;
+        height: 70px;
+    }
+
+    .jump-knob {
+        width: 50px;
+        height: 50px;
+    }
+
+    /* Adjust multifunctional action button */
+    #actionButton {
+        width: 70px;
+        height: 70px;
+    }
+
+    /* Adjust inventory font size */
+    #inventory {
+        font-size: 16px;
+    }
+
+    /* Adjust Level 2 Overlay font size */
+    #level2Overlay h1 {
+        font-size: 36px;
+    }
+
+    #level2Overlay button {
+        font-size: 20px;
+        padding: 8px 16px;
+    }
+
+    /* Adjust Game Over and Enemy Respawn Overlay font size */
+    #gameOverOverlay,
+    #enemyRespawnOverlay {
+        font-size: 36px;
+    }
+
+    /* Adjust Restart Button size */
+    #restartButton {
+        font-size: 20px;
+        padding: 10px 20px;
+    }
 }
