@@ -23,7 +23,7 @@ let currentTargetTree = null;
 let physicsWorld, playerBody;
 let yaw = 0, pitch = 0;
 
-const maxPitch = Math.PI / 2;   // Existing maximum pitch (looking straight up)
+const maxPitch = Math.PI / 3;   // Existing maximum pitch (looking straight up)
 const minPitch = -Math.PI / 6;  // New minimum pitch (looking 45 degrees down)
 
 let joystickMoveAngle = null, movementTouchId = null, rotationTouchId = null, lastTouchX = 0, lastTouchY = 0;
