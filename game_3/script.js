@@ -1444,6 +1444,9 @@ function checkBoatBoardingProximity() {
 
 let boatBoarded = false; // Flag to prevent multiple boarding
 
+/**
+ * Initiates the boarding process, hides the player, moves the boat, fades out the scene, and transitions to Level 2.
+ */
 function initiateBoarding() {
     if (boatBoarded) return; // Prevent boarding again
 
@@ -1472,9 +1475,13 @@ function initiateBoarding() {
             console.log('Player has boarded the boat!');
             boatBoarded = true; // Set the flag to true
             hideActionButton('boardBoat');
+
             // Attach the player to the boat for future movements
             repairedBoat.add(player); // Add to boat's hierarchy
             player.position.set(1, 1.5, 0); // Reset relative position
+
+            // Hide the player mesh to create an illusion of being hidden
+            player.visible = false;
 
             // Initiate the transition to the next level
             proceedToNextLevel();
@@ -1509,11 +1516,12 @@ function proceedToNextLevel() {
         .easing(TWEEN.Easing.Quadratic.Out)
         .onStart(() => {
             console.log('Boat movement animation started.');
+            startSceneFadeOut();
         })
         .onComplete(() => {
             console.log('Boat movement animation completed.');
             // Start fading out the scene after the boat has moved
-            startSceneFadeOut();
+            //startSceneFadeOut();
         })
         .start();
 }
