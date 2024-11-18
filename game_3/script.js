@@ -2154,6 +2154,107 @@ function getTerrainHeightAt(x, z) {
 }
 
 
+// === Staggered Cube Mountain Creation ===
+
+// Mountain Parameters
+const staggeredMountainParams = {
+    baseWidth: 10,           // Number of cubes along the X-axis at the base
+    baseDepth: 10,           // Number of cubes along the Z-axis at the base
+    stepHeight: 3,         // Height between each step (Y-axis)
+    stepSize: 1,             // Size of each cube
+    stepSpacing: 0.01,        // Spacing between cubes to prevent overlap
+    maxSteps: 20,             // Total number of steps/layers in the mountain
+    startPosition: new THREE.Vector3(40, 0, 40) // Starting position towards the edge
+};
+
+/**
+ * Creates a staggered cube-based mountain.
+ */
+function createStaggeredMountain() {
+    const { baseWidth, baseDepth, stepHeight, stepSize, stepSpacing, maxSteps, startPosition } = staggeredMountainParams;
+
+    for (let step = 0; step < maxSteps; step++) {
+        const currentWidth = baseWidth - step * 2; // Decrease width each step
+        const currentDepth = baseDepth - step * 2; // Decrease depth each step
+        const yPosition = step * (stepHeight + stepSpacing) + stepSize / 2; // Calculate Y position
+
+        // Skip steps that would result in non-positive dimensions
+        if (currentWidth <= 0 || currentDepth <= 0) {
+            console.warn(`Step ${step + 1} has non-positive dimensions. Skipping.`);
+            continue;
+        }
+
+        for (let x = 0; x < currentWidth; x++) {
+            for (let z = 0; z < currentDepth; z++) {
+                // Create cube geometry and material
+                const cubeGeometry = new THREE.BoxGeometry(stepSize, stepSize, stepSize);
+                const cubeMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); // SaddleBrown color
+                const cubeMesh = new THREE.Mesh(cubeGeometry, cubeMaterial);
+
+                // Position the cube with staggering
+                cubeMesh.position.set(
+                    startPosition.x + (x - currentWidth / 2) * (stepSize + stepSpacing),
+                    startPosition.y + yPosition + 8,
+                    startPosition.z + (z - currentDepth / 2) * (stepSize + stepSpacing)
+                );
+
+                // Enable casting and receiving shadows
+                cubeMesh.castShadow = true;
+                cubeMesh.receiveShadow = true;
+
+                // Add cube to the scene
+                scene.add(cubeMesh);
+
+                // Add cube to obstacles array for collision handling
+                obstacles.push(cubeMesh);
+
+                // Create Ammo.js physics body for the cube
+                createCubePhysics(cubeMesh, stepSize);
+            }
+        }
+    }
+
+    console.log('Staggered Cube Mountain created with', maxSteps, 'steps.');
+}
+
+/**
+ * Creates Ammo.js physics body for a cube.
+ * @param {THREE.Mesh} cubeMesh - The Three.js mesh of the cube.
+ * @param {number} size - The size of the cube.
+ */
+function createCubePhysics(cubeMesh, size) {
+    const mass = 0; // Static object
+    const halfExtents = new Ammo.btVector3(size / 2, size / 2, size / 2);
+    const boxShape = new Ammo.btBoxShape(halfExtents);
+    boxShape.setMargin(0.05);
+
+    const transform = new Ammo.btTransform();
+    transform.setIdentity();
+    transform.setOrigin(new Ammo.btVector3(cubeMesh.position.x, cubeMesh.position.y, cubeMesh.position.z));
+    const motionState = new Ammo.btDefaultMotionState(transform);
+
+    const localInertia = new Ammo.btVector3(0, 0, 0);
+    boxShape.calculateLocalInertia(mass, localInertia);
+
+    const rbInfo = new Ammo.btRigidBodyConstructionInfo(mass, motionState, boxShape, localInertia);
+    const body = new Ammo.btRigidBody(rbInfo);
+
+    // Add the body to the physics world
+    physicsWorld.addRigidBody(
+        body,
+        COL_GROUP_OBSTACLE, // Collision group
+        COL_GROUP_PLAYER | COL_GROUP_ENEMY | COL_GROUP_PLAYER_PROJECTILE | COL_GROUP_ENEMY_PROJECTILE | COL_GROUP_TERRAIN // Collision mask
+    );
+
+    // Associate the Three.js mesh with the Ammo.js body
+    cubeMesh.userData.physicsBody = body;
+    body.threeObject = cubeMesh;
+
+    console.log('Physics body created for mountain cube at:', cubeMesh.position);
+}
+
+
+
 function createObstaclePhysics(position, shape, obstacleMesh) {
     const obstacleTransform = new Ammo.btTransform();
     obstacleTransform.setIdentity();
@@ -2451,6 +2552,8 @@ function initializeScene() {
 
     // Create Enemy Health Bar
     createEnemyHealthBar();
+    // Create mountain
+    createStaggeredMountain();
 
 
     createDestroyedBoat();
