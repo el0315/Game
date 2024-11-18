@@ -1886,7 +1886,6 @@ function createRotatingSpikes(count) {
 }
 
 
-
 function createCollectiblePhysics(collectibleMesh) {
     const mass = 0; // Static object
     const shape = new Ammo.btSphereShape(0.5); // Approximated as a sphere
@@ -2209,13 +2208,18 @@ function createStaggeredMountain() {
 
                 // Create Ammo.js physics body for the cube
                 createCubePhysics(cubeMesh, stepSize);
+
+                // Update top position for the last cube in the last step
+                if (step === maxSteps - 1 && x === currentWidth - 1 && z === currentDepth - 1) {
+                    topPosition.copy(cubeMesh.position);
+                }
             }
         }
     }
 
     console.log('Staggered Cube Mountain created with', maxSteps, 'steps.');
 
-    // Manually place the collectible
+    // Create the collectible at the top of the mountain
     createTopMountainCollectible();
 }
 
@@ -2223,23 +2227,26 @@ function createStaggeredMountain() {
  * Creates a single collectible at the top of the mountain.
  */
 function createTopMountainCollectible() {
-    const collectibleGeometry = new THREE.TetrahedronGeometry(0.5);
-    const collectible = new THREE.Mesh(collectibleGeometry, collectibleMaterial);
+    const collectibleGeometry = new THREE.TetrahedronGeometry(0.8); // 
+    const collectibleMaterial = new THREE.MeshStandardMaterial({ color: 0xf50a41 }); 
+
+    const collectibleMesh = new THREE.Mesh(collectibleGeometry, collectibleMaterial);
 
     // Manually set the position for the collectible
     const manualPosition = new THREE.Vector3(40, 22, 40); // Adjust Y to the desired height
-    collectible.position.set(manualPosition.x, manualPosition.y, manualPosition.z);
+    collectibleMesh.position.set(manualPosition.x, manualPosition.y, manualPosition.z);
 
-    collectible.castShadow = true;
-    collectible.receiveShadow = true;
+    collectibleMesh.castShadow = true;
+    collectibleMesh.receiveShadow = true;
 
-    scene.add(collectible);
-    collectibles.push(collectible);
+    scene.add(collectibleMesh);
+    collectibles.push(collectibleMesh);
 
-    createCollectiblePhysics(collectible);
+    createCollectiblePhysics(collectibleMesh);
 
     console.log(`Collectible manually placed at: (${manualPosition.x}, ${manualPosition.y}, ${manualPosition.z})`);
 }
+
 
 
 function createStaticCollectiblePhysics(collectibleMesh) {
