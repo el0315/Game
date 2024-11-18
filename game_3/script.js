@@ -2167,11 +2167,10 @@ const staggeredMountainParams = {
     startPosition: new THREE.Vector3(40, 0, 40) // Starting position towards the edge
 };
 
-/**
- * Creates a staggered cube-based mountain.
- */
 function createStaggeredMountain() {
     const { baseWidth, baseDepth, stepHeight, stepSize, stepSpacing, maxSteps, startPosition } = staggeredMountainParams;
+
+    let topPosition = new THREE.Vector3(); // Placeholder for the top position
 
     for (let step = 0; step < maxSteps; step++) {
         const currentWidth = baseWidth - step * 2; // Decrease width each step
@@ -2215,6 +2214,61 @@ function createStaggeredMountain() {
     }
 
     console.log('Staggered Cube Mountain created with', maxSteps, 'steps.');
+
+    // Manually place the collectible
+    createTopMountainCollectible();
+}
+
+/**
+ * Creates a single collectible at the top of the mountain.
+ */
+function createTopMountainCollectible() {
+    const collectibleGeometry = new THREE.TetrahedronGeometry(0.5);
+    const collectible = new THREE.Mesh(collectibleGeometry, collectibleMaterial);
+
+    // Manually set the position for the collectible
+    const manualPosition = new THREE.Vector3(40, 22, 40); // Adjust Y to the desired height
+    collectible.position.set(manualPosition.x, manualPosition.y, manualPosition.z);
+
+    collectible.castShadow = true;
+    collectible.receiveShadow = true;
+
+    scene.add(collectible);
+    collectibles.push(collectible);
+
+    createCollectiblePhysics(collectible);
+
+    console.log(`Collectible manually placed at: (${manualPosition.x}, ${manualPosition.y}, ${manualPosition.z})`);
+}
+
+
+function createStaticCollectiblePhysics(collectibleMesh) {
+    const mass = 0; // Static object
+    const shape = new Ammo.btSphereShape(0.5); // Approximated as a sphere
+
+    const transform = new Ammo.btTransform();
+    transform.setIdentity();
+    transform.setOrigin(new Ammo.btVector3(collectibleMesh.position.x, collectibleMesh.position.y, collectibleMesh.position.z));
+    const motionState = new Ammo.btDefaultMotionState(transform);
+
+    const localInertia = new Ammo.btVector3(0, 0, 0);
+    shape.calculateLocalInertia(mass, localInertia);
+
+    const rbInfo = new Ammo.btRigidBodyConstructionInfo(mass, motionState, shape, localInertia);
+    const body = new Ammo.btRigidBody(rbInfo);
+
+    body.setCollisionFlags(body.getCollisionFlags() | 2); // Make it a static object
+    physicsWorld.addRigidBody(
+        body,
+        COL_GROUP_OBSTACLE, // Collision group
+        COL_GROUP_PLAYER // Collision mask
+    );
+
+    // Associate the Ammo.js body with the collectible
+    collectibleMesh.userData.physicsBody = body;
+    body.threeObject = collectibleMesh;
+
+    console.log('Static physics body added for collectible.');
 }
 
 /**
@@ -2555,7 +2609,8 @@ function initializeScene() {
     // Create mountain
     createStaggeredMountain();
 
-
+    // **Create Top Mountain Collectible**
+   // createTopMountainCollectible();
     createDestroyedBoat();
 
     
