@@ -1455,8 +1455,8 @@ function initiateBoarding() {
 
     // Define the target position on the boat where the player will board
     const targetPosition = new THREE.Vector3(
-        repairedBoat.position.x + 1, // Adjust based on boat's geometry
-        repairedBoat.position.y + 1.5, // Slightly above the boat's deck
+        repairedBoat.position.x + 1,    // Adjust based on boat's geometry
+        repairedBoat.position.y + 1.5,  // Slightly above the boat's deck
         repairedBoat.position.z
     );
 
@@ -1476,17 +1476,114 @@ function initiateBoarding() {
             repairedBoat.add(player); // Add to boat's hierarchy
             player.position.set(1, 1.5, 0); // Reset relative position
 
-            // Proceed to the next level
+            // Initiate the transition to the next level
             proceedToNextLevel();
         })
         .start();
 }
 
 
+
+/**
+ * Initiates the transition to Level 2 by moving the boat and fading out the scene.
+ */
 function proceedToNextLevel() {
-    // For testing, we'll simply log a message. Implement actual level transition here.
     console.log('Transitioning to the next level...');
-    // Example: window.location.href = 'nextLevel.html';
+    
+    // Define animation parameters
+    const boatMoveDuration = 5000; // Duration in milliseconds
+    const boatMoveDistance = 20;    // Distance to move along the Z-axis
+    
+    // Store the initial and target positions
+    const initialPosition = repairedBoat.position.clone();
+    const targetPosition = initialPosition.clone();
+    targetPosition.x += boatMoveDistance; // Move forward along Z
+    
+    // Animate the boat moving forward
+    const boatMoveTween = new TWEEN.Tween(repairedBoat.position)
+        .to({
+            x: targetPosition.x,
+            y: targetPosition.y,
+            z: targetPosition.z
+        }, boatMoveDuration)
+        .easing(TWEEN.Easing.Quadratic.Out)
+        .onStart(() => {
+            console.log('Boat movement animation started.');
+        })
+        .onComplete(() => {
+            console.log('Boat movement animation completed.');
+            // Start fading out the scene after the boat has moved
+            startSceneFadeOut();
+        })
+        .start();
+}
+
+/**
+ * Starts the fade-out animation of the scene.
+ */
+function startSceneFadeOut() {
+    const fadeOverlay = document.getElementById('fadeOverlay');
+    if (!fadeOverlay) {
+        console.error('Fade overlay element not found!');
+        return;
+    }
+
+    // Animate the opacity from 0 to 1 over 2 seconds
+    const fadeIn = new TWEEN.Tween({ opacity: 0 })
+        .to({ opacity: 1 }, 2000) // Duration in milliseconds
+        .easing(TWEEN.Easing.Quadratic.In)
+        .onUpdate(function(obj) {
+            fadeOverlay.style.opacity = obj.opacity;
+        })
+        .onComplete(() => {
+            console.log('Scene fade-out completed.');
+            // After fade-out, display Level 2 overlay
+            showLevel2Display();
+        })
+        .start();
+}
+
+/**
+ * Displays the Level 2 overlay.
+ */
+function showLevel2Display() {
+    const level2Overlay = document.getElementById('level2Overlay');
+    if (!level2Overlay) {
+        console.error('Level 2 overlay element not found!');
+        return;
+    }
+
+    // Show the Level 2 overlay
+    level2Overlay.style.display = 'flex';
+    
+    // Ensure the fade overlay is fully opaque
+    const fadeOverlay = document.getElementById('fadeOverlay');
+    if (fadeOverlay) {
+        fadeOverlay.style.opacity = 1;
+    }
+}
+
+/**
+ * Starts Level 2 by initializing necessary components.
+ */
+function startLevel2() {
+    // Implement Level 2 initialization logic here
+    console.log('Level 2 started!');
+    
+    // Hide the Level 2 overlay
+    const level2Overlay = document.getElementById('level2Overlay');
+    if (level2Overlay) {
+        level2Overlay.style.display = 'none';
+    }
+    
+    // Reset the fade overlay for future use
+    const fadeOverlay = document.getElementById('fadeOverlay');
+    if (fadeOverlay) {
+        fadeOverlay.style.opacity = 0;
+    }
+    
+    // Example: Load a new scene or update existing scene objects for Level 2
+    // loadLevel2Scene();
 }
 
 
@@ -3118,8 +3215,6 @@ function animate() {
     // Render the scene
     renderer.render(scene, camera);
 }
-
-
 
 
 loadAmmoAndStartGame();
