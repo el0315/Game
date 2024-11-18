@@ -32,7 +32,7 @@
         <div id="shootButton" class="shoot-button">
             <div class="shoot-knob"></div>
         </div>
-          
+
         <!-- Multifunctional Action Button -->
         <div id="actionButton" style="display: none;"></div>
 
@@ -55,6 +55,15 @@
 
     <!-- Restart Button -->
     <button id="restartButton" style="display: none;">Restart</button>
+
+    <!-- Fade Overlay -->
+    <div id="fadeOverlay"></div>
+
+    <!-- Level 2 Overlay -->
+    <div id="level2Overlay" style="display: none;">
+        <h1>Level 2</h1>
+        <button onclick="startLevel2()">Start Level 2</button>
+    </div>
 
     <!-- Load External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.138.0/build/three.min.js"></script>
