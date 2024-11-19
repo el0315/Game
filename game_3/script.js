@@ -1029,7 +1029,6 @@ function createTerrainShape() {
 }
 
 
-
 function createRandomObstacles(count) {
     const obstacleTypes = ['cone']; // Add more types as needed
     for (let i = 0; i < count; i++) {
@@ -1074,17 +1073,39 @@ function createRandomObstacles(count) {
         createObstaclePhysics(obstacleMesh.position, shape, obstacleMesh);
         obstacles.push(obstacleMesh);
 
-        // **Initialize sprite-based smoke pool for this obstacle**
-        createSpriteSmokeEffect(obstacleMesh, height);
+        // **Do not call createSpriteSmokeEffect() here**
+        // createSpriteSmokeEffect(obstacleMesh, height); // Removed to delay smoke emission
     }
 }
 
+
+let environmentalEffectsStarted = false; // Flag to prevent multiple triggers
+
+function startEnvironmentalEffects() {
+    if (environmentalEffectsStarted) return; // Prevent multiple triggers
+    environmentalEffectsStarted = true;
+
+    // Start Rain and Flood
+    createWaterBodies(); // Initiates rain and flood
+
+    // Start Smoke Emission for Each Obstacle
+    obstacles.forEach(obstacle => {
+        // Ensure the obstacle has a geometry with height
+        let obstacleHeight = 2; // Default height
+        if (obstacle.geometry && obstacle.geometry.parameters.height) {
+            obstacleHeight = obstacle.geometry.parameters.height;
+        }
+
+        createSpriteSmokeEffect(obstacle, obstacleHeight);
+    });
+
+    console.log('Environmental effects (rain, flood, smoke) have started.');
+}
 
 
 // Global variable to store the smoke texture
 let smokeTexture = null;
 
-// Function to create sprite-based smoke effect with pooling
 function createSpriteSmokeEffect(obstacleMesh, coneHeight) {
     const smokePoolSize = 5; // Number of smoke sprites per obstacle
     const smokeSprites = []; // Pool array for smoke sprites
@@ -1143,9 +1164,10 @@ function createSpriteSmokeEffect(obstacleMesh, coneHeight) {
         nextIndex: 0 // To keep track of which sprite to emit next
     };
 
-    // Start emitting smoke
+    // **Start emitting smoke**
     emitSmoke(obstacleMesh, coneHeight);
 }
+
 
 // Function to emit smoke continuously
 function emitSmoke(obstacleMesh, coneHeight) {
@@ -1672,6 +1694,7 @@ function createWaterBodies() {
     // Start the rain and flood sequence when the water is created
     startRainAndFlood();
 }
+
 
 function startRainAndFlood() {
     floodStartTime = performance.now(); // Record the start time
@@ -2228,23 +2251,27 @@ function createStaggeredMountain() {
  */
 function createTopMountainCollectible() {
     const collectibleGeometry = new THREE.TetrahedronGeometry(0.8); // 
-    const collectibleMaterial = new THREE.MeshStandardMaterial({ color: 0xf50a41 }); 
-
+    const collectibleMaterial = new THREE.MeshStandardMaterial({ color: 0xf50a41 }); // Distinct color
+    
     const collectibleMesh = new THREE.Mesh(collectibleGeometry, collectibleMaterial);
-
-    // Manually set the position for the collectible
+    
+    // Set the fixed position at the top of the mountain
     const manualPosition = new THREE.Vector3(40, 22, 40); // Adjust Y to the desired height
     collectibleMesh.position.set(manualPosition.x, manualPosition.y, manualPosition.z);
-
+    
     collectibleMesh.castShadow = true;
     collectibleMesh.receiveShadow = true;
-
+    
+    // **Add a unique identifier to mark this as the top collectible**
+    collectibleMesh.userData.isTopCollectible = true;
+    
     scene.add(collectibleMesh);
     collectibles.push(collectibleMesh);
-
+    
+    // Add physics body for the collectible
     createCollectiblePhysics(collectibleMesh);
-
-    console.log(`Collectible manually placed at: (${manualPosition.x}, ${manualPosition.y}, ${manualPosition.z})`);
+    
+    console.log(`Top collectible placed at: (${manualPosition.x}, ${manualPosition.y}, ${manualPosition.z})`);
 }
 
 
@@ -2487,8 +2514,6 @@ function transformDirectionToWorldSpace(localDirection) {
 }
 
 
-
-
 function initializeScene() {
     scene = new THREE.Scene();
 
@@ -2613,56 +2638,40 @@ function initializeScene() {
 
     // Create Enemy Health Bar
     createEnemyHealthBar();
+
     // Create mountain
     createStaggeredMountain();
 
-    // **Create Top Mountain Collectible**
-   // createTopMountainCollectible();
+    // Create destroyed boat
     createDestroyedBoat();
 
-    
+    // **Remove environmental effects from initialization**
+    // createWaterBodies(); // Remove or comment out this line
+    // Note: createSpriteSmokeEffect() was being called inside createRandomObstacles()
+
     // Obstacles
     const obstacleMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
 
-    
-
-    // **LOD Setup Moved Inside initializeScene()**
-    const lod = new THREE.LOD();
-
-    // High detail mesh
-    const highDetailMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(1, 32, 32),
-        new THREE.MeshStandardMaterial({ color: 0xff0000 })
-    );
-    lod.addLevel(highDetailMesh, 0);
-
-    // Medium detail mesh
-    const mediumDetailMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(1, 16, 16),
-        new THREE.MeshStandardMaterial({ color: 0xff0000 })
-    );
-    lod.addLevel(mediumDetailMesh, 50);
-
-    // Low detail mesh
-    const lowDetailMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(1, 8, 8),
-        new THREE.MeshStandardMaterial({ color: 0xff0000 })
-    );
-    lod.addLevel(lowDetailMesh, 100);
-
-    scene.add(lod);
-
-    // Fog
-    scene.fog = new THREE.FogExp2(0xcccccc, 0.002);
-
-    // **Call Environmental Feature Creation Functions**
+    // **Modify createRandomObstacles to not call createSpriteSmokeEffect()**
     createRandomObstacles(10);    // Adjust count as needed
+    // Ensure createRandomObstacles() no longer calls createSpriteSmokeEffect()
+
+    // Collectibles
     createCollectibles(5);       // Adjust count as needed
+
+    // Trees
     createTrees(50);              // Adjust count as needed
-    createWaterBodies(1);          // Creates water bodies
+
+    // Water Bodies (Removed from initialization)
+    // createWaterBodies();          // Ensure this line is removed
+
+    // Rotating Spikes
     createRotatingSpikes(5);       // Creates rotating spikes
+
+    // Update Inventory UI
     updateInventoryUI();
 }
+
 
 
 // Define reusable vectors and quaternions at the top
@@ -3023,7 +3032,6 @@ function handleEnemyCollectibleCollision(body0, body1) {
 
 
 
-
 function collectCollectible(collectibleBody, collector) {
     const collectible = collectibles.find(c => c.userData.physicsBody === collectibleBody);
 
@@ -3063,8 +3071,15 @@ function collectCollectible(collectibleBody, collector) {
         }
 
         console.log(`${collector.charAt(0).toUpperCase() + collector.slice(1)} collected a collectible! Respawning with fade effect.`);
+
+        // **Check if this is the top collectible**
+        if (collectible.userData.isTopCollectible) {
+            console.log('Top collectible collected! Starting environmental effects.');
+            startEnvironmentalEffects();
+        }
     }
 }
+
 
 
 function getNewCollectiblePosition() {
