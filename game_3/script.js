@@ -1028,14 +1028,13 @@ function createTerrainShape() {
     return heightFieldShape;
 }
 
-
 function createRandomObstacles(count) {
     const obstacleTypes = ['cone']; // Add more types as needed
     for (let i = 0; i < count; i++) {
         const type = obstacleTypes[Math.floor(Math.random() * obstacleTypes.length)];
         let obstacleMesh;
         let shape;
-        let height; // Declare height here
+        let height; 
         let radius;
         const position = new THREE.Vector3(
             (Math.random() - 0.5) * terrainWidthExtents,
@@ -1068,13 +1067,13 @@ function createRandomObstacles(count) {
         obstacleMesh.castShadow = true;
         obstacleMesh.receiveShadow = true;
         scene.add(obstacleMesh);
+        obstacles.push(obstacleMesh);
+
+        // **Assign the type to userData for identification**
+        obstacleMesh.userData.type = type;
 
         // Create physics for the obstacle
         createObstaclePhysics(obstacleMesh.position, shape, obstacleMesh);
-        obstacles.push(obstacleMesh);
-
-        // **Do not call createSpriteSmokeEffect() here**
-        // createSpriteSmokeEffect(obstacleMesh, height); // Removed to delay smoke emission
     }
 }
 
@@ -1085,124 +1084,164 @@ function startEnvironmentalEffects() {
     if (environmentalEffectsStarted) return; // Prevent multiple triggers
     environmentalEffectsStarted = true;
 
-    // Start Rain and Flood
-    createWaterBodies(); // Initiates rain and flood
+    // Start the flood by scaling up the water
+    startFlood();
 
-    // Start Smoke Emission for Each Obstacle
+    // Start Smoke Emission for Cones Only
     obstacles.forEach(obstacle => {
-        // Ensure the obstacle has a geometry with height
-        let obstacleHeight = 2; // Default height
-        if (obstacle.geometry && obstacle.geometry.parameters.height) {
-            obstacleHeight = obstacle.geometry.parameters.height;
-        }
+        if (obstacle.userData.type === 'cone') {
+            // Ensure the obstacle has a geometry with height
+            let obstacleHeight = 2; // Default height
+            if (obstacle.geometry && obstacle.geometry.parameters.height) {
+                obstacleHeight = obstacle.geometry.parameters.height;
+            }
 
-        createSpriteSmokeEffect(obstacle, obstacleHeight);
+            createSpriteSmokeEffect(obstacle, obstacleHeight);
+        }
     });
 
-    console.log('Environmental effects (rain, flood, smoke) have started.');
+    console.log('Environmental effects (flood, rain, smoke from cones) have started.');
 }
+
 
 
 // Global variable to store the smoke texture
 let smokeTexture = null;
 
+/**
+ * Creates a more realistic smoke effect using enhanced canvas textures.
+ * @param {THREE.Mesh} obstacleMesh - The mesh from which the smoke will emit.
+ * @param {number} coneHeight - The height of the obstacle to position the smoke correctly.
+ */
 function createSpriteSmokeEffect(obstacleMesh, coneHeight) {
-    const smokePoolSize = 5; // Number of smoke sprites per obstacle
+    const smokePoolSize = 10; // Increased pool size for denser smoke
     const smokeSprites = []; // Pool array for smoke sprites
 
     for (let i = 0; i < smokePoolSize; i++) {
-        // Create a canvas to draw the smoke texture
+        // Create a canvas to draw the enhanced smoke texture
         const canvas = document.createElement('canvas');
-        canvas.width = 64;
-        canvas.height = 64;
+        canvas.width = 128; // Increased resolution for better quality
+        canvas.height = 128;
         const ctx = canvas.getContext('2d');
 
-        // Draw a radial gradient for the smoke
-        const gradient = ctx.createRadialGradient(32, 32, 10, 32, 32, 32);
-        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.6)'); // White center for visibility
-        gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.3)'); // Transparent edges
-        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)'); // Fully transparent
+        // **a. Draw Multiple Radial Gradients for Depth**
+        for (let j = 0; j < 3; j++) { // Three layers for depth
+            const gradient = ctx.createRadialGradient(
+                canvas.width / 2 + (Math.random() * 10 - 5), // Slight horizontal offset
+                canvas.height / 2 + (Math.random() * 10 - 5), // Slight vertical offset
+                10 + j * 5, // Inner radius increases with each layer
+                canvas.width / 2,
+                canvas.height / 2,
+                60 + j * 10 // Outer radius increases with each layer
+            );
 
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // Add color stops with varying opacities
+            gradient.addColorStop(0, `rgba(255, 255, 255, ${0.6 - j * 0.1})`);
+            gradient.addColorStop(0.5, `rgba(255, 255, 255, ${0.3 - j * 0.05})`);
+            gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
 
-        // Create a texture from the canvas
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // **b. Introduce Subtle Noise for Texture Variation**
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+
+        for (let k = 0; k < data.length; k += 4) {
+            // Apply slight variations to the alpha channel to simulate noise
+            const noise = Math.random() * 30 - 15; // Noise between -15 and +15
+            data[k + 3] = Math.min(Math.max(data[k + 3] + noise, 0), 255); // Clamp alpha between 0 and 255
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+
+        // **c. Create a Texture from the Enhanced Canvas**
         const texture = new THREE.CanvasTexture(canvas);
         texture.needsUpdate = true;
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        texture.format = THREE.RGBAFormat;
 
-        // Create sprite material using the generated texture
+        // **d. Create Sprite Material Using the Enhanced Texture**
         const smokeMaterial = new THREE.SpriteMaterial({
             map: texture,
             transparent: true,
-            opacity: 0.5, // Start fully opaque
+            opacity: 0.7, // Increased initial opacity for visibility
             depthWrite: false,
-            depthTest: false, // Ensure it's rendered on top
-            blending: THREE.AdditiveBlending // Brighter blending mode
+            depthTest: false,
+            blending: THREE.NormalBlending // Changed to NormalBlending for softer appearance
         });
 
-        // Create the sprite
+        // **e. Create the Sprite and Configure Its Properties**
         const smokeSprite = new THREE.Sprite(smokeMaterial);
         smokeSprite.position.set(
             obstacleMesh.position.x,
             obstacleMesh.position.y + coneHeight + 0.5, // Position slightly above the obstacle
             obstacleMesh.position.z
         );
-        smokeSprite.scale.set(3, 3, 1); // Adjust size as needed
+        smokeSprite.scale.set(5, 5, 1); // Increased size for better visibility
         smokeSprite.renderOrder = 1; // Ensure it renders on top
         scene.add(smokeSprite);
 
-        // Initialize sprite as inactive
+        // **f. Initialize Sprite as Inactive**
         smokeSprite.visible = false;
 
-        // Add to pool
+        // **g. Add to Smoke Pool**
         smokeSprites.push(smokeSprite);
     }
 
-    // Attach the smoke pool to the obstacle mesh for easy access
+    // **h. Attach the Smoke Pool to the Obstacle Mesh for Easy Access**
     obstacleMesh.userData.smokePool = {
         sprites: smokeSprites,
         nextIndex: 0 // To keep track of which sprite to emit next
     };
 
-    // **Start emitting smoke**
+    // **i. Start Emitting Smoke**
     emitSmoke(obstacleMesh, coneHeight);
 }
 
 
+
 // Function to emit smoke continuously
+/**
+ * Emits smoke from the specified obstacle at regular intervals.
+ * @param {THREE.Mesh} obstacleMesh - The mesh from which the smoke will emit.
+ * @param {number} coneHeight - The height of the obstacle to position the smoke correctly.
+ */
 function emitSmoke(obstacleMesh, coneHeight) {
     const smokePool = obstacleMesh.userData.smokePool;
-    const emitInterval = 1000; // Time between emissions in milliseconds
+    const emitInterval = 800; // Reduced interval for denser smoke
 
     setInterval(() => {
         const sprite = smokePool.sprites[smokePool.nextIndex];
 
-        // Reset sprite properties
+        // **a. Reset Sprite Properties**
         sprite.position.set(
-            obstacleMesh.position.x,
-            obstacleMesh.position.y + coneHeight + 0.5,
-            obstacleMesh.position.z
+            obstacleMesh.position.x + (Math.random() * 2 - 1), // Slight horizontal jitter
+            obstacleMesh.position.y + coneHeight + 0.5 + Math.random(), // Slight vertical jitter
+            obstacleMesh.position.z + (Math.random() * 2 - 1) // Slight depth jitter
         );
-        sprite.scale.set(3, 3, 1);
-        sprite.material.opacity = 0.5;
+        sprite.scale.set(5 + Math.random() * 2, 5 + Math.random() * 2, 1); // Randomize size slightly
+        sprite.material.opacity = 0.7; // Reset opacity
         sprite.visible = true;
 
-        // Animate upward movement
+        // **b. Animate Upward Movement**
         new TWEEN.Tween(sprite.position)
-            .to({ y: sprite.position.y + 2 }, 2000) // Move up by 2 units over 2 seconds
+            .to({ y: sprite.position.y + 3 }, 3000) // Move up by 3 units over 3 seconds
             .easing(TWEEN.Easing.Quadratic.Out)
             .start();
 
-        // Animate fading opacity
+        // **c. Animate Fading Opacity**
         new TWEEN.Tween(sprite.material)
-            .to({ opacity: 0 }, 2000) // Fade out over 2 seconds
+            .to({ opacity: 0 }, 3000) // Fade out over 3 seconds
             .easing(TWEEN.Easing.Quadratic.Out)
             .onComplete(() => {
                 sprite.visible = false; // Hide sprite after fading
             })
             .start();
 
-        // Update nextIndex for pooling
+        // **d. Update nextIndex for Pooling**
         smokePool.nextIndex = (smokePool.nextIndex + 1) % smokePool.sprites.length;
     }, emitInterval);
 }
@@ -1211,6 +1250,47 @@ function emitSmoke(obstacleMesh, coneHeight) {
 let destroyedBoat, repairMessage;
 
 let boatRepaired = false; // Track if the boat is repaired
+
+/**
+ * Initializes the water mesh with a circular geometry for a more natural appearance.
+ */
+function initializeWater() {
+    const waterRadius = 10; // Base radius of the water circle. Adjust as needed.
+    const segments = 64; // Number of segments for smoothness. Higher = smoother.
+
+    // Create a circular geometry for water
+    const waterGeometry = new THREE.CircleGeometry(waterRadius, segments);
+    
+    // Create a material with transparency for realistic water appearance
+    const waterMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0x1E90FF, // DeepSkyBlue color
+        transparent: true, 
+        opacity: 0.6, 
+        side: THREE.DoubleSide // Render both sides
+    });
+    
+    // Create the water mesh
+    water = new THREE.Mesh(waterGeometry, waterMaterial);
+    
+    // Rotate the water to lie horizontally
+    water.rotation.x = -Math.PI / 2;
+    
+    // Position the water centrally based on terrain extents
+    const waterPositionX = 0; // Centered at X = 0
+    const waterPositionZ = 0; // Centered at Z = 0
+    const waterPositionY = getTerrainHeightAt(waterPositionX, waterPositionZ) + 0.1; // Slightly above terrain
+    
+    water.position.set(waterPositionX, waterPositionY, waterPositionZ);
+    
+    // Ensure the initial size does not exceed terrain boundaries
+    water.scale.set(1, 1, 1); // Base scale
+    
+    scene.add(water);
+    
+    console.log('Water initialized as a circle within terrain boundaries.');
+}
+
+
 
 function createDestroyedBoat() {
     destroyedBoat = new THREE.Group();
@@ -1438,6 +1518,7 @@ function completeBoatRepair() {
     // Position repaired boat
     repairedBoat.position.copy(destroyedBoat.position);
     repairedBoat.position.y += 0;
+    repairedBoat.position.z -= 5
     scene.add(repairedBoat);
 
     // Add physics to the repaired boat if necessary
@@ -1680,7 +1761,43 @@ actionButton.addEventListener('pointerdown', (event) => {
 let water; // Reference to the water body
 let floodStartTime = null; // Track when the flood begins
 const floodDuration = 120; // Duration of the flood in seconds
-const maxWaterScale = 5; // Maximum scale for the water
+const maxWaterScale = 1; // Maximum scale for the water
+
+function startFlood() {
+    const floodDuration = 15; // Duration in seconds
+
+    // Calculate the maximum scale based on terrain boundaries
+    const initialWaterSize = 20;
+    const maxWaterSizeX = terrainWidthExtents - 1 ;
+    const maxWaterSizeZ = terrainDepthExtents -1 ;
+
+    const maxWaterScaleX = maxWaterSizeX / initialWaterSize;
+    const maxWaterScaleZ = maxWaterSizeZ / initialWaterSize;
+
+    // Use the smaller scale to maintain aspect ratio
+    let maxWaterScale = Math.min(maxWaterScaleX, maxWaterScaleZ);
+
+    // **Clamp the maxWaterScale to a reasonable limit to prevent unnatural scaling**
+    const minScale = 1;
+    const clampedMaxScale = Math.max(minScale, maxWaterScale); // Ensure scale doesn't go below 1
+
+    maxWaterScale = clampedMaxScale;
+
+    // Animate the water scaling up within terrain boundaries
+    new TWEEN.Tween(water.scale)
+        .to({ x: maxWaterScale, z: maxWaterScale }, floodDuration * 1000) // Convert to milliseconds
+        .easing(TWEEN.Easing.Quadratic.Out)
+        .onStart(() => {
+            console.log('Flood has started. Water is rising.');
+            startRain(); // Start the rain effect concurrently
+        })
+        .onComplete(() => {
+            console.log('Flood has reached maximum scale within terrain boundaries.');
+            // Optionally, trigger other events or notifications here
+        })
+        .start();
+}
+
 
 function createWaterBodies() {
     const waterGeometry = new THREE.PlaneGeometry(20, 20);
@@ -2250,29 +2367,31 @@ function createStaggeredMountain() {
  * Creates a single collectible at the top of the mountain.
  */
 function createTopMountainCollectible() {
-    const collectibleGeometry = new THREE.TetrahedronGeometry(0.8); // 
+    const collectibleGeometry = new THREE.TetrahedronGeometry(0.8);
     const collectibleMaterial = new THREE.MeshStandardMaterial({ color: 0xf50a41 }); // Distinct color
-    
+
     const collectibleMesh = new THREE.Mesh(collectibleGeometry, collectibleMaterial);
-    
+
     // Set the fixed position at the top of the mountain
-    const manualPosition = new THREE.Vector3(40, 22, 40); // Adjust Y to the desired height
+    const manualPosition = new THREE.Vector3(0, 10, 0); // Adjust Y to the desired height
     collectibleMesh.position.set(manualPosition.x, manualPosition.y, manualPosition.z);
-    
+
     collectibleMesh.castShadow = true;
     collectibleMesh.receiveShadow = true;
-    
+
     // **Add a unique identifier to mark this as the top collectible**
     collectibleMesh.userData.isTopCollectible = true;
-    
+
     scene.add(collectibleMesh);
     collectibles.push(collectibleMesh);
-    
+
     // Add physics body for the collectible
     createCollectiblePhysics(collectibleMesh);
-    
+
     console.log(`Top collectible placed at: (${manualPosition.x}, ${manualPosition.y}, ${manualPosition.z})`);
 }
+
+
 
 
 
@@ -2645,25 +2764,20 @@ function initializeScene() {
     // Create destroyed boat
     createDestroyedBoat();
 
-    // **Remove environmental effects from initialization**
-    // createWaterBodies(); // Remove or comment out this line
-    // Note: createSpriteSmokeEffect() was being called inside createRandomObstacles()
+    // **Initialize the water at base scale**
+    initializeWater();
 
     // Obstacles
     const obstacleMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
 
-    // **Modify createRandomObstacles to not call createSpriteSmokeEffect()**
+    // **Create Random Obstacles without Smoke**
     createRandomObstacles(10);    // Adjust count as needed
-    // Ensure createRandomObstacles() no longer calls createSpriteSmokeEffect()
 
     // Collectibles
     createCollectibles(5);       // Adjust count as needed
 
     // Trees
     createTrees(50);              // Adjust count as needed
-
-    // Water Bodies (Removed from initialization)
-    // createWaterBodies();          // Ensure this line is removed
 
     // Rotating Spikes
     createRotatingSpikes(5);       // Creates rotating spikes
@@ -3030,8 +3144,6 @@ function handleEnemyCollectibleCollision(body0, body1) {
     collectCollectible(collectibleBody, 'enemy');
 }
 
-
-
 function collectCollectible(collectibleBody, collector) {
     const collectible = collectibles.find(c => c.userData.physicsBody === collectibleBody);
 
@@ -3040,26 +3152,37 @@ function collectCollectible(collectibleBody, collector) {
         new TWEEN.Tween(collectible.material)
             .to({ opacity: 0 }, 200)
             .onComplete(() => {
-                // Calculate a new random position on the terrain
-                const newPosition = getNewCollectiblePosition();
+                if (collectible.userData.isTopCollectible) {
+                    // **a. Hide the Top Collectible**
+                    collectible.visible = false;
+                    // Optionally, disable its physics body to prevent further collisions
+                    if (collectibleBody) {
+                        collectibleBody.setCollisionFlags(collectibleBody.getCollisionFlags() | 2); // 2 = STATIC_OBJECT
+                        collectibleBody.activate();
+                    }
+                } else {
+                    // **b. Respawn Other Collectibles**
+                    // Calculate a new random position on the terrain
+                    const newPosition = getNewCollectiblePosition();
 
-                // Update the Three.js mesh position
-                collectible.position.copy(newPosition);
+                    // Update the Three.js mesh position
+                    collectible.position.copy(newPosition);
 
-                // Update the Ammo.js physics body position
-                const transform = new Ammo.btTransform();
-                transform.setIdentity();
-                transform.setOrigin(new Ammo.btVector3(newPosition.x, newPosition.y, newPosition.z));
-                collectibleBody.setWorldTransform(transform);
-                collectibleBody.getMotionState().setWorldTransform(transform);
+                    // Update the Ammo.js physics body position
+                    const transform = new Ammo.btTransform();
+                    transform.setIdentity();
+                    transform.setOrigin(new Ammo.btVector3(newPosition.x, newPosition.y, newPosition.z));
+                    collectibleBody.setWorldTransform(transform);
+                    collectibleBody.getMotionState().setWorldTransform(transform);
 
-                // Reset material opacity
-                collectible.material.opacity = 1;
+                    // Reset material opacity
+                    collectible.material.opacity = 1;
 
-                // Apply fade-in effect
-                new TWEEN.Tween(collectible.material)
-                    .to({ opacity: 1 }, 200)
-                    .start();
+                    // Apply fade-in effect
+                    new TWEEN.Tween(collectible.material)
+                        .to({ opacity: 1 }, 200)
+                        .start();
+                }
             })
             .start();
 
@@ -3070,16 +3193,16 @@ function collectCollectible(collectibleBody, collector) {
             handleEnemyHealthRestore(1); // Restore 1 health
         }
 
-        console.log(`${collector.charAt(0).toUpperCase() + collector.slice(1)} collected a collectible! Respawning with fade effect.`);
+        console.log(`${collector.charAt(0).toUpperCase() + collector.slice(1)} collected a collectible!`);
 
         // **Check if this is the top collectible**
         if (collectible.userData.isTopCollectible) {
             console.log('Top collectible collected! Starting environmental effects.');
             startEnvironmentalEffects();
+
         }
     }
 }
-
 
 
 function getNewCollectiblePosition() {
