@@ -317,7 +317,7 @@ function handleChopTree(tree) {
 
     // Animate the foliage moving straight down
     new TWEEN.Tween(foliage.position)
-        .to({ y: targetY }, 1000) // 1 second duration
+        .to({ y: targetY }, 200) // 1 second duration
         .easing(TWEEN.Easing.Quadratic.In)
         .onComplete(() => {
             // Once the foliage has landed, set it up as a static obstacle
@@ -2084,6 +2084,9 @@ function createCollectibles(count) {
             collectibleMaterial // Use the predefined material
         );
 
+        // Set userData.type to identify this mesh as a collectible
+        collectible.userData.type = 'collectible';
+ 
         // Random position on terrain
         const position = new THREE.Vector3(
             (Math.random() - 0.5) * terrainWidthExtents,
@@ -3191,12 +3194,21 @@ function updatePhysics(deltaTime) {
     });
 
     
+        // Update collectibles
+        collectibles.forEach(collectible => {
+            const body = collectible.userData.physicsBody;
+            if (body) {
+                const transform = new Ammo.btTransform();
+                body.getMotionState().getWorldTransform(transform);
+                const origin = transform.getOrigin();
+                collectible.position.set(origin.x(), origin.y(), origin.z());
+            }
+        });
 
+    
     // Check for other collisions
     checkCollisions();
 }
-
-
 
 function checkCollisions() {
     const dispatcher = physicsWorld.getDispatcher();
@@ -3207,13 +3219,14 @@ function checkCollisions() {
         const body0 = Ammo.castObject(contactManifold.getBody0(), Ammo.btRigidBody);
         const body1 = Ammo.castObject(contactManifold.getBody1(), Ammo.btRigidBody);
 
-        // Check for player/projectile collisions as before
-        // ...
+        // Handle projectile collisions
+        checkProjectileCollisions(body0, body1);
 
-        // Handle direct collisions between player/enemy and collectibles/spikes
+        // Handle direct collisions
         handleDirectCollisions(body0, body1);
     }
 }
+
 
 function handleDirectCollisions(body0, body1) {
     // Player collides with Collectible
@@ -3227,6 +3240,7 @@ function handleDirectCollisions(body0, body1) {
         (isEnemyBody(body1) && isCollectibleBody(body0))) {
         handleEnemyCollectibleCollision(body0, body1);
     }
+
 
     // Player collides with Spike
     if ((isPlayerBody(body0) && isSpikeBody(body1)) ||
@@ -3242,17 +3256,19 @@ function handleDirectCollisions(body0, body1) {
 }
 
 function isCollectibleBody(body) {
-    return body.userData && body.userData.type === 'collectible';
+    return body && body.threeObject && body.threeObject.userData && body.threeObject.userData.type === 'collectible';
 }
+
 
 function isSpikeBody(body) {
     return body.userData && body.userData.type === 'rotatingSpike';
 }
 
 function handlePlayerCollectibleCollision(body0, body1) {
-    let collectibleBody = isPlayerBody(body0) ? body1 : body0;
+    const collectibleBody = isCollectibleBody(body0) ? body0 : body1;
     collectCollectible(collectibleBody, 'player');
 }
+
 
 function handleEnemyCollectibleCollision(body0, body1) {
     let collectibleBody = isEnemyBody(body0) ? body1 : body0;
@@ -3260,54 +3276,47 @@ function handleEnemyCollectibleCollision(body0, body1) {
 }
 
 function collectCollectible(collectibleBody, collector) {
-    const collectible = collectibles.find(c => c.userData.physicsBody === collectibleBody);
+    // Find the index of the collectible in the collectibles array
+    const collectibleIndex = collectibles.findIndex(c => c.userData.physicsBody === collectibleBody);
 
-    if (collectible) {
-        // Apply fade-out effect
-        new TWEEN.Tween(collectible.material)
-            .to({ opacity: 0 }, 200)
-            .onComplete(() => {
-                if (collectible.userData.isTopCollectible) {
-                    // Hide the Top Collectible
-                    collectible.visible = false;
-                    // Optionally, disable its physics body to prevent further collisions
-                    if (collectibleBody) {
-                        collectibleBody.setCollisionFlags(collectibleBody.getCollisionFlags() | 2); // 2 = STATIC_OBJECT
-                        collectibleBody.activate();
-                    }
-                } else {
-                    // Respawn Other Collectibles
-                    const newPosition = getNewCollectiblePosition();
-                    // Update the Three.js mesh position
-                    collectible.position.copy(newPosition);
-                    // Update the Ammo.js physics body position
-                    const transform = new Ammo.btTransform();
-                    transform.setIdentity();
-                    transform.setOrigin(new Ammo.btVector3(newPosition.x, newPosition.y, newPosition.z));
-                    collectibleBody.setWorldTransform(transform);
-                    collectibleBody.getMotionState().setWorldTransform(transform);
-                    // Reset material opacity
-                    collectible.material.opacity = 1;
-                    // Apply fade-in effect
-                    new TWEEN.Tween(collectible.material)
-                        .to({ opacity: 1 }, 200)
-                        .start();
-                }
-            })
-            .start();
+    if (collectibleIndex !== -1) {
+        const collectible = collectibles[collectibleIndex];
+
+        // Remove collectible from scene
+        scene.remove(collectible);
+
+        // Remove physics body from the physics world
+        if (collectibleBody) {
+            physicsWorld.removeRigidBody(collectibleBody);
+
+            // Clean up Ammo.js objects
+            const motionState = collectibleBody.getMotionState();
+            if (motionState) Ammo.destroy(motionState);
+            Ammo.destroy(collectibleBody.getCollisionShape());
+            Ammo.destroy(collectibleBody);
+
+            collectible.userData.physicsBody = null; // Prevent future references
+        }
+
+        // Remove collectible from the collectibles array
+        collectibles.splice(collectibleIndex, 1);
 
         // Apply effects based on collector
         if (collector === 'player') {
             handlePlayerHealthRestore(1); // Restore 1 health
+            updatePlayerHealthBar(); // Update health bar if needed
         } else if (collector === 'enemy') {
             handleEnemyHealthRestore(1); // Restore 1 health
+            updateEnemyHealthBar(); // Update health bar if needed
         }
 
         console.log(`${collector.charAt(0).toUpperCase() + collector.slice(1)} collected a collectible!`);
-
-        // **Removed environmental effects trigger from here**
+    } else {
+        console.warn('Collectible not found in array. It may have already been collected.');
     }
 }
+
+
 
 
 
