@@ -266,7 +266,7 @@ function initiateChopping(tree) {
     hideActionButton('chopTree'); // Ensure the button is hidden during chopping
 
     // Simulate chopping progress over time
-    const chopDuration = 1000; // Duration in milliseconds
+    const chopDuration = 30; // Duration in milliseconds
     const chopSteps = 10;
     let chopsDone = 0;
 
@@ -276,9 +276,100 @@ function initiateChopping(tree) {
 
         if (chopsDone >= chopSteps) {
             clearInterval(chopInterval);
-            chopTree(tree);
+            handleChopTree(tree); // Use handleChopTree instead of chopTree
         }
     }, chopDuration / chopSteps);
+}
+
+
+function handleChopTree(tree) {
+    // Remove the tree's physics body from the physics world
+    if (tree.physicsBody) {
+        physicsWorld.removeRigidBody(tree.physicsBody);
+
+        // Clean up Ammo.js objects
+        Ammo.destroy(tree.physicsBody.getMotionState());
+        Ammo.destroy(tree.physicsBody.getCollisionShape());
+        Ammo.destroy(tree.physicsBody);
+        tree.physicsBody = null; // Prevent future references
+    }
+
+    // Remove the trunk from the tree group
+    tree.remove(tree.userData.trunk);
+
+    // Prepare the foliage to fall
+    const foliage = tree.userData.foliage;
+
+    // Get foliage's world position before removing it from the tree group
+    foliage.updateMatrixWorld();
+    const foliageWorldPosition = new THREE.Vector3();
+    foliage.getWorldPosition(foliageWorldPosition);
+
+    // Remove the foliage from the tree group and add it to the scene
+    tree.remove(foliage);
+    scene.add(foliage);
+
+    // Set the foliage's position to its world position
+    foliage.position.copy(foliageWorldPosition);
+
+    // Calculate target Y position based on terrain height
+    const targetY = getTerrainHeightAt(foliage.position.x, foliage.position.z) + (tree.userData.foliageHeight / 2);
+
+    // Animate the foliage moving straight down
+    new TWEEN.Tween(foliage.position)
+        .to({ y: targetY }, 1000) // 1 second duration
+        .easing(TWEEN.Easing.Quadratic.In)
+        .onComplete(() => {
+            // Once the foliage has landed, set it up as a static obstacle
+            createFoliageObstacle(foliage, tree.userData.foliageHeight);
+        })
+        .start();
+
+    // Remove the tree group from the scene
+    scene.remove(tree);
+    trees.splice(trees.indexOf(tree), 1);
+
+    // Remove the tree from the obstacles array if necessary
+    obstacles.splice(obstacles.indexOf(tree), 1);
+
+    // Spawn logs at the base of the tree
+    spawnLogs(tree.position);
+
+    console.log('Tree chopped down. Trunk removed, foliage is falling straight down.');
+}
+
+
+function createFoliageObstacle(foliageMesh, foliageHeight) {
+    // Create a static physics body for the foliage
+    const mass = 0; // Static object
+    const foliageShape = new Ammo.btConeShape(0.8, foliageHeight);
+
+    const transform = new Ammo.btTransform();
+    transform.setIdentity();
+    transform.setOrigin(new Ammo.btVector3(foliageMesh.position.x, foliageMesh.position.y, foliageMesh.position.z));
+    const motionState = new Ammo.btDefaultMotionState(transform);
+    const localInertia = new Ammo.btVector3(0, 0, 0);
+
+    const rbInfo = new Ammo.btRigidBodyConstructionInfo(mass, motionState, foliageShape, localInertia);
+    const body = new Ammo.btRigidBody(rbInfo);
+
+    body.setCollisionFlags(body.getCollisionFlags() | 2); // Set as a static object
+
+    // Add the physics body to the world
+    physicsWorld.addRigidBody(
+        body,
+        COL_GROUP_OBSTACLE, // Collision group
+        COL_GROUP_PLAYER | COL_GROUP_ENEMY // Collides with player and enemy
+    );
+
+    // Associate the Ammo.js body with the Three.js object
+    foliageMesh.userData.physicsBody = body;
+    body.threeObject = foliageMesh;
+
+    // Add the foliage to the obstacles array
+    obstacles.push(foliageMesh);
+
+    console.log('Foliage has landed and is now a static obstacle.');
 }
 
 
@@ -734,11 +825,20 @@ function applyPlayerHitEffect() {
 }
 
 function handlePlayerDeath() {
-    // Remove player from scene
-    scene.remove(player);
+    // Remove player from scene if it's in the scene
+    if (scene.children.includes(player)) {
+        scene.remove(player);
+    }
 
     // Remove player from physics world
     physicsWorld.removeRigidBody(playerBody);
+
+    // Clear any residual forces
+    playerBody.clearForces();
+
+    // Reset velocities
+    playerBody.setLinearVelocity(new Ammo.btVector3(0, 0, 0));
+    playerBody.setAngularVelocity(new Ammo.btVector3(0, 0, 0));
 
     // Disable player controls
     disablePlayerControls();
@@ -747,7 +847,16 @@ function handlePlayerDeath() {
     setTimeout(() => {
         respawnPlayer();
     }, 5000); // 5000 milliseconds = 5 seconds
+
+    // Debugging: Log player's velocity after death
+    const currentVelocity = playerBody.getLinearVelocity();
+    console.log('Player velocity after death:', {
+        x: currentVelocity.x(),
+        y: currentVelocity.y(),
+        z: currentVelocity.z()
+    });
 }
+
 
 function disablePlayerControls() {
     playerControlsEnabled = false;
@@ -761,7 +870,6 @@ function enablePlayerControls() {
     hideGameOverOverlay();
 }
 
-
 function respawnPlayer() {
     // Reset player health
     playerHealth = maxPlayerHealth;
@@ -770,6 +878,9 @@ function respawnPlayer() {
     const startPosition = new THREE.Vector3(0, terrainMaxHeight + playerRadius + 1, 0);
     player.position.copy(startPosition);
 
+    // Remove player body from physics world if it's already added
+    physicsWorld.removeRigidBody(playerBody);
+
     // Reset player physics body
     const transform = new Ammo.btTransform();
     transform.setIdentity();
@@ -777,14 +888,26 @@ function respawnPlayer() {
     playerBody.setWorldTransform(transform);
     playerBody.getMotionState().setWorldTransform(transform);
 
-    // Re-add player to scene
-    scene.add(player);
+    // Reset velocities
+    playerBody.setLinearVelocity(new Ammo.btVector3(0, 0, 0));
+    playerBody.setAngularVelocity(new Ammo.btVector3(0, 0, 0));
+
+    // Clear any residual forces
+    playerBody.clearForces();
+
+    // Reactivate the body
+    playerBody.activate();
+
+    // Re-add player to scene if not already added
+    if (!scene.children.includes(player)) {
+        scene.add(player);
+    }
 
     // Re-add player to physics world
     physicsWorld.addRigidBody(
         playerBody,
         COL_GROUP_PLAYER, // Collision group
-        COL_GROUP_OBSTACLE | COL_GROUP_ENEMY | COL_GROUP_TERRAIN | COL_GROUP_ENEMY_PROJECTILE // Collides with these groups
+        COL_GROUP_OBSTACLE | COL_GROUP_ENEMY | COL_GROUP_TERRAIN | COL_GROUP_ENEMY_PROJECTILE // Collision mask
     );
 
     // Reset health bar to full health
@@ -795,7 +918,16 @@ function respawnPlayer() {
 
     // Enable player controls
     enablePlayerControls();
+
+    // Debugging: Log player's velocity after respawn
+    const currentVelocity = playerBody.getLinearVelocity();
+    console.log('Player velocity after respawn:', {
+        x: currentVelocity.x(),
+        y: currentVelocity.y(),
+        z: currentVelocity.z()
+    });
 }
+
 
 
 // Helper functions to identify projectiles and obstacles
@@ -1393,7 +1525,7 @@ function createBoatPhysics(boat, isRepaired = false) {
 const repairProximity = 5; // Distance threshold for showing the message
 let isNearBoat = false;
 
-const repairLogRequirement = 0; // Define the log requirement for repairing
+const repairLogRequirement = 1; // Define the log requirement for repairing
 
 function checkBoatProximity() {
     if (!destroyedBoat || boatRepaired) return;
@@ -1518,7 +1650,7 @@ function completeBoatRepair() {
     // Position repaired boat
     repairedBoat.position.copy(destroyedBoat.position);
     repairedBoat.position.y += 0;
-    repairedBoat.position.z -= 5
+    repairedBoat.position.z -= 0
     scene.add(repairedBoat);
 
     // Add physics to the repaired boat if necessary
@@ -2084,24 +2216,24 @@ function createTrees(count) {
         foliage.receiveShadow = true;
         tree.add(foliage);
 
+        // Store references to trunk and foliage meshes
+        tree.userData.trunk = trunk;
+        tree.userData.foliage = foliage;
+        tree.userData.trunkHeight = trunkHeight;
+        tree.userData.foliageHeight = foliageHeight;
+
         // Position on terrain
         const position = new THREE.Vector3(
             (Math.random() - 0.5) * terrainWidthExtents,
-            0, // Y will be set based on terrain height and tree height
+            0, // Y will be set based on terrain height
             (Math.random() - 0.5) * terrainDepthExtents
         );
         const terrainHeight = getTerrainHeightAt(position.x, position.z);
 
-        // Calculate total tree height
-        const totalTreeHeight = trunkHeight + foliageHeight;
-
-        // Log terrain height and tree position for debugging
-        console.log(`Tree ${i + 1}: Terrain Height = ${terrainHeight}, Total Tree Height = ${totalTreeHeight}`);
-
-        // Correct Y-position: set tree base to terrainHeight
+        // Set tree base to terrain height
         tree.position.set(
             position.x,
-            terrainHeight, // Base at terrain height
+            terrainHeight,
             position.z
         );
 
@@ -2114,7 +2246,7 @@ function createTrees(count) {
 
         // Add tree to scene and tracking arrays
         scene.add(tree);
-        trees.push(tree); // Separate trees array
+        trees.push(tree); // Trees array
         obstacles.push(tree); // Trees as obstacles
 
         // Create Ammo.js physics body for the tree
@@ -2123,6 +2255,7 @@ function createTrees(count) {
 
         // Position shapes relative to the tree
         const compoundShape = new Ammo.btCompoundShape();
+
         const transformTrunk = new Ammo.btTransform();
         transformTrunk.setIdentity();
         transformTrunk.setOrigin(new Ammo.btVector3(0, trunkHeight / 2, 0));
@@ -2137,7 +2270,6 @@ function createTrees(count) {
         console.log(`Tree ${i + 1} created and physics body assigned.`);
     }
 }
-
 
 
 function spawnLogs(position) {
@@ -2373,7 +2505,7 @@ function createTopMountainCollectible() {
     const collectibleMesh = new THREE.Mesh(collectibleGeometry, collectibleMaterial);
 
     // Set the fixed position at the top of the mountain
-    const manualPosition = new THREE.Vector3(0, 10, 0); // Adjust Y to the desired height
+    const manualPosition = new THREE.Vector3(40, 22, 40); // Adjust Y to the desired height
     collectibleMesh.position.set(manualPosition.x, manualPosition.y, manualPosition.z);
 
     collectibleMesh.castShadow = true;
@@ -2461,16 +2593,15 @@ function createCubePhysics(cubeMesh, size) {
 }
 
 
-
 function createObstaclePhysics(position, shape, obstacleMesh) {
     const obstacleTransform = new Ammo.btTransform();
     obstacleTransform.setIdentity();
     obstacleTransform.setOrigin(new Ammo.btVector3(position.x, position.y, position.z));
-    
+
     const obstacleMass = 0; // Static object
     const obstacleMotionState = new Ammo.btDefaultMotionState(obstacleTransform);
     const localInertia = new Ammo.btVector3(0, 0, 0); // No inertia for static objects
-    
+
     const obstacleRbInfo = new Ammo.btRigidBodyConstructionInfo(obstacleMass, obstacleMotionState, shape, localInertia);
     const obstacleBody = new Ammo.btRigidBody(obstacleRbInfo);
 
@@ -2487,9 +2618,8 @@ function createObstaclePhysics(position, shape, obstacleMesh) {
         COL_GROUP_PLAYER | COL_GROUP_PLAYER_PROJECTILE | COL_GROUP_ENEMY_PROJECTILE | COL_GROUP_ENEMY | COL_GROUP_TERRAIN // Collision mask
     );
 
-    console.log('Physics body created and associated with Tree:', obstacleMesh);
+    console.log('Physics body created and associated with obstacle:', obstacleMesh);
 }
-
 
 
 
@@ -2771,7 +2901,7 @@ function initializeScene() {
     const obstacleMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff });
 
     // **Create Random Obstacles without Smoke**
-    createRandomObstacles(10);    // Adjust count as needed
+    createRandomObstacles(0);    // Adjust count as needed
 
     // Collectibles
     createCollectibles(5);       // Adjust count as needed
@@ -2785,7 +2915,6 @@ function initializeScene() {
     // Update Inventory UI
     updateInventoryUI();
 }
-
 
 
 // Define reusable vectors and quaternions at the top
@@ -2805,19 +2934,22 @@ function updatePlayerPosition() {
         );
         playerBody.setLinearVelocity(desiredVelocity);
     } else {
+        // Set horizontal velocities to zero when there's no input
         const currentVelocity = playerBody.getLinearVelocity();
         playerBody.setLinearVelocity(new Ammo.btVector3(
-            currentVelocity.x() * 0.9,
+            0,
             currentVelocity.y(),
-            currentVelocity.z() * 0.9
+            0
         ));
     }
 
+    // Update player position from physics simulation
     const transform = new Ammo.btTransform();
     playerBody.getMotionState().getWorldTransform(transform);
     const origin = transform.getOrigin();
     player.position.set(origin.x(), origin.y(), origin.z());
 }
+
 
 
 function updatePlayerRotation() {
@@ -3054,20 +3186,6 @@ function updatePhysics(deltaTime) {
     // Check for collisions between projectiles and other objects
     checkProjectileCollisions();
 
-    // Only update trees marked as being chopped
-    trees.forEach(tree => {
-        if (tree.isBeingChopped) {
-            const transform = new Ammo.btTransform();
-            tree.physicsBody.getMotionState().getWorldTransform(transform);
-            const origin = transform.getOrigin();
-            tree.position.set(origin.x(), origin.y(), origin.z());
-
-            // Update rotation
-            const rotation = transform.getRotation();
-            tree.quaternion.set(rotation.x(), rotation.y(), rotation.z(), rotation.w());
-        }
-    });
-
     // Update logs (dynamic objects)
     logs.forEach(log => {
         const transform = new Ammo.btTransform();
@@ -3079,6 +3197,11 @@ function updatePhysics(deltaTime) {
         const rotation = transform.getRotation();
         log.mesh.quaternion.set(rotation.x(), rotation.y(), rotation.z(), rotation.w());
     });
+
+    
+
+    // Check for other collisions
+    checkCollisions();
 }
 
 
