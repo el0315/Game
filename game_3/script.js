@@ -2913,6 +2913,9 @@ function initializeScene() {
 
     // Update Inventory UI
     updateInventoryUI();
+
+    // At the end of initialization, start the animation
+    animateStartScreen();
 }
 
 
@@ -3143,7 +3146,6 @@ function removeProjectile(index) {
     
     projectiles.splice(index, 1);
 }
-
 
 const maxSubSteps = 5; // Reduced from 10
 function updatePhysics(deltaTime) {
@@ -3591,6 +3593,59 @@ function checkOutOfBounds() {
         console.log("Enemy is out of bounds! Respawning...");
         respawnEnemy();
     }
+}
+
+
+// Reference to start screen
+const startScreen = document.getElementById("startScreen");
+
+
+
+// Assuming you have a Three.js camera, scene, and renderer set up
+function animateStartScreen() {
+    playerControlsEnabled = false
+    const animationParams = {
+        zoom: 2,          // Starting zoom value
+        positionX: -5,    // Starting X position
+        positionY: 50     // Starting Y position (optional)
+    };
+
+    // Use TWEEN.js or GSAP for smooth animation
+    new TWEEN.Tween(animationParams)
+        .to({
+            zoom: 0,          // End zoom value
+            positionX: 20,    // End X position
+            positionY: 10     // End Y position (optional)
+        }, 6000) // Duration: 6 seconds
+        .easing(TWEEN.Easing.Quadratic.InOut)
+        .onUpdate(() => {
+            // Update camera position
+            camera.position.z = animationParams.zoom * 20; // Adjust the multiplier as needed
+            camera.position.x = animationParams.positionX;
+            camera.position.y = animationParams.positionY;
+            camera.lookAt(new THREE.Vector3(0, 0, 0)); // Ensure the camera is always looking at the center
+        })
+        .onComplete(() => {
+            console.log("Camera Animation Complete");
+            // Hide the start screen overlay
+            startScreen.style.display = "none";
+            // Start the game logic
+            
+            startGame();
+        })
+        .start();
+
+    // Start the animation loop if not already running
+    animate();
+}
+
+// Example Start Game Function
+function startGame() {
+    playerControlsEnabled = true
+    console.log("Game Started");
+    // Any other initialization code
+    
+    // Initialize game logic, animations, render loops, or other game components here.
 }
 
 
