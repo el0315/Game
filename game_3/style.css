@@ -37,6 +37,42 @@ html, body {
     display: block;
 }
 
+
+/* Start Screen Styling */
+#startScreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.2); /* Dark overlay */
+    z-index: 10000; /* Ensure it's above all other elements */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+#startScreenOverlay {
+    text-align: center;
+    color: white;
+    font-family: 'Montserrat', sans-serif;
+    animation: fadeIn 2s ease;
+}
+
+
+
+/* Keyframe Animation for Optional Fading */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+
 /* Controls Container */
 #controls {
     width: 100%;
