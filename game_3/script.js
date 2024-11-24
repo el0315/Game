@@ -24,7 +24,7 @@ let physicsWorld, playerBody;
 let yaw = 0, pitch = 0;
 
 const maxPitch = Math.PI / 3;   // Existing maximum pitch (looking straight up)
-const minPitch = -Math.PI / 6;  // New minimum pitch (looking 45 degrees down)
+const minPitch = -Math.PI / 7;  // New minimum pitch (looking 45 degrees down)
 
 let joystickMoveAngle = null, movementTouchId = null, rotationTouchId = null, lastTouchX = 0, lastTouchY = 0;
 
@@ -1525,7 +1525,7 @@ function createBoatPhysics(boat, isRepaired = false) {
 const repairProximity = 5; // Distance threshold for showing the message
 let isNearBoat = false;
 
-const repairLogRequirement = 1; // Define the log requirement for repairing
+const repairLogRequirement = 5; // Define the log requirement for repairing
 
 function checkBoatProximity() {
     if (!destroyedBoat || boatRepaired) return;
@@ -1562,7 +1562,7 @@ function createRepairMessage() {
     context.fillStyle = '#FFFFFF';
     context.font = '18px Arial';
     context.textAlign = 'center';
-    context.fillText('10 logs to repair the boat', canvas.width / 2, canvas.height / 2 + 8);
+    context.fillText('5 logs to repair the boat', canvas.width / 2, canvas.height / 2 + 8);
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.needsUpdate = true;
@@ -1904,8 +1904,8 @@ function startFlood() {
 
     // Calculate the maximum scale based on terrain boundaries
     const initialWaterSize = 20;
-    const maxWaterSizeX = terrainWidthExtents - 1 ;
-    const maxWaterSizeZ = terrainDepthExtents -1 ;
+    const maxWaterSizeX = terrainWidthExtents - 3 ;
+    const maxWaterSizeZ = terrainDepthExtents -3 ;
 
     const maxWaterScaleX = maxWaterSizeX / initialWaterSize;
     const maxWaterScaleZ = maxWaterSizeZ / initialWaterSize;
