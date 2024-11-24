@@ -14,15 +14,15 @@ html, body {
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background-color: #77706F;
+    background-color: transparent;
     touch-action: none;
-    font-family: 'Montserrat', sans-serif; /* Apply Montserrat font globally */
+    font-family: 'Montserrat', sans-serif;
 }
 
 /* Main Game Container */
 #gameContainer {
     width: 100%;
-    height: 50vh;
+    height: 100%;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -46,33 +46,28 @@ html, body {
     align-items: center;
     position: relative;
     padding: 20px;
-    background-color: transparent; /* Removed gray coloring */
+    background-color: transparent !important;
 }
 
 /* Movement Joystick */
 #joystickContainerMove {
     position: fixed;
-    /* Set appropriate z-index to ensure they are above other elements */
     z-index: 1000;
-    /* Prevent touch events from passing through */
     touch-action: none;
-    width: 100px;
-    height: 100px;
+    width: 120px; /* Increased from 100px */
+    height: 120px; /* Increased from 100px */
     border-radius: 50%;
     background: rgba(0, 0, 0, 0.3);
     display: flex;
     align-items: center;
     justify-content: center;
-}
-
-#joystickContainerMove {
     left: 20px;
     bottom: 20px;
 }
 
 #joystickKnobMove {
-    width: 60px;
-    height: 60px;
+    width: 80px; /* Increased from 60px */
+    height: 80px; /* Increased from 60px */
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.7);
     transition: transform 0.1s ease;
@@ -81,19 +76,18 @@ html, body {
 /* Shoot Button */
 .shoot-button {
     position: fixed;
-    bottom: 20px; /* Align with other controls */
-    right: 20px;  /* Position on the right side */
-    width: 80px;
-    height: 80px;
+    bottom: 20px;
+    right: 20px;
+    width: 100px; /* Increased from 80px */
+    height: 100px; /* Increased from 80px */
     z-index: 1000;
-    touch-action: none; /* Prevent default touch behaviors */
+    touch-action: none;
 }
 
-/* Shoot Knob */
 .shoot-knob {
-    width: 60px;
-    height: 60px;
-    background-color: rgba(255, 0, 0, 0.7); /* Semi-transparent red */
+    width: 80px; /* Increased from 60px */
+    height: 80px; /* Increased from 60px */
+    background-color: rgba(255, 0, 0, 0.7);
     border-radius: 50%;
     position: absolute;
     top: 50%;
@@ -105,25 +99,24 @@ html, body {
 
 /* Active State for Shoot Knob */
 .shoot-knob.active {
-    background-color: rgba(255, 0, 0, 1); /* Opaque red on active */
+    background-color: rgba(255, 0, 0, 1);
 }
 
-/* Simplified Jump Button */
+/* Jump Button */
 .jump-button {
     position: fixed;
-    bottom: 20px; /* Align with joysticks */
+    bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
-    width: 80px;
-    height: 80px;
+    width: 100px; /* Increased from 80px */
+    height: 100px; /* Increased from 80px */
     z-index: 1000;
     touch-action: none;
 }
 
-/* Jump Knob */
 .jump-knob {
-    width: 60px;
-    height: 60px;
+    width: 80px; /* Increased from 60px */
+    height: 80px; /* Increased from 60px */
     background-color: rgba(255, 255, 255, 0.9);
     border-radius: 50%;
     position: absolute;
@@ -142,21 +135,21 @@ html, body {
 /* Multifunctional Button */
 #actionButton {
     position: fixed;
-    bottom: 120px; /* Positioned above the Shoot button */
+    bottom: 140px; /* Adjusted from 120px */
     left: 50%;
     transform: translateX(-50%);
-    width: 80px;
-    height: 80px;
+    width: 100px; /* Increased from 80px */
+    height: 100px; /* Increased from 80px */
     z-index: 1000;
     touch-action: none;
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: rgba(0, 0, 139, 0.8); /* Blue color */
+    background-color: rgba(0, 0, 139, 0.8);
     border: none;
     border-radius: 50%;
     color: #FFFFFF;
-    font-size: 14px;
+    font-size: 16px; /* Increased from 14px */
     font-weight: 600;
     cursor: pointer;
     transition: background-color 0.2s ease, transform 0.1s ease;
@@ -167,12 +160,12 @@ html, body {
 }
 
 #actionButton:hover {
-    background-color: rgba(0, 0, 139, 1); /* Opaque on hover */
+    background-color: rgba(0, 0, 139, 1);
 }
 
 #actionButton:active {
     transform: scale(0.95);
-    background-color: rgba(0, 0, 139, 1); /* Darker color on active */
+    background-color: rgba(0, 0, 139, 1);
 }
 
 /* Inventory Display */
@@ -186,6 +179,7 @@ html, body {
     border-radius: 5px;
     font-family: 'Montserrat', sans-serif;
     font-size: 18px;
+    font-weight: 600;
     z-index: 1000;
 }
 
@@ -194,13 +188,13 @@ html, body {
 #enemyRespawnOverlay {
     position: absolute;
     padding: 20px 40px;
-    background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent background */
+    background-color: rgba(0, 0, 0, 0.7);
     color: #ffffff;
     text-align: center;
     border-radius: 10px;
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
     z-index: 1000;
-    display: none; /* Hidden by default */
+    display: none;
     animation: fadeIn 0.5s ease;
     font-size: 48px;
     font-weight: 700;
@@ -210,7 +204,7 @@ html, body {
     top: 20px;
     left: 50%;
     transform: translateX(-50%);
-    background-color: rgba(255, 255, 255, 0.9); /* Lighter background */
+    background-color: rgba(255, 255, 255, 0.9);
     color: #000000;
     font-size: 32px;
     font-weight: 600;
@@ -227,7 +221,7 @@ html, body {
     opacity: 0;
     pointer-events: none;
     transition: opacity 1s ease;
-    z-index: 1000; /* Ensures it overlays other elements */
+    z-index: 1000;
 }
 
 /* Level 2 Overlay */
@@ -243,7 +237,7 @@ html, body {
     justify-content: center;
     align-items: center;
     flex-direction: column;
-    z-index: 1001; /* Above the fade overlay */
+    z-index: 1001;
 }
 
 #level2Overlay h1 {
@@ -302,7 +296,7 @@ html, body {
     transform: scale(0.95);
 }
 
-/* Optional: Style for Action Buttons (if needed) */
+/* Optional: Style for Action Buttons */
 .control-button {
     position: absolute;
     bottom: 20px;
@@ -330,50 +324,46 @@ html, body {
     transform: scale(0.95);
 }
 
-/* Inventory Styling Enhancements */
-#inventory {
-    font-weight: 600;
-}
-
 /* Responsive Adjustments for Mobile Devices */
 @media (max-width: 768px) {
     /* Adjust joystick size */
     #joystickContainerMove {
-        width: 80px;
-        height: 80px;
+        width: 100px; /* Increased from 80px */
+        height: 100px; /* Increased from 80px */
     }
 
     #joystickKnobMove {
-        width: 50px;
-        height: 50px;
+        width: 70px; /* Increased from 50px */
+        height: 70px; /* Increased from 50px */
     }
 
     /* Adjust shoot button size */
     .shoot-button {
-        width: 70px;
-        height: 70px;
+        width: 90px; /* Increased from 70px */
+        height: 90px; /* Increased from 70px */
     }
 
     .shoot-knob {
-        width: 50px;
-        height: 50px;
+        width: 70px; /* Increased from 50px */
+        height: 70px; /* Increased from 50px */
     }
 
     /* Adjust jump button size */
     .jump-button {
-        width: 70px;
-        height: 70px;
+        width: 90px; /* Increased from 70px */
+        height: 90px; /* Increased from 70px */
     }
 
     .jump-knob {
-        width: 50px;
-        height: 50px;
+        width: 70px; /* Increased from 50px */
+        height: 70px; /* Increased from 50px */
     }
 
     /* Adjust multifunctional action button */
     #actionButton {
-        width: 70px;
-        height: 70px;
+        width: 90px; /* Increased from 70px */
+        height: 90px; /* Increased from 70px */
+        bottom: 160px; /* Adjusted to prevent overlap */
     }
 
     /* Adjust inventory font size */
