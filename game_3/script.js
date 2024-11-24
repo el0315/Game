@@ -3603,41 +3603,78 @@ const startScreen = document.getElementById("startScreen");
 
 // Assuming you have a Three.js camera, scene, and renderer set up
 function animateStartScreen() {
-    playerControlsEnabled = false
-    const animationParams = {
-        zoom: 2,          // Starting zoom value
-        positionX: -5,    // Starting X position
-        positionY: 50     // Starting Y position (optional)
+    // Define the starting and ending positions for the camera
+    const startCameraPosition = {
+        x: -20, // Starting X position (adjust as needed)
+        y: 50,  // Starting Y position (adjust as needed)
+        z: 50  // Starting Z position (adjust as needed)
     };
 
-    // Use TWEEN.js or GSAP for smooth animation
+    const endCameraPosition = {
+        x: 0,   // Ending X position (matches initializeScene camera)
+        y: 13.5,  // Ending Y position
+        z: 8   // Ending Z position
+    };
+
+    const animationParams = {
+        x: startCameraPosition.x,
+        y: startCameraPosition.y,
+        z: startCameraPosition.z,
+        fadeStarted: false // Flag to ensure fade-out starts only once
+    };
+
+    // Start the animation loop
+    animate();
+
+    const cameraAnimationDuration = 6000; // Duration in milliseconds
+    const fadeOutDuration = 1000;         // Fade-out duration
+    const fadeOutStartTime = TWEEN.now() + cameraAnimationDuration - fadeOutDuration;
+
+    // Camera position animation
     new TWEEN.Tween(animationParams)
         .to({
-            zoom: 0,          // End zoom value
-            positionX: 20,    // End X position
-            positionY: 10     // End Y position (optional)
-        }, 6000) // Duration: 6 seconds
+            x: endCameraPosition.x,
+            y: endCameraPosition.y,
+            z: endCameraPosition.z
+        }, cameraAnimationDuration)
         .easing(TWEEN.Easing.Quadratic.InOut)
         .onUpdate(() => {
             // Update camera position
-            camera.position.z = animationParams.zoom * 20; // Adjust the multiplier as needed
-            camera.position.x = animationParams.positionX;
-            camera.position.y = animationParams.positionY;
-            camera.lookAt(new THREE.Vector3(0, 0, 0)); // Ensure the camera is always looking at the center
+            camera.position.set(animationParams.x, animationParams.y, animationParams.z);
+            camera.lookAt(new THREE.Vector3(0, 7.5, 0)); // Adjust the lookAt point if needed
+
+            // Start fade-out effect at the right time
+            if (!animationParams.fadeStarted && TWEEN.now() >= fadeOutStartTime) {
+                animationParams.fadeStarted = true;
+                fadeOutStartScreenOverlay();
+            }
         })
         .onComplete(() => {
             console.log("Camera Animation Complete");
-            // Hide the start screen overlay
-            startScreen.style.display = "none";
-            // Start the game logic
-            
+            // Start the game or transition to the player's view
             startGame();
         })
         .start();
-
-    // Start the animation loop if not already running
-    animate();
 }
+
+
+
+function fadeOutStartScreenOverlay() {
+    const startScreen = document.getElementById('startScreen');
+    if (!startScreen) {
+        console.error('Start screen overlay not found!');
+        return;
+    }
+
+    // Start the fade-out by setting opacity to 0
+    startScreen.style.opacity = '0';
+
+    // Optionally, hide the start screen after the fade-out completes
+    setTimeout(() => {
+        startScreen.style.display = 'none';
+    }, 1000); // Match this duration to the CSS transition duration
+}
+
 
 // Example Start Game Function
 function startGame() {
