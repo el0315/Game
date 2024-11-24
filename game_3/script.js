@@ -1409,8 +1409,8 @@ function initializeWater() {
     
     // Position the water centrally based on terrain extents
     const waterPositionX = 0; // Centered at X = 0
-    const waterPositionZ = 0; // Centered at Z = 0
-    const waterPositionY = getTerrainHeightAt(waterPositionX, waterPositionZ) + 0.1; // Slightly above terrain
+    const waterPositionZ = 8; // Centered at Z = 0
+    const waterPositionY = getTerrainHeightAt(waterPositionX, waterPositionZ) + 0.5; // Slightly above terrain
     
     water.position.set(waterPositionX, waterPositionY, waterPositionZ);
     
@@ -1650,7 +1650,7 @@ function completeBoatRepair() {
     // Position repaired boat
     repairedBoat.position.copy(destroyedBoat.position);
     repairedBoat.position.y += 0;
-    repairedBoat.position.z -= 0
+    repairedBoat.position.z -= 0;
     scene.add(repairedBoat);
 
     // Add physics to the repaired boat if necessary
@@ -1661,6 +1661,10 @@ function completeBoatRepair() {
 
     // Show a message indicating the boat is ready to board
     console.log('Boat is ready to be boarded!');
+
+    // **Trigger environmental effects upon boat repair**
+    console.log('Boat repaired! Starting environmental effects.');
+    startEnvironmentalEffects();
 }
 
 
@@ -1931,18 +1935,6 @@ function startFlood() {
 }
 
 
-function createWaterBodies() {
-    const waterGeometry = new THREE.PlaneGeometry(20, 20);
-    const waterMaterial = new THREE.MeshPhongMaterial({ color: 0x1E90FF, transparent: true, opacity: 0.6 });
-    water = new THREE.Mesh(waterGeometry, waterMaterial);
-    water.rotation.x = -Math.PI / 2;
-    water.position.set(10, getTerrainHeightAt(10, 10) + 0.1, 10); // Slightly above terrain
-    water.scale.set(1, 1, 1); // Initial scale
-    scene.add(water);
-
-    // Start the rain and flood sequence when the water is created
-    startRainAndFlood();
-}
 
 
 function startRainAndFlood() {
@@ -3276,7 +3268,7 @@ function collectCollectible(collectibleBody, collector) {
             .to({ opacity: 0 }, 200)
             .onComplete(() => {
                 if (collectible.userData.isTopCollectible) {
-                    // **a. Hide the Top Collectible**
+                    // Hide the Top Collectible
                     collectible.visible = false;
                     // Optionally, disable its physics body to prevent further collisions
                     if (collectibleBody) {
@@ -3284,23 +3276,18 @@ function collectCollectible(collectibleBody, collector) {
                         collectibleBody.activate();
                     }
                 } else {
-                    // **b. Respawn Other Collectibles**
-                    // Calculate a new random position on the terrain
+                    // Respawn Other Collectibles
                     const newPosition = getNewCollectiblePosition();
-
                     // Update the Three.js mesh position
                     collectible.position.copy(newPosition);
-
                     // Update the Ammo.js physics body position
                     const transform = new Ammo.btTransform();
                     transform.setIdentity();
                     transform.setOrigin(new Ammo.btVector3(newPosition.x, newPosition.y, newPosition.z));
                     collectibleBody.setWorldTransform(transform);
                     collectibleBody.getMotionState().setWorldTransform(transform);
-
                     // Reset material opacity
                     collectible.material.opacity = 1;
-
                     // Apply fade-in effect
                     new TWEEN.Tween(collectible.material)
                         .to({ opacity: 1 }, 200)
@@ -3318,14 +3305,10 @@ function collectCollectible(collectibleBody, collector) {
 
         console.log(`${collector.charAt(0).toUpperCase() + collector.slice(1)} collected a collectible!`);
 
-        // **Check if this is the top collectible**
-        if (collectible.userData.isTopCollectible) {
-            console.log('Top collectible collected! Starting environmental effects.');
-            startEnvironmentalEffects();
-
-        }
+        // **Removed environmental effects trigger from here**
     }
 }
+
 
 
 function getNewCollectiblePosition() {
