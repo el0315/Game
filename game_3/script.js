@@ -2512,6 +2512,10 @@ function createTopMountainCollectible() {
     scene.add(collectibleMesh);
     collectibles.push(collectibleMesh);
 
+    collectibleMesh.userData.type = 'collectible';
+    collectibleMesh.userData.isTopCollectible = true;
+
+
     // Add physics body for the collectible
     createCollectiblePhysics(collectibleMesh);
 
@@ -2905,7 +2909,7 @@ function initializeScene() {
     createTrees(50);              // Adjust count as needed
 
     // Rotating Spikes
-    createRotatingSpikes(5);       // Creates rotating spikes
+    createRotatingSpikes(0);       // Creates rotating spikes
 
     // Update Inventory UI
     updateInventoryUI();
@@ -3301,13 +3305,19 @@ function collectCollectible(collectibleBody, collector) {
         // Remove collectible from the collectibles array
         collectibles.splice(collectibleIndex, 1);
 
-        // Apply effects based on collector
-        if (collector === 'player') {
-            handlePlayerHealthRestore(1); // Restore 1 health
-            updatePlayerHealthBar(); // Update health bar if needed
-        } else if (collector === 'enemy') {
-            handleEnemyHealthRestore(1); // Restore 1 health
-            updateEnemyHealthBar(); // Update health bar if needed
+        // Check if this is the top mountain collectible
+        if (collectible.userData.isTopCollectible) {
+            // Trigger the special function for the top collectible
+            handleTopCollectibleCollection();
+        } else {
+            // Apply effects based on collector for regular collectibles
+            if (collector === 'player') {
+                handlePlayerHealthRestore(1); // Restore 1 health
+                updatePlayerHealthBar();      // Update health bar if needed
+            } else if (collector === 'enemy') {
+                handleEnemyHealthRestore(1);  // Restore 1 health
+                updateEnemyHealthBar();       // Update health bar if needed
+            }
         }
 
         console.log(`${collector.charAt(0).toUpperCase() + collector.slice(1)} collected a collectible!`);
@@ -3316,8 +3326,12 @@ function collectCollectible(collectibleBody, collector) {
     }
 }
 
+function handleTopCollectibleCollection() {
+    console.log('Top mountain collectible collected!');
 
-
+    // TODO: Implement the special logic for when the top collectible is collected.
+    // For example, you might want to advance to the next level, display a message, etc.
+}
 
 
 function getNewCollectiblePosition() {
