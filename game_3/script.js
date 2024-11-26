@@ -1467,30 +1467,18 @@ function createShop() {
     const shop = new THREE.Group();
     
     // Dimensions
-    const wallWidth = 5;
-    const wallHeight = 4;
-    const wallDepth = 0.2;
+    const wallWidth = 6;
+    const wallHeight = 5;
+    const wallDepth = 1;
    
     
     // Create Walls
     const frontWall = createWall(wallWidth, wallHeight, wallDepth);
     frontWall.position.set(0, wallHeight / 2, -wallWidth / 2 + wallDepth / 2);
     
-    const backWall = createWall(wallWidth, wallHeight, wallDepth);
-    backWall.position.set(0, wallHeight / 2, wallWidth / 2 - wallDepth / 2);
-    
-    const leftWall = createWall(wallDepth, wallHeight, wallWidth);
-    leftWall.position.set(-wallWidth / 2 + wallDepth / 2, wallHeight / 2, 0);
-    
-    const rightWall = createWall(wallDepth, wallHeight, wallWidth);
-    rightWall.position.set(wallWidth / 2 - wallDepth / 2, wallHeight / 2, 0);
-    
     // Add components to the shop group
     shop.add(frontWall);
-    shop.add(backWall);
-    shop.add(leftWall);
-    shop.add(rightWall)
-      
+ 
     return shop;
 }
 
@@ -3849,7 +3837,7 @@ function animateStartScreen() {
     // Start the animation loop
     animate();
 
-    const cameraAnimationDuration = 6000; // Duration in milliseconds
+    const cameraAnimationDuration = 3000; // Duration in milliseconds
     const fadeOutDuration = 1000;         // Fade-out duration
     const fadeOutStartTime = TWEEN.now() + cameraAnimationDuration - fadeOutDuration;
 
