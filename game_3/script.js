@@ -691,16 +691,16 @@ function destroyEnemy() {
 function dropMoney(position, count) {
     for (let i = 0; i < count; i++) {
         const moneyCollectible = new THREE.Mesh(
-            new THREE.TetrahedronGeometry(0.5), // Circular shape for money
+            new THREE.TetrahedronGeometry(0.5), // Same shape as other collectibles
             moneyCollectibleMaterial // Orange material
         );
 
         moneyCollectible.userData.type = 'money';
 
-        // Slight random offset around the enemy's position
+        // Higher y-offset to ensure the collectible falls visibly
         const offset = new THREE.Vector3(
             (Math.random() - 0.5) * 2, // X offset between -1 and 1
-            0.5, // Slightly above the ground
+            5, // Y offset (adjust based on game scale)
             (Math.random() - 0.5) * 2  // Z offset between -1 and 1
         );
 
@@ -711,13 +711,12 @@ function dropMoney(position, count) {
         scene.add(moneyCollectible);
         collectibles.push(moneyCollectible);
 
-        // Add physics body for collision detection
-        createCollectiblePhysics(moneyCollectible);
+        // Add physics body for collision detection, pass 'money' type
+        createCollectiblePhysics(moneyCollectible, 'money');
 
         console.log(`Money Collectible dropped at: (${moneyCollectible.position.x}, ${moneyCollectible.position.y}, ${moneyCollectible.position.z})`);
     }
 }
-
 
 
 function respawnEnemy() {
@@ -2137,7 +2136,6 @@ function updateRotatingSpikes(deltaTime) {
         spike.rotation.y %= Math.PI * 2;
     });
 }
-
 /**
  * Creates collectibles of specified type.
  * @param {number} count - Number of collectibles to create.
@@ -2149,7 +2147,7 @@ function createCollectibles(count, type = 'log') {
         let collectibleType = 'collectible'; // Default type
 
         if (type === 'money') {
-            geometry = new THREE.TetrahedronGeometry(0.5); // Use a circle for money
+            geometry = new THREE.BoxGeometry(0.6, 0.6, 0.6);; // Use a circle for money
             material = moneyCollectibleMaterial;
             collectibleType = 'money';
         } else { // Default to 'log' collectible
@@ -2179,12 +2177,11 @@ function createCollectibles(count, type = 'log') {
         collectibles.push(collectible);
 
         // Add physics body for collision detection
-        createCollectiblePhysics(collectible);
+        createCollectiblePhysics(collectible, collectibleType);
 
         console.log(`${type.charAt(0).toUpperCase() + type.slice(1)} Collectible ${i + 1} created at position: (${collectible.position.x}, ${collectible.position.y}, ${collectible.position.z})`);
     }
 }
-
 
 function createRotatingSpikes(count) {
     for (let i = 0; i < count; i++) {
@@ -2221,9 +2218,27 @@ function createRotatingSpikes(count) {
     }
 }
 
-function createCollectiblePhysics(collectibleMesh) {
-    const mass = 0; // Static object
-    const shape = new Ammo.btSphereShape(0.5); // Approximated as a sphere
+/**
+ * Creates a physics body for a collectible.
+ * @param {THREE.Mesh} collectibleMesh - The Three.js mesh of the collectible.
+ * @param {string} type - The type of collectible ('collectible' or 'money').
+ */
+function createCollectiblePhysics(collectibleMesh, type) {
+    let mass = 0; // Default to static
+
+    if (type === 'money') {
+        mass = 1; // Dynamic object with mass
+    }
+
+    // Define the collision shape based on type
+    let shape;
+    if (type === 'money') {
+        const halfExtents = new Ammo.btVector3(0.3, 0.3, 0.3); // Half the dimensions of the cube
+        shape = new Ammo.btBoxShape(halfExtents); // Box shape for money
+        Ammo.destroy(halfExtents); // Clean up
+    } else {
+        shape = new Ammo.btSphereShape(0.5); // Existing size for logs
+    }
 
     const transform = new Ammo.btTransform();
     transform.setIdentity();
@@ -2231,16 +2246,21 @@ function createCollectiblePhysics(collectibleMesh) {
     const motionState = new Ammo.btDefaultMotionState(transform);
 
     const localInertia = new Ammo.btVector3(0, 0, 0);
-    shape.calculateLocalInertia(mass, localInertia);
+    if (mass > 0) {
+        shape.calculateLocalInertia(mass, localInertia);
+    }
 
     const rbInfo = new Ammo.btRigidBodyConstructionInfo(mass, motionState, shape, localInertia);
     const body = new Ammo.btRigidBody(rbInfo);
     body.setFriction(0.5);
     body.setRestitution(0.1);
-    body.setCollisionFlags(body.getCollisionFlags() | 2); // Make it a static object
 
-    // Tag the body as a collectible for collision handling
-    body.userData = { type: 'collectible' };
+    if (mass === 0) {
+        body.setCollisionFlags(body.getCollisionFlags() | 2); // Make it a static object
+    }
+
+    // Tag the body with the correct type
+    body.userData = { type: type };
 
     physicsWorld.addRigidBody(
         body,
@@ -2528,8 +2548,6 @@ function createTopMountainCollectible() {
 
     console.log(`Top collectible placed at: (${manualPosition.x}, ${manualPosition.y}, ${manualPosition.z})`);
 }
-
-
 
 
 
@@ -3245,20 +3263,18 @@ function checkCollisions() {
     }
 }
 
-
 function handleDirectCollisions(body0, body1) {
-    // Player collides with Collectible
+    // Player collides with Collectible or Money
     if ((isPlayerBody(body0) && isCollectibleBody(body1)) ||
         (isPlayerBody(body1) && isCollectibleBody(body0))) {
         handlePlayerCollectibleCollision(body0, body1);
     }
 
-    // Enemy collides with Collectible
+    // Enemy collides with Collectible or Money
     if ((isEnemyBody(body0) && isCollectibleBody(body1)) ||
         (isEnemyBody(body1) && isCollectibleBody(body0))) {
         handleEnemyCollectibleCollision(body0, body1);
     }
-
 
     // Player collides with Spike
     if ((isPlayerBody(body0) && isSpikeBody(body1)) ||
@@ -3270,6 +3286,12 @@ function handleDirectCollisions(body0, body1) {
     if ((isEnemyBody(body0) && isSpikeBody(body1)) ||
         (isEnemyBody(body1) && isSpikeBody(body0))) {
         handleEnemySpikeCollision(body0, body1);
+    }
+
+    // Money Collectible collides with Terrain
+    if ((isMoneyBody(body0) && isTerrainBody(body1)) ||
+        (isMoneyBody(body1) && isTerrainBody(body0))) {
+        handleMoneyTerrainCollision(body0, body1);
     }
 }
 
@@ -3304,6 +3326,27 @@ function handleEnemyCollectibleCollision(body0, body1) {
     let collectibleBody = isEnemyBody(body0) ? body1 : body0;
     collectCollectible(collectibleBody, 'enemy');
 }
+
+/**
+ * Checks if a body is a money collectible.
+ * @param {Ammo.btRigidBody} body - The Ammo.js rigid body.
+ * @returns {boolean} - True if the body is a money collectible, false otherwise.
+ */
+function isMoneyBody(body) {
+    return body && body.threeObject && body.threeObject.userData && body.threeObject.userData.type === 'money';
+}
+
+/**
+ * Checks if a body is terrain.
+ * @param {Ammo.btRigidBody} body - The Ammo.js rigid body.
+ * @returns {boolean} - True if the body is terrain, false otherwise.
+ */
+function isTerrainBody(body) {
+    return body && body.threeObject && body.threeObject.userData && body.threeObject.userData.type === 'terrain';
+}
+
+
+
 
 function collectCollectible(collectibleBody, collector) {
     // Find the index of the collectible in the collectibles array
