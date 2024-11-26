@@ -8,7 +8,9 @@ let logs = [];
 // Player Inventory
 let playerInventory = {
     logs: 0,
+    money: 0, // New property for money
 };
+
 
 // Define proximity threshold (e.g., 3 units)
 const chopProximity = 3;
@@ -91,6 +93,16 @@ const collectibleMaterial = new THREE.MeshStandardMaterial({
     transparent: true, 
     opacity: 1 
 });
+
+// Define material for money collectibles
+const moneyCollectibleMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0xFFA500, // Orange color
+    emissive: 0xFFA500, 
+    emissiveIntensity: 0.5,
+    transparent: true, 
+    opacity: 1 
+});
+
 
 let fireflies = [];
 const fireflyCount = 100;
@@ -546,13 +558,25 @@ function isObstacleBody(body) {
     return obstacles.some(obstacle => obstacle.userData.physicsBody === body);
 }
 
-// Initialize Inventory UI
+/**
+ * Updates the inventory UI to reflect current counts.
+ */
 function updateInventoryUI() {
     const logCountElement = document.getElementById('logCount');
     if (logCountElement) {
         logCountElement.innerText = `Logs: ${playerInventory.logs}`;
+    } else {
+        console.warn('Log count element (#logCount) not found in the DOM.');
+    }
+
+    const moneyCountElement = document.getElementById('moneyCount');
+    if (moneyCountElement) {
+        moneyCountElement.innerText = `Money: ${playerInventory.money}`;
+    } else {
+        console.warn('Money count element (#moneyCount) not found in the DOM.');
     }
 }
+
 
 function createHealthBarTexture(healthPercentage) {
     const canvas = document.createElement('canvas');
@@ -636,7 +660,6 @@ function applyEnemyHitEffect() {
         enemy.material.color.set(0x800080); // Purple color
     }, 200); // Duration in milliseconds
 }
-
 function destroyEnemy() {
     // Remove enemy from scene
     scene.remove(enemy);
@@ -650,10 +673,49 @@ function destroyEnemy() {
     // Show respawn indicator with countdown
     showEnemyRespawnOverlayWithCountdown(5); // 5 seconds
 
+    // Spawn money collectibles upon enemy defeat
+    const moneyToDrop = Math.floor(Math.random() * 5) + 1; // Drop between 1 and 5 money
+    dropMoney(enemy.position, moneyToDrop);
+
     // Schedule respawn after a delay (e.g., 5 seconds)
     setTimeout(() => {
         respawnEnemy();
     }, 5000); // 5000 milliseconds = 5 seconds
+}
+
+/**
+ * Spawns money collectibles at a specified position.
+ * @param {THREE.Vector3} position - The position to spawn money collectibles.
+ * @param {number} count - Number of money collectibles to spawn.
+ */
+function dropMoney(position, count) {
+    for (let i = 0; i < count; i++) {
+        const moneyCollectible = new THREE.Mesh(
+            new THREE.TetrahedronGeometry(0.5), // Circular shape for money
+            moneyCollectibleMaterial // Orange material
+        );
+
+        moneyCollectible.userData.type = 'money';
+
+        // Slight random offset around the enemy's position
+        const offset = new THREE.Vector3(
+            (Math.random() - 0.5) * 2, // X offset between -1 and 1
+            0.5, // Slightly above the ground
+            (Math.random() - 0.5) * 2  // Z offset between -1 and 1
+        );
+
+        moneyCollectible.position.copy(position).add(offset);
+
+        moneyCollectible.castShadow = true;
+        moneyCollectible.receiveShadow = true;
+        scene.add(moneyCollectible);
+        collectibles.push(moneyCollectible);
+
+        // Add physics body for collision detection
+        createCollectiblePhysics(moneyCollectible);
+
+        console.log(`Money Collectible dropped at: (${moneyCollectible.position.x}, ${moneyCollectible.position.y}, ${moneyCollectible.position.z})`);
+    }
 }
 
 
@@ -2076,32 +2138,38 @@ function updateRotatingSpikes(deltaTime) {
     });
 }
 
-
-function createCollectibles(count) {
+/**
+ * Creates collectibles of specified type.
+ * @param {number} count - Number of collectibles to create.
+ * @param {string} type - Type of collectible ('log' or 'money').
+ */
+function createCollectibles(count, type = 'log') {
     for (let i = 0; i < count; i++) {
+        let geometry, material;
+        let collectibleType = 'collectible'; // Default type
+
+        if (type === 'money') {
+            geometry = new THREE.TetrahedronGeometry(0.5); // Use a circle for money
+            material = moneyCollectibleMaterial;
+            collectibleType = 'money';
+        } else { // Default to 'log' collectible
+            geometry = new THREE.TetrahedronGeometry(0.5);
+            material = collectibleMaterial; // Existing yellow material
+        }
+
         const collectible = new THREE.Mesh(
-            new THREE.TetrahedronGeometry(0.5),
-            collectibleMaterial // Use the predefined material
+            geometry,
+            material
         );
 
-        // Set userData.type to identify this mesh as a collectible
-        collectible.userData.type = 'collectible';
- 
+        // Set userData.type to identify this mesh
+        collectible.userData.type = collectibleType;
+
         // Random position on terrain
-        const position = new THREE.Vector3(
-            (Math.random() - 0.5) * terrainWidthExtents,
-            0, // Y will be set based on terrain height
-            (Math.random() - 0.5) * terrainDepthExtents
-        );
-        const terrainHeight = getTerrainHeightAt(position.x, position.z);
-
-        // Calculate half the height of the collectible
-        const collectibleHeight = 2 * 0.5 * Math.sqrt(2 / 3); // Height of a regular tetrahedron with radius 0.5
-        const halfHeight = collectibleHeight / 2;
-
+        const position = getNewCollectiblePosition(); // Reuse helper function for valid positions
         collectible.position.set(
             position.x,
-            terrainHeight + halfHeight,
+            position.y,
             position.z
         );
 
@@ -2113,9 +2181,10 @@ function createCollectibles(count) {
         // Add physics body for collision detection
         createCollectiblePhysics(collectible);
 
-        console.log(`Collectible ${i + 1} created at position: (${collectible.position.x}, ${collectible.position.y}, ${collectible.position.z})`);
+        console.log(`${type.charAt(0).toUpperCase() + type.slice(1)} Collectible ${i + 1} created at position: (${collectible.position.x}, ${collectible.position.y}, ${collectible.position.z})`);
     }
 }
+
 
 function createRotatingSpikes(count) {
     for (let i = 0; i < count; i++) {
@@ -2152,7 +2221,6 @@ function createRotatingSpikes(count) {
     }
 }
 
-
 function createCollectiblePhysics(collectibleMesh) {
     const mass = 0; // Static object
     const shape = new Ammo.btSphereShape(0.5); // Approximated as a sphere
@@ -2177,13 +2245,14 @@ function createCollectiblePhysics(collectibleMesh) {
     physicsWorld.addRigidBody(
         body,
         COL_GROUP_OBSTACLE, // Collision group
-        COL_GROUP_PLAYER | COL_GROUP_ENEMY | COL_GROUP_PLAYER_PROJECTILE | COL_GROUP_ENEMY_PROJECTILE | COL_GROUP_TERRAIN // Collision mask
+        COL_GROUP_PLAYER | COL_GROUP_PLAYER_PROJECTILE | COL_GROUP_ENEMY_PROJECTILE | COL_GROUP_ENEMY | COL_GROUP_TERRAIN // Collision mask
     );
 
     // Associate the Three.js mesh with the Ammo.js body
     collectibleMesh.userData.physicsBody = body;
     body.threeObject = collectibleMesh;
 }
+
 
 function createTrees(count) {
     for (let i = 0; i < count; i++) {
@@ -2419,76 +2488,14 @@ function getTerrainHeightAt(x, z) {
     return (terrainMinHeight + terrainMaxHeight) / 2;
 }
 
+// Define Mountain Position
+const mountainPosition = new THREE.Vector3(30, 0, 30); // Example: (x=30, y=0, z=30)
 
-// === Staggered Cube Mountain Creation ===
+// Define Spiral Road Position
+const spiralRoadPosition = new THREE.Vector3(30, 0, 30); // Example: Same x and z as mountain, y adjusted to sit atop the mountain
 
-// Mountain Parameters
-const staggeredMountainParams = {
-    baseWidth: 10,           // Number of cubes along the X-axis at the base
-    baseDepth: 10,           // Number of cubes along the Z-axis at the base
-    stepHeight: 3,         // Height between each step (Y-axis)
-    stepSize: 1,             // Size of each cube
-    stepSpacing: 0.01,        // Spacing between cubes to prevent overlap
-    maxSteps: 20,             // Total number of steps/layers in the mountain
-    startPosition: new THREE.Vector3(40, 0, 40) // Starting position towards the edge
-};
 
-function createStaggeredMountain() {
-    const { baseWidth, baseDepth, stepHeight, stepSize, stepSpacing, maxSteps, startPosition } = staggeredMountainParams;
 
-    let topPosition = new THREE.Vector3(); // Placeholder for the top position
-
-    for (let step = 0; step < maxSteps; step++) {
-        const currentWidth = baseWidth - step * 2; // Decrease width each step
-        const currentDepth = baseDepth - step * 2; // Decrease depth each step
-        const yPosition = step * (stepHeight + stepSpacing) + stepSize / 2; // Calculate Y position
-
-        // Skip steps that would result in non-positive dimensions
-        if (currentWidth <= 0 || currentDepth <= 0) {
-            console.warn(`Step ${step + 1} has non-positive dimensions. Skipping.`);
-            continue;
-        }
-
-        for (let x = 0; x < currentWidth; x++) {
-            for (let z = 0; z < currentDepth; z++) {
-                // Create cube geometry and material
-                const cubeGeometry = new THREE.BoxGeometry(stepSize, stepSize, stepSize);
-                const cubeMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); // SaddleBrown color
-                const cubeMesh = new THREE.Mesh(cubeGeometry, cubeMaterial);
-
-                // Position the cube with staggering
-                cubeMesh.position.set(
-                    startPosition.x + (x - currentWidth / 2) * (stepSize + stepSpacing),
-                    startPosition.y + yPosition + 8,
-                    startPosition.z + (z - currentDepth / 2) * (stepSize + stepSpacing)
-                );
-
-                // Enable casting and receiving shadows
-                cubeMesh.castShadow = true;
-                cubeMesh.receiveShadow = true;
-
-                // Add cube to the scene
-                scene.add(cubeMesh);
-
-                // Add cube to obstacles array for collision handling
-                obstacles.push(cubeMesh);
-
-                // Create Ammo.js physics body for the cube
-                createCubePhysics(cubeMesh, stepSize);
-
-                // Update top position for the last cube in the last step
-                if (step === maxSteps - 1 && x === currentWidth - 1 && z === currentDepth - 1) {
-                    topPosition.copy(cubeMesh.position);
-                }
-            }
-        }
-    }
-
-    console.log('Staggered Cube Mountain created with', maxSteps, 'steps.');
-
-    // Create the collectible at the top of the mountain
-    createTopMountainCollectible();
-}
 
 /**
  * Creates a single collectible at the top of the mountain.
@@ -2887,8 +2894,6 @@ function initializeScene() {
     // Create Enemy Health Bar
     createEnemyHealthBar();
 
-    // Create mountain
-    createStaggeredMountain();
 
     // Create destroyed boat
     createDestroyedBoat();
@@ -2911,8 +2916,15 @@ function initializeScene() {
     // Rotating Spikes
     createRotatingSpikes(0);       // Creates rotating spikes
 
+
+    playerInventory = {
+        logs: 0,
+        money: 0, // Initialize money
+    };
     // Update Inventory UI
     updateInventoryUI();
+
+   
 
     // At the end of initialization, start the animation
     animateStartScreen();
@@ -3261,8 +3273,17 @@ function handleDirectCollisions(body0, body1) {
     }
 }
 
+// Define collectible types
+const collectibleTypes = ['collectible', 'money'];
+
+/**
+ * Checks if a body is a collectible.
+ * @param {Ammo.btRigidBody} body - The Ammo.js rigid body.
+ * @returns {boolean} - True if the body is a collectible, false otherwise.
+ */
 function isCollectibleBody(body) {
-    return body && body.threeObject && body.threeObject.userData && body.threeObject.userData.type === 'collectible';
+    return body && body.threeObject && body.threeObject.userData && 
+        collectibleTypes.includes(body.threeObject.userData.type);
 }
 
 
@@ -3272,6 +3293,9 @@ function isSpikeBody(body) {
 
 function handlePlayerCollectibleCollision(body0, body1) {
     const collectibleBody = isCollectibleBody(body0) ? body0 : body1;
+    
+    if (!collectibleBody) return; // Safety check
+    
     collectCollectible(collectibleBody, 'player');
 }
 
@@ -3284,48 +3308,65 @@ function handleEnemyCollectibleCollision(body0, body1) {
 function collectCollectible(collectibleBody, collector) {
     // Find the index of the collectible in the collectibles array
     const collectibleIndex = collectibles.findIndex(c => c.userData.physicsBody === collectibleBody);
-
+    
     if (collectibleIndex !== -1) {
         const collectible = collectibles[collectibleIndex];
-
+    
         // Remove collectible from scene
         scene.remove(collectible);
-
+    
         // Remove physics body from the physics world
         if (collectibleBody) {
             physicsWorld.removeRigidBody(collectibleBody);
-
+    
             // Clean up Ammo.js objects
             const motionState = collectibleBody.getMotionState();
             if (motionState) Ammo.destroy(motionState);
             Ammo.destroy(collectibleBody.getCollisionShape());
             Ammo.destroy(collectibleBody);
-
+    
             collectible.userData.physicsBody = null; // Prevent future references
         }
-
+    
         // Remove collectible from the collectibles array
         collectibles.splice(collectibleIndex, 1);
-
+    
         // Check if this is the top mountain collectible
         if (collectible.userData.isTopCollectible) {
             // Trigger the special function for the top collectible
             handleTopCollectibleCollection();
         } else {
-            // Apply effects based on collector for regular collectibles
+            // Apply effects based on collector and collectible type
             if (collector === 'player') {
-                handlePlayerHealthRestore(1); // Restore 1 health
-                updatePlayerHealthBar();      // Update health bar if needed
+                if (collectible.userData.type === 'money') {
+                    handlePlayerMoneyCollection(1); // Add 1 money unit
+                } else if (collectible.userData.type === 'collectible') {
+                    handlePlayerHealthRestore(1); // Restore 1 health
+                }
+                updatePlayerHealthBar(); // Update health bar if needed
             } else if (collector === 'enemy') {
-                handleEnemyHealthRestore(1);  // Restore 1 health
+                 if (collectible.userData.type === 'collectible') {
+                    handleEnemyHealthRestore(1); // Restore 1 health
+                }
                 updateEnemyHealthBar();       // Update health bar if needed
             }
         }
-
-        console.log(`${collector.charAt(0).toUpperCase() + collector.slice(1)} collected a collectible!`);
+    
+        console.log(`${collector.charAt(0).toUpperCase() + collector.slice(1)} collected a ${collectible.userData.type} collectible!`);
     } else {
         console.warn('Collectible not found in array. It may have already been collected.');
     }
+}
+
+/**
+ * Handles the player collecting money.
+ * @param {number} amount - The amount of money to add.
+ */
+function handlePlayerMoneyCollection(amount) {
+    playerInventory.money += amount;
+    updateInventoryUI(); // Update the inventory UI to reflect the new money count
+    console.log(`Player collected money! Amount: ${amount}. Total Money: ${playerInventory.money}`);
+    
 }
 
 function handleTopCollectibleCollection() {
@@ -3595,14 +3636,12 @@ function checkOutOfBounds() {
     }
 }
 
-
 // Reference to start screen
 const startScreen = document.getElementById("startScreen");
 
-
-
 // Assuming you have a Three.js camera, scene, and renderer set up
 function animateStartScreen() {
+    playerControlsEnabled = false
     // Define the starting and ending positions for the camera
     const startCameraPosition = {
         x: -20, // Starting X position (adjust as needed)
@@ -3656,7 +3695,6 @@ function animateStartScreen() {
         })
         .start();
 }
-
 
 
 function fadeOutStartScreenOverlay() {
