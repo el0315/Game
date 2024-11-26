@@ -87,8 +87,8 @@ let shootButton, shootKnob;
 
 // Collectibles
 const collectibleMaterial = new THREE.MeshStandardMaterial({ 
-    color: 0xFFD700, 
-    emissive: 0xFFD700, 
+    color: 0x34d8eb, 
+    emissive: 0x34eb8f, 
     emissiveIntensity: 0.5,
     transparent: true, 
     opacity: 1 
