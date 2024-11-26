@@ -30,7 +30,7 @@ const minPitch = -Math.PI / 7;  // New minimum pitch (looking 45 degrees down)
 
 let joystickMoveAngle = null, movementTouchId = null, rotationTouchId = null, lastTouchX = 0, lastTouchY = 0;
 
-const maxAccuracyDeviation = 15; // Maximum deviation in degrees
+const maxAccuracyDeviation = 0; // Maximum deviation in degrees
 
 
 // New shooting joystick variables
@@ -1437,6 +1437,140 @@ function emitSmoke(obstacleMesh, coneHeight) {
         // **d. Update nextIndex for Pooling**
         smokePool.nextIndex = (smokePool.nextIndex + 1) % smokePool.sprites.length;
     }, emitInterval);
+}
+
+
+// Materials
+const woodMaterial = new THREE.MeshStandardMaterial({ color: 0x823737 }); // wall color
+
+/**
+ * Creates a wall segment.
+ * @param {number} width - Width of the wall.
+ * @param {number} height - Height of the wall.
+ * @param {number} depth - Depth of the wall.
+ * @returns {THREE.Mesh} - The wall mesh.
+ */
+function createWall(width, height, depth) {
+    const geometry = new THREE.BoxGeometry(width, height, depth);
+    const wall = new THREE.Mesh(geometry, woodMaterial);
+    wall.castShadow = true;
+    wall.receiveShadow = true;
+    return wall;
+}
+
+
+/**
+ * Creates the complete shop.
+ * @returns {THREE.Group} - The shop group containing all components.
+ */
+function createShop() {
+    const shop = new THREE.Group();
+    
+    // Dimensions
+    const wallWidth = 5;
+    const wallHeight = 4;
+    const wallDepth = 0.2;
+   
+    
+    // Create Walls
+    const frontWall = createWall(wallWidth, wallHeight, wallDepth);
+    frontWall.position.set(0, wallHeight / 2, -wallWidth / 2 + wallDepth / 2);
+    
+    const backWall = createWall(wallWidth, wallHeight, wallDepth);
+    backWall.position.set(0, wallHeight / 2, wallWidth / 2 - wallDepth / 2);
+    
+    const leftWall = createWall(wallDepth, wallHeight, wallWidth);
+    leftWall.position.set(-wallWidth / 2 + wallDepth / 2, wallHeight / 2, 0);
+    
+    const rightWall = createWall(wallDepth, wallHeight, wallWidth);
+    rightWall.position.set(wallWidth / 2 - wallDepth / 2, wallHeight / 2, 0);
+    
+    // Add components to the shop group
+    shop.add(frontWall);
+    shop.add(backWall);
+    shop.add(leftWall);
+    shop.add(rightWall)
+      
+    return shop;
+}
+
+const shopCollisionGroup = COL_GROUP_OBSTACLE;
+const shopCollisionMask = COL_GROUP_PLAYER | COL_GROUP_PLAYER_PROJECTILE | COL_GROUP_ENEMY_PROJECTILE | COL_GROUP_ENEMY | COL_GROUP_TERRAIN;
+/**
+ * Adds a static physics body to the shop to handle collisions.
+ * @param {THREE.Group} shop - The shop group containing wall meshes.
+ */
+function addPhysicsToShop(shop) {
+    // Ensure Ammo.js is loaded
+    if (typeof Ammo === 'undefined') {
+        console.error('Ammo.js is not loaded.');
+        return;
+    }
+
+    // Create a compound shape to encompass all walls
+    const compoundShape = new Ammo.btCompoundShape();
+
+    // Iterate through each wall in the shop group
+    shop.children.forEach(wall => {
+        // Retrieve wall dimensions from geometry parameters
+        const { width, height, depth } = wall.geometry.parameters;
+
+        // Create a box shape matching the wall's dimensions
+        const halfExtents = new Ammo.btVector3(width / 2, height / 2, depth / 2);
+        const boxShape = new Ammo.btBoxShape(halfExtents);
+
+        // Position and rotation relative to the shop's origin
+        const pos = wall.position;
+        const quat = wall.quaternion;
+
+        const transform = new Ammo.btTransform();
+        transform.setIdentity();
+        transform.setOrigin(new Ammo.btVector3(pos.x, pos.y, pos.z));
+        transform.setRotation(new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w));
+
+        // Add the shape to the compound shape
+        compoundShape.addChildShape(transform, boxShape);
+
+        // Clean up temporary Ammo.js objects if safe
+        Ammo.destroy(halfExtents);
+        // Do NOT destroy boxShape and transform here
+    });
+
+    // Define mass and inertia (mass = 0 for static objects)
+    const mass = 0;
+    const localInertia = new Ammo.btVector3(0, 0, 0);
+
+    // Create motion state
+    const transform = new Ammo.btTransform();
+    transform.setIdentity();
+    transform.setOrigin(new Ammo.btVector3(shop.position.x, shop.position.y, shop.position.z));
+    const motionState = new Ammo.btDefaultMotionState(transform);
+
+    // Create rigid body construction info
+    const rbInfo = new Ammo.btRigidBodyConstructionInfo(mass, motionState, compoundShape, localInertia);
+    const body = new Ammo.btRigidBody(rbInfo);
+
+    // Set physical properties
+    body.setFriction(0.5);
+    body.setRestitution(0.1);
+
+    // Set collision flags to static (prevent movement)
+    body.setCollisionFlags(body.getCollisionFlags() | 2); // 2 = Static object
+
+    // Tag the body for collision handling (optional)
+    body.userData = { type: 'shop' };
+
+    // Add the rigid body to the physics world
+    physicsWorld.addRigidBody(
+        body,
+        shopCollisionGroup,  // Collision group
+        shopCollisionMask    // Collision mask
+    );
+
+    // Associate the physics body with the shop group for future reference
+    shop.userData.physicsBody = body;
+    body.threeObject = shop;
+
 }
 
 
@@ -2916,6 +3050,14 @@ function initializeScene() {
     // Create destroyed boat
     createDestroyedBoat();
 
+    // Create the shop
+    const shop = createShop();
+  
+    shop.position.set(-20, 7, -20); 
+    scene.add(shop);
+
+    addPhysicsToShop(shop);
+
     // **Initialize the water at base scale**
     initializeWater();
 
@@ -2942,7 +3084,6 @@ function initializeScene() {
     // Update Inventory UI
     updateInventoryUI();
 
-   
 
     // At the end of initialization, start the animation
     animateStartScreen();
