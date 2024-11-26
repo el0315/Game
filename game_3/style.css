@@ -38,7 +38,6 @@ html, body {
 }
 
 
-/* Start Screen Styling */
 #startScreen {
     position: fixed;
     top: 0;
@@ -51,7 +50,10 @@ html, body {
     justify-content: center;
     align-items: center;
     overflow: hidden;
+    opacity: 1; /* Start fully opaque */
+    transition: opacity 1s ease-in-out; /* Smooth fade-out effect */
 }
+
 
 #startScreenOverlay {
     text-align: center;
@@ -59,7 +61,6 @@ html, body {
     font-family: 'Montserrat', sans-serif;
     animation: fadeIn 2s ease;
 }
-
 
 
 /* Keyframe Animation for Optional Fading */
@@ -204,8 +205,8 @@ html, body {
     background-color: rgba(0, 0, 139, 1);
 }
 
-/* Inventory Display */
-#inventory {
+/* Inventory UI Styling */
+#inventoryUI {
     position: fixed;
     top: 20px;
     left: 20px;
@@ -216,7 +217,10 @@ html, body {
     font-family: 'Montserrat', sans-serif;
     font-size: 18px;
     font-weight: 600;
-    z-index: 1000;
+    z-index: 1001; /* Ensure it's above other elements like #controls */
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 /* Overlays Styling */
@@ -229,7 +233,7 @@ html, body {
     text-align: center;
     border-radius: 10px;
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
-    z-index: 1000;
+    z-index: 1002; /* Above inventory and controls */
     display: none;
     animation: fadeIn 0.5s ease;
     font-size: 48px;
@@ -257,7 +261,7 @@ html, body {
     opacity: 0;
     pointer-events: none;
     transition: opacity 1s ease;
-    z-index: 1000;
+    z-index: 1003; /* Above all other elements */
 }
 
 /* Level 2 Overlay */
@@ -273,7 +277,7 @@ html, body {
     justify-content: center;
     align-items: center;
     flex-direction: column;
-    z-index: 1001;
+    z-index: 1004; /* Above fade overlay */
 }
 
 #level2Overlay h1 {
@@ -321,7 +325,7 @@ html, body {
     cursor: pointer;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     transition: background-color 0.3s, transform 0.1s;
-    z-index: 1002;
+    z-index: 1005; /* Above all other elements */
 }
 
 #restartButton:hover {
@@ -403,7 +407,7 @@ html, body {
     }
 
     /* Adjust inventory font size */
-    #inventory {
+    #inventoryUI {
         font-size: 16px;
     }
 
