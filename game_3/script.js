@@ -10,9 +10,8 @@ let playerInventory = {
     logs: 0,
     money: 0, // Existing property for money
     fishingRod: false, // New property to track fishing rod ownership
+    fish: 0
 };
-
-
 
 // Define proximity threshold (e.g., 3 units)
 const chopProximity = 3;
@@ -577,7 +576,7 @@ function updateInventoryUI() {
         console.warn('Money count element (#moneyCount) not found in the DOM.');
     }
 
-    // New Element for Fishing Rod
+    // Fishing Rod Status
     const fishingRodElement = document.getElementById('fishingRodStatus');
     if (fishingRodElement) {
         fishingRodElement.innerText = `Fishing Rod: ${playerInventory.fishingRod ? 'Owned' : 'Not Owned'}`;
@@ -585,10 +584,16 @@ function updateInventoryUI() {
         console.warn('Fishing Rod status element (#fishingRodStatus) not found in the DOM.');
     }
 
+    // Fish Count
+    const fishCountElement = document.getElementById('fishCount');
+    if (fishCountElement) {
+        fishCountElement.innerText = `Fish: ${playerInventory.fish || 0}`;
+    } else {
+        console.warn('Fish count element (#fishCount) not found in the DOM.');
+    }
+
     // Update other inventory items as needed
 }
-
-
 
 
 function createHealthBarTexture(healthPercentage) {
@@ -2280,6 +2285,7 @@ const waterProximityThreshold = 3;
 
 // Function to check if the player is near or in water
 function checkWaterProximity() {
+    //if (!isPlayerFishing) {
     if (playerInventory.fishingRod && !isPlayerFishing) { // Ensure the player owns the fishing rod and isn't already fishing
         const distanceToWater = player.position.distanceTo(water.position);
         
@@ -2294,6 +2300,7 @@ function checkWaterProximity() {
     }
 }
 
+
 let isPlayerFishing = false; // Flag to prevent multiple fishing actions at the same time
 
 /**
@@ -2306,13 +2313,90 @@ function castRod() {
 
     console.log("Player is fishing...");
 
-    // Optionally, add a delay or animation to simulate fishing
+    // Disable the "Cast Rod" button during fishing
+    hideActionButton('castRod');
+
+    // **Calculate Cast Position Based on Player's Position and Direction**
+    const castDistance = 1; // Define how far the rod is cast
+    const castDirection = new THREE.Vector3(Math.cos(yaw), 0, Math.sin(yaw)).normalize(); // Assuming yaw is in radians
+    const castPosition = player.position.clone().add(castDirection.multiplyScalar(castDistance));
+
+
+    // Simulate fishing duration
     setTimeout(() => {
         console.log("Player finished fishing.");
         isPlayerFishing = false;
-        // You can add rewards or fishing results here in the future
+
+        // Re-enable the "Cast Rod" button if still near water
+        checkWaterProximity();
+
+        // **Spawn fish collectibles at the cast position**
+        dropFish(castPosition, 3); // Spawn 3 fish, adjust count as needed
+
+        // Optionally, add rewards or fishing results here in the future
     }, 2000); // 2-second fishing duration
 }
+
+
+// Define material for fish collectibles
+const fishCollectibleMaterial = new THREE.MeshStandardMaterial({ 
+    color: 0xfca12b, // pink fish color
+    emissive: 0x00CED1, 
+    emissiveIntensity: 0.5,
+    transparent: true, 
+    opacity: 1 
+});
+
+/**
+ * Spawns fish collectibles at a specified position.
+ * @param {THREE.Vector3} position - The position to spawn fish collectibles (typically water.position).
+ * @param {number} count - Number of fish collectibles to spawn.
+ */
+function dropFish(position, count) {
+    for (let i = 0; i < count; i++) {
+        // Create a simple football-like geometry by scaling a sphere
+        const fishGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+        fishGeometry.scale(1, 0.5, 1); // Flatten the sphere to resemble a football
+        const fishCollectible = new THREE.Mesh(
+            fishGeometry,
+            fishCollectibleMaterial
+        );
+
+        fishCollectible.userData.type = 'fish';
+
+        // **Adjust Y Offset to Spawn at or Below Water Surface**
+        // Assuming water.position.y represents the water's surface level
+        const waterSurfaceY = position.y;
+
+        // Spawn fish slightly **below** the water surface to allow them to rise out
+        const offset = new THREE.Vector3(
+            (Math.random() - 0.5) * 2, // X offset between -1 and 1
+            -0.2 + Math.random() * 0.4, // Y offset between -0.2 and +0.2 (slightly below to slightly above water)
+            (Math.random() - 0.5) * 2  // Z offset between -1 and 1
+        );
+
+        // **Set Fish Position Relative to Water Surface**
+        fishCollectible.position.copy(position).add(offset);
+        fishCollectible.position.y = Math.max(fishCollectible.position.y, waterSurfaceY); // Ensure fish are not below water's minimum surface
+
+        fishCollectible.castShadow = true;
+        fishCollectible.receiveShadow = true;
+        scene.add(fishCollectible);
+        collectibles.push(fishCollectible);
+
+        // Add physics body for collision detection, pass 'fish' type
+        createCollectiblePhysics(fishCollectible, 'fish');
+
+        // **Apply Upward Velocity to Simulate Fish Emerging from Water**
+        const body = fishCollectible.userData.physicsBody;
+        if (body) {
+            // Set an upward velocity; adjust the Y-component as needed for desired jump height
+            body.setLinearVelocity(new Ammo.btVector3(0, 10, 0));
+        }
+    }
+}
+
+
 
 
 /**
@@ -2661,7 +2745,7 @@ function updateRotatingSpikes(deltaTime) {
 /**
  * Creates collectibles of specified type.
  * @param {number} count - Number of collectibles to create.
- * @param {string} type - Type of collectible ('log' or 'money').
+ * @param {string} type - Type of collectible ('log', 'money', or 'fish').
  */
 function createCollectibles(count, type = 'log') {
     for (let i = 0; i < count; i++) {
@@ -2669,9 +2753,15 @@ function createCollectibles(count, type = 'log') {
         let collectibleType = 'collectible'; // Default type
 
         if (type === 'money') {
-            geometry = new THREE.BoxGeometry(0.6, 0.6, 0.6);; // Use a circle for money
+            geometry = new THREE.BoxGeometry(0.6, 0.6, 0.6); // Box for money
             material = moneyCollectibleMaterial;
             collectibleType = 'money';
+        } else if (type === 'fish') {
+            // Simple football-like shape: scaled sphere
+            geometry = new THREE.SphereGeometry(0.3, 16, 16);
+            geometry.scale(1, 0.5, 1); // Flatten the sphere
+            material = fishCollectibleMaterial;
+            collectibleType = 'fish';
         } else { // Default to 'log' collectible
             geometry = new THREE.TetrahedronGeometry(0.5);
             material = collectibleMaterial; // Existing yellow material
@@ -2685,7 +2775,7 @@ function createCollectibles(count, type = 'log') {
         // Set userData.type to identify this mesh
         collectible.userData.type = collectibleType;
 
-        // Random position on terrain
+        // Random position on terrain or near water
         const position = getNewCollectiblePosition(); // Reuse helper function for valid positions
         collectible.position.set(
             position.x,
@@ -2704,6 +2794,7 @@ function createCollectibles(count, type = 'log') {
         //console.log(`${type.charAt(0).toUpperCase() + type.slice(1)} Collectible ${i + 1} created at position: (${collectible.position.x}, ${collectible.position.y}, ${collectible.position.z})`);
     }
 }
+
 
 function createRotatingSpikes(count) {
     for (let i = 0; i < count; i++) {
@@ -2751,6 +2842,9 @@ function createCollectiblePhysics(collectibleMesh, type) {
     if (type === 'money') {
         mass = 1; // Dynamic object with mass
     }
+    if (type === 'fish') {
+        mass = 1; // Dynamic object with mass
+    }
 
     // Define the collision shape based on type
     let shape;
@@ -2758,6 +2852,8 @@ function createCollectiblePhysics(collectibleMesh, type) {
         const halfExtents = new Ammo.btVector3(0.3, 0.3, 0.3); // Half the dimensions of the cube
         shape = new Ammo.btBoxShape(halfExtents); // Box shape for money
         Ammo.destroy(halfExtents); // Clean up
+    } else if (type === 'fish') {
+        shape = new Ammo.btSphereShape(0.3); // Sphere shape for fish
     } else {
         shape = new Ammo.btSphereShape(0.5); // Existing size for logs
     }
@@ -3477,6 +3573,7 @@ function initializeScene() {
     playerInventory = {
         logs: 0,
         money: 0, // Initialize money
+        fish: 0
     };
     // Update Inventory UI
     updateInventoryUI();
@@ -3834,7 +3931,7 @@ function handleDirectCollisions(body0, body1) {
 }
 
 // Define collectible types
-const collectibleTypes = ['collectible', 'money'];
+const collectibleTypes = ['collectible', 'money', 'fish'];
 
 /**
  * Checks if a body is a collectible.
@@ -3920,7 +4017,9 @@ function collectCollectible(collectibleBody, collector) {
             // Apply effects based on collector and collectible type
             if (collector === 'player') {
                 if (collectible.userData.type === 'money') {
-                    handlePlayerMoneyCollection(1); // Add 1 money unit
+                    handlePlayerMoneyCollection(1); // Add 1 money unit  
+                } else if (collectible.userData.type === 'fish') {
+                    handlePlayerFishCollection(1); // add 1 fish
                 } else if (collectible.userData.type === 'collectible') {
                     handlePlayerHealthRestore(1); // Restore 1 health
                 }
@@ -3948,6 +4047,17 @@ function handlePlayerMoneyCollection(amount) {
     updateInventoryUI(); // Update the inventory UI to reflect the new money count
     //console.log(`Player collected money! Amount: ${amount}. Total Money: ${playerInventory.money}`);
     
+}
+
+/**
+ * Handles the player collecting fish.
+ * @param {number} amount - The amount of fish to add.
+ */
+function handlePlayerFishCollection(amount) {
+    playerInventory.fish += amount;
+    updateInventoryUI(); // Update the inventory UI to reflect the new money count
+    //console.log(`Player collected money! Amount: ${amount}. Total Money: ${playerInventory.money}`);
+
 }
 
 function handleTopCollectibleCollection() {
