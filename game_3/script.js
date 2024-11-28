@@ -8,8 +8,10 @@ let logs = [];
 // Player Inventory
 let playerInventory = {
     logs: 0,
-    money: 0, // New property for money
+    money: 0, // Existing property for money
+    fishingRod: false, // New property to track fishing rod ownership
 };
+
 
 
 // Define proximity threshold (e.g., 3 units)
@@ -558,7 +560,7 @@ function isObstacleBody(body) {
 }
 
 /**
- * Updates the inventory UI to reflect current counts.
+ * Updates the inventory UI to reflect current counts and ownership.
  */
 function updateInventoryUI() {
     const logCountElement = document.getElementById('logCount');
@@ -575,8 +577,18 @@ function updateInventoryUI() {
         console.warn('Money count element (#moneyCount) not found in the DOM.');
     }
 
+    // New Element for Fishing Rod
+    const fishingRodElement = document.getElementById('fishingRodStatus');
+    if (fishingRodElement) {
+        fishingRodElement.innerText = `Fishing Rod: ${playerInventory.fishingRod ? 'Owned' : 'Not Owned'}`;
+    } else {
+        console.warn('Fishing Rod status element (#fishingRodStatus) not found in the DOM.');
+    }
+
     // Update other inventory items as needed
 }
+
+
 
 
 function createHealthBarTexture(healthPercentage) {
@@ -1800,7 +1812,6 @@ function closeShop() {
     }
 }
 
-
 /**
  * Handles purchasing an item from the shop.
  * @param {string} item - The name of the item to purchase.
@@ -1821,14 +1832,28 @@ function purchaseItem(item) {
                 console.log('Purchased Speed Boost!');
             }
         },
-        // New Item: Logs
+        // Existing Item: Logs
         logs: {
             cost: 1, // 1 money each
             action: () => {
                 addToInventory('logs', 1);
                 console.log('Purchased 1 Log!');
             }
+        },
+        fishingRod: {
+            cost: 1, // Free for now
+            action: () => {
+                if (!playerInventory.fishingRod) {
+                    playerInventory.fishingRod = true;
+                    console.log('Purchased Fishing Rod!');
+                    updateInventoryUI(); // Update UI to reflect ownership
+                } else {
+                    console.log('Fishing Rod is already owned.');
+                    alert('You already own the Fishing Rod.');
+                }
+            }
         }
+        
     };
 
     if (shopItems[item]) {
@@ -2250,6 +2275,44 @@ function initiateBoarding() {
         .start();
 }
 
+// Define proximity threshold for water (e.g., 3 units)
+const waterProximityThreshold = 3;
+
+// Function to check if the player is near or in water
+function checkWaterProximity() {
+    if (playerInventory.fishingRod && !isPlayerFishing) { // Ensure the player owns the fishing rod and isn't already fishing
+        const distanceToWater = player.position.distanceTo(water.position);
+        
+        // Assuming water is a circular area, check distance from player to water center
+        if (distanceToWater <= waterProximityThreshold + water.geometry.parameters.radius) {
+            showActionButton("Cast Rod", castRod, 'castRod');
+        } else {
+            hideActionButton('castRod');
+        }
+    } else {
+        hideActionButton('castRod');
+    }
+}
+
+let isPlayerFishing = false; // Flag to prevent multiple fishing actions at the same time
+
+/**
+ * Handles casting the fishing rod action.
+ */
+function castRod() {
+    if (isPlayerFishing) return; // Prevent casting if already fishing
+
+    isPlayerFishing = true;
+
+    console.log("Player is fishing...");
+
+    // Optionally, add a delay or animation to simulate fishing
+    setTimeout(() => {
+        console.log("Player finished fishing.");
+        isPlayerFishing = false;
+        // You can add rewards or fishing results here in the future
+    }, 2000); // 2-second fishing duration
+}
 
 
 /**
@@ -4279,7 +4342,7 @@ function animate() {
     checkCollisions();
     updateFlood();
     checkShopProximity(); // Check proximity to shop
-
+    checkWaterProximity();
     TWEEN.update();
     renderer.render(scene, camera);
 }
