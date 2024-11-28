@@ -250,6 +250,154 @@ html, body {
     font-weight: 600;
 }
 
+/* Shop UI */
+.shop-ui {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 400px;
+    background-color: rgba(0, 0, 0, 0.85);
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    z-index: 1005; /* Above all other elements */
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+    display: none; /* Initially hidden */
+    flex-direction: column;
+    align-items: center;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.shop-ui h2 {
+    font-size: 24px;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+#shopItems {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+#shopItems li {
+    background-color: rgba(255, 255, 255, 0.1);
+    padding: 12px 20px;
+    border-radius: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+#shopItems li button {
+    padding: 6px 12px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.1s ease;
+}
+
+#shopItems li button:hover {
+    background-color: #45a049;
+}
+
+#shopItems li button:active {
+    transform: scale(0.95);
+}
+
+/* Close Shop Button */
+#closeShopButton {
+    margin-top: 20px;
+    padding: 10px 20px;
+    background-color: #f44336;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.1s ease;
+}
+
+#closeShopButton:hover {
+    background-color: #d32f2f;
+}
+
+#closeShopButton:active {
+    transform: scale(0.95);
+}
+
+/* Action Button Enhancements */
+#actionButton {
+    display: flex; /* Ensure it's visible when needed */
+    align-items: center;
+    justify-content: center;
+}
+
+#actionButtonText {
+    font-size: 16px;
+    font-weight: 600;
+    text-align: center;
+}
+
+/* Responsive Adjustments for Shop UI */
+@media (max-width: 768px) {
+    .shop-ui {
+        width: 95%;
+        max-width: 300px;
+    }
+
+    .shop-ui h2 {
+        font-size: 20px;
+    }
+
+    #shopItems li {
+        font-size: 16px;
+        padding: 10px 15px;
+    }
+
+    #shopItems li button {
+        font-size: 12px;
+        padding: 5px 10px;
+    }
+
+    #closeShopButton {
+        font-size: 14px;
+        padding: 8px 16px;
+    }
+}
+
+/* Optional: Transition for Shop UI Appearance */
+.shop-ui.show {
+    display: flex;
+    animation: fadeInShop 0.5s ease forwards;
+}
+
+.shop-ui.hide {
+    animation: fadeOutShop 0.5s ease forwards;
+}
+
+@keyframes fadeInShop {
+    from { opacity: 0; transform: translate(-50%, -60%); }
+    to { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+@keyframes fadeOutShop {
+    from { opacity: 1; transform: translate(-50%, -50%); }
+    to { opacity: 0; transform: translate(-50%, -60%); }
+}
+
+
 /* Fade Overlay */
 #fadeOverlay {
     position: fixed;
