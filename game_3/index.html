@@ -34,7 +34,9 @@
         </div>
 
         <!-- Multifunctional Action Button -->
-        <div id="actionButton" style="display: none;"></div>
+        <div id="actionButton" class="action-button" style="display: none;">
+            <span id="actionButtonText">Shop</span>
+        </div>
 
         <!-- Hidden Action Buttons (if needed) -->
         <button id="bButton" class="control-button action-button" style="display: none;">B</button>
@@ -49,11 +51,33 @@
 
     <!-- Overlays -->
 
-        <!-- Start Screen -->
+    <!-- Start Screen -->
     <div id="startScreen">
         <div id="startScreenOverlay">
             <h1>Erik's Game</h1>
         </div>
+    </div>
+
+    <!-- Shop UI -->
+    <div id="shopUI" class="shop-ui" style="display: none;">
+        <h2>Shop</h2>
+        <ul id="shopItems">
+            <!-- Items will be dynamically added here -->
+            <li>
+                <span>Health Potion</span>
+                <button data-item="healthPotion">Buy</button>
+            </li>
+            <li>
+                <span>Speed Boost</span>
+                <button data-item="speedBoost">Buy</button>
+            </li>
+            <li>
+                <span>Logs</span>
+                <button data-item="logs">Buy</button>
+            </li>
+            <!-- Add more items as needed -->
+        </ul>
+        <button id="closeShopButton">Close Shop</button>
     </div>
 
     <!-- Game Over Overlay -->
