@@ -347,7 +347,6 @@ function handleChopTree(tree) {
     // Spawn logs at the base of the tree
     spawnLogs(tree.position);
 
-    console.log('Tree chopped down. Trunk removed, foliage is falling straight down.');
 }
 
 
@@ -381,12 +380,12 @@ function createFoliageObstacle(foliageMesh, foliageHeight) {
     // Add the foliage to the obstacles array
     obstacles.push(foliageMesh);
 
-    console.log('Foliage has landed and is now a static obstacle.');
+    //console.log('Foliage has landed and is now a static obstacle.');
 }
 
 
 function chopTree(tree) {
-    console.log('Chopping Tree:', tree);
+    //console.log('Chopping Tree:', tree);
     
     // Ensure tree exists in scene
     if (!tree) {
@@ -405,7 +404,7 @@ function chopTree(tree) {
             tree.rotation.set(initialRotation.x, initialRotation.y, initialRotation.z);
         })
         .onComplete(() => {
-            console.log('Tipping animation completed. Removing tree and spawning logs.');
+            //console.log('Tipping animation completed. Removing tree and spawning logs.');
             // After tipping, remove the tree from scene and physics
             removeTree(tree);
 
@@ -413,17 +412,17 @@ function chopTree(tree) {
             spawnLogs(tree.position);
         })
         .onStart(() => {
-            console.log('Tipping animation started.');
+            //console.log('Tipping animation started.');
         })
         .start();
     
-    console.log('Tipping animation started for the tree.');
+    //console.log('Tipping animation started for the tree.');
 }
 
 
 
 function removeTree(tree) {
-    console.log('Removing Tree:', tree);
+    //console.log('Removing Tree:', tree);
     
     // Remove from physics world
     if (tree.physicsBody) {
@@ -431,7 +430,7 @@ function removeTree(tree) {
         Ammo.destroy(tree.physicsBody.getMotionState());
         Ammo.destroy(tree.physicsBody.getCollisionShape());
         tree.physicsBody = null; // Prevent future references
-        console.log('Physics body removed from the tree.');
+        //console.log('Physics body removed from the tree.');
     } else {
         console.warn('Tree has no physicsBody to remove.');
     }
@@ -440,29 +439,29 @@ function removeTree(tree) {
     tree.children.forEach(child => {
         scene.remove(child);
     });
-    console.log('Removed all child meshes from the scene.');
+    //console.log('Removed all child meshes from the scene.');
 
     // Remove tree from Three.js scene
     scene.remove(tree);
-    console.log('Tree removed from the Three.js scene.');
+    //console.log('Tree removed from the Three.js scene.');
     
     // Remove from trees array
     const treeIndex = trees.indexOf(tree);
     if (treeIndex > -1) {
         trees.splice(treeIndex, 1);
-        console.log(`Tree ${treeIndex + 1} removed from trees array.`);
+        //console.log(`Tree ${treeIndex + 1} removed from trees array.`);
     }
 
     // Remove from obstacles array if necessary
     const obstacleIndex = obstacles.indexOf(tree);
     if (obstacleIndex > -1) {
         obstacles.splice(obstacleIndex, 1);
-        console.log(`Tree ${obstacleIndex + 1} removed from obstacles array.`);
+        //console.log(`Tree ${obstacleIndex + 1} removed from obstacles array.`);
     }
     
     // Spawn logs at tree's position
     spawnLogs(tree.position);
-    console.log('Logs spawned at the tree\'s position.');
+    //console.log('Logs spawned at the tree\'s position.');
 }
 
 
@@ -575,6 +574,8 @@ function updateInventoryUI() {
     } else {
         console.warn('Money count element (#moneyCount) not found in the DOM.');
     }
+
+    // Update other inventory items as needed
 }
 
 
@@ -714,7 +715,7 @@ function dropMoney(position, count) {
         // Add physics body for collision detection, pass 'money' type
         createCollectiblePhysics(moneyCollectible, 'money');
 
-        console.log(`Money Collectible dropped at: (${moneyCollectible.position.x}, ${moneyCollectible.position.y}, ${moneyCollectible.position.z})`);
+        //console.log(`Money Collectible dropped at: (${moneyCollectible.position.x}, ${moneyCollectible.position.y}, ${moneyCollectible.position.z})`);
     }
 }
 
@@ -909,13 +910,7 @@ function handlePlayerDeath() {
         respawnPlayer();
     }, 5000); // 5000 milliseconds = 5 seconds
 
-    // Debugging: Log player's velocity after death
-    const currentVelocity = playerBody.getLinearVelocity();
-    console.log('Player velocity after death:', {
-        x: currentVelocity.x(),
-        y: currentVelocity.y(),
-        z: currentVelocity.z()
-    });
+    
 }
 
 
@@ -980,13 +975,6 @@ function respawnPlayer() {
     // Enable player controls
     enablePlayerControls();
 
-    // Debugging: Log player's velocity after respawn
-    const currentVelocity = playerBody.getLinearVelocity();
-    console.log('Player velocity after respawn:', {
-        x: currentVelocity.x(),
-        y: currentVelocity.y(),
-        z: currentVelocity.z()
-    });
 }
 
 
@@ -1561,6 +1549,179 @@ function addPhysicsToShop(shop) {
 
 }
 
+// Proximity threshold for shopping
+const shopProximityThreshold = 3; // Adjust as needed
+
+// Track if the player is shopping
+let isPlayerShopping = false;
+
+// Check proximity to shop
+function checkShopProximity() {
+    if (isPlayerShopping) return; // Skip if already shopping
+
+    const distanceToShop = player.position.distanceTo(shop.position);
+
+    if (distanceToShop <= shopProximityThreshold) {
+        showActionButton("Shop", () => openShop(), 'shop');
+
+    } else {
+        hideActionButton("shop");
+    }
+}
+
+/**
+ * Opens the Shop UI and handles related functionalities.
+ */
+function openShop() {
+    console.log("Player is shopping...");
+    isPlayerShopping = true;
+
+    // Disable player controls and enemy shooting
+    playerControlsEnabled = false;
+    enemyCanShoot = false;
+
+    // Hide the global action button to prevent overlapping actions
+    hideActionButton('shop');
+
+    // Show shop UI with fade-in
+    const shopUI = document.getElementById('shopUI');
+    if (shopUI) {
+        shopUI.style.display = 'flex'; // Ensure it's visible
+        shopUI.classList.remove('hide');
+        shopUI.classList.add('show');
+    } else {
+        console.error('Shop UI element (#shopUI) not found in the DOM.');
+    }
+}
+
+/**
+ * Closes the Shop UI and resumes normal gameplay.
+ */
+function closeShop() {
+    console.log("Player exited the shop.");
+    isPlayerShopping = false;
+
+    // Enable player controls and enemy shooting
+    playerControlsEnabled = true;
+    enemyCanShoot = true;
+
+    // Hide shop UI with fade-out
+    const shopUI = document.getElementById('shopUI');
+    if (shopUI) {
+        shopUI.classList.remove('show');
+        shopUI.classList.add('hide');
+
+        // Optionally, hide after animation completes
+        setTimeout(() => {
+            shopUI.style.display = 'none';
+        }, 500); // Match this duration to your CSS animation duration
+    } else {
+        console.error('Shop UI element (#shopUI) not found in the DOM.');
+    }
+
+}
+
+/**
+ * Handles purchasing an item from the shop.
+ * @param {string} item - The name of the item to purchase.
+ */
+function purchaseItem(item) {
+    const shopItems = {
+        healthPotion: {
+            cost: 10,
+            action: () => {
+                addToInventory('healthPotion', 1);
+                console.log('Purchased Health Potion!');
+            }
+        },
+        speedBoost: {
+            cost: 15,
+            action: () => {
+                addToInventory('speedBoost', 1);
+                console.log('Purchased Speed Boost!');
+            }
+        },
+        // New Item: Logs
+        logs: {
+            cost: 1, // 1 money each
+            action: () => {
+                addToInventory('logs', 1);
+                console.log('Purchased 1 Log!');
+            }
+        }
+    };
+
+    if (shopItems[item]) {
+        if (playerInventory.money >= shopItems[item].cost) {
+            playerInventory.money -= shopItems[item].cost;
+            shopItems[item].action();
+            console.log(`Purchased ${item}!`);
+        } else {
+            console.log('Not enough money to purchase this item.');
+            // Optionally, display a message to the player
+            alert('Not enough money to purchase this item.');
+        }
+    } else {
+        console.log('Unknown item:', item);
+    }
+}
+
+
+/**
+ * Initializes shop item purchase interactions.
+ */
+function initializeShopPurchases() {
+    const shopItemsList = document.getElementById('shopItems');
+
+    if (shopItemsList) {
+        shopItemsList.addEventListener('pointerdown', (event) => {
+            if (event.target.tagName === 'BUTTON') {
+                const item = event.target.dataset.item;
+                purchaseItem(item);
+            }
+        });
+    } else {
+        console.error('Shop Items element (#shopItems) not found in the DOM.');
+    }
+}
+
+// ======== Event Listener Initialization ========
+document.addEventListener('DOMContentLoaded', () => {
+    initializeShopPurchases(); // Initialize shop purchase logic
+});
+
+// Event Listeners for Action Button and Close Shop Button
+/**
+ * Initialize interactions for the action button and shop.
+ */
+function initializeShopInteractions() {
+    const actionButton = document.getElementById('actionButton');
+    const closeShopButton = document.getElementById('closeShopButton');
+
+    // Handle Action Button Press (e.g., Shop)
+    actionButton.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        const context = actionButton.dataset.context;
+        if (context === 'shop') {
+            openShop();
+        }
+        // Add more contexts if you introduce more actions
+    });
+
+    // Handle Close Shop Button Press
+    closeShopButton.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        closeShop();
+    });
+}
+
+
+// Initialize Shop Interactions after DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    initializeShopInteractions();
+});
+
+
 
 let destroyedBoat, repairMessage;
 
@@ -1602,7 +1763,7 @@ function initializeWater() {
     
     scene.add(water);
     
-    console.log('Water initialized as a circle within terrain boundaries.');
+    //console.log('Water initialized as a circle within terrain boundaries.');
 }
 
 
@@ -1641,8 +1802,6 @@ function createDestroyedBoat() {
 
     // Create the repair message
     createRepairMessage();
-
-
 }
 
 
@@ -1700,7 +1859,7 @@ function createBoatPhysics(boat, isRepaired = false) {
     boat.userData.physicsBody = body;
     body.threeObject = boat;
 
-    console.log(`${isRepaired ? 'Repaired' : 'Destroyed'} boat physics created with horizontal alignment.`);
+    //console.log(`${isRepaired ? 'Repaired' : 'Destroyed'} boat physics created with horizontal alignment.`);
 }
 
 
@@ -1777,9 +1936,9 @@ function repairBoat() {
         hideActionButton('repairBoat'); // Hide the button with correct context
         hideRepairMessage(); // Ensure the message is hidden after repair
 
-        console.log('Boat has been repaired. Repair button will no longer be shown.');
+        //console.log('Boat has been repaired. Repair button will no longer be shown.');
     } else {
-        console.log('Not enough logs to repair the boat.');
+        //console.log('Not enough logs to repair the boat.');
     }
 }
 
@@ -1789,7 +1948,7 @@ let repairedBoat = null;
 
 // Modify the completeBoatRepair function
 function completeBoatRepair() {
-    console.log('Boat repair completed!');
+    //console.log('Boat repair completed!');
     scene.remove(destroyedBoat);
 
     // Create a new group for the repaired boat
@@ -1843,10 +2002,10 @@ function completeBoatRepair() {
     boatRepaired = true;
 
     // Show a message indicating the boat is ready to board
-    console.log('Boat is ready to be boarded!');
+    //console.log('Boat is ready to be boarded!');
 
     // **Trigger environmental effects upon boat repair**
-    console.log('Boat repaired! Starting environmental effects.');
+    //console.log('Boat repaired! Starting environmental effects.');
     startEnvironmentalEffects();
 }
 
@@ -1894,7 +2053,7 @@ function initiateBoarding() {
             // Optionally, add rotation or other effects during the move
         })
         .onComplete(() => {
-            console.log('Player has boarded the boat!');
+            //console.log('Player has boarded the boat!');
             boatBoarded = true; // Set the flag to true
             hideActionButton('boardBoat');
 
@@ -1917,7 +2076,7 @@ function initiateBoarding() {
  * Initiates the transition to Level 2 by moving the boat and fading out the scene.
  */
 function proceedToNextLevel() {
-    console.log('Transitioning to the next level...');
+    //console.log('Transitioning to the next level...');
     
     // Define animation parameters
     const boatMoveDuration = 5000; // Duration in milliseconds
@@ -1937,11 +2096,11 @@ function proceedToNextLevel() {
         }, boatMoveDuration)
         .easing(TWEEN.Easing.Quadratic.Out)
         .onStart(() => {
-            console.log('Boat movement animation started.');
+            //console.log('Boat movement animation started.');
             startSceneFadeOut();
         })
         .onComplete(() => {
-            console.log('Boat movement animation completed.');
+            //console.log('Boat movement animation completed.');
             // Start fading out the scene after the boat has moved
             //startSceneFadeOut();
         })
@@ -1966,7 +2125,7 @@ function startSceneFadeOut() {
             fadeOverlay.style.opacity = obj.opacity;
         })
         .onComplete(() => {
-            console.log('Scene fade-out completed.');
+            //console.log('Scene fade-out completed.');
             // After fade-out, display Level 2 overlay
             showLevel2Display();
         })
@@ -1998,7 +2157,7 @@ function showLevel2Display() {
  */
 function startLevel2() {
     // Implement Level 2 initialization logic here
-    console.log('Level 2 started!');
+    //console.log('Level 2 started!');
     
     // Hide the Level 2 overlay
     const level2Overlay = document.getElementById('level2Overlay');
@@ -2040,11 +2199,11 @@ const actionPriorities = {
 function showActionButton(message, actionCallback, context) {
     // Prevent lower-priority actions from overriding
     if (currentActionContext && actionPriorities[context] <= actionPriorities[currentActionContext]) {
-        console.log(`Skipping action button update for context: ${context}`);
+        //console.log(`Skipping action button update for context: ${context}`);
         return;
     }
 
-    console.log(`Updating action button for context: ${context}`);
+    //console.log(`Updating action button for context: ${context}`);
     actionButton.textContent = message;
     actionButton.style.display = 'flex';
     currentAction = actionCallback;
@@ -2058,14 +2217,12 @@ function showActionButton(message, actionCallback, context) {
 function hideActionButton(context) {
     // Only hide the button if the current context matches
     if (currentActionContext === context) {
-        console.log(`Hiding action button for context: ${context}`);
+        //console.log(`Hiding action button for context: ${context}`);
         actionButton.style.display = 'none';
         currentAction = null;
         currentActionContext = null;
     }
 }
-
-
 
 // Attach event listener to the button
 actionButton.addEventListener('pointerdown', (event) => {
@@ -2107,11 +2264,11 @@ function startFlood() {
         .to({ x: maxWaterScale, z: maxWaterScale }, floodDuration * 1000) // Convert to milliseconds
         .easing(TWEEN.Easing.Quadratic.Out)
         .onStart(() => {
-            console.log('Flood has started. Water is rising.');
+            //console.log('Flood has started. Water is rising.');
             startRain(); // Start the rain effect concurrently
         })
         .onComplete(() => {
-            console.log('Flood has reached maximum scale within terrain boundaries.');
+            //console.log('Flood has reached maximum scale within terrain boundaries.');
             // Optionally, trigger other events or notifications here
         })
         .start();
@@ -2301,7 +2458,7 @@ function createCollectibles(count, type = 'log') {
         // Add physics body for collision detection
         createCollectiblePhysics(collectible, collectibleType);
 
-        console.log(`${type.charAt(0).toUpperCase() + type.slice(1)} Collectible ${i + 1} created at position: (${collectible.position.x}, ${collectible.position.y}, ${collectible.position.z})`);
+        //console.log(`${type.charAt(0).toUpperCase() + type.slice(1)} Collectible ${i + 1} created at position: (${collectible.position.x}, ${collectible.position.y}, ${collectible.position.z})`);
     }
 }
 
@@ -2336,7 +2493,7 @@ function createRotatingSpikes(count) {
         // Add physics body for collision detection
         createRotatingSpikePhysics(spike);
 
-        console.log(`Rotating Spike ${i + 1} created at position: (${spike.position.x}, ${spike.position.y}, ${spike.position.z})`);
+        //console.log(`Rotating Spike ${i + 1} created at position: (${spike.position.x}, ${spike.position.y}, ${spike.position.z})`);
     }
 }
 
@@ -2445,7 +2602,7 @@ function createTrees(count) {
 
         // Avoid overlapping with player/enemy
         if (position.distanceTo(player.position) < 5 || position.distanceTo(enemy.position) < 5) {
-            console.log(`Tree ${i + 1} overlaps with player or enemy. Repositioning.`);
+            //console.log(`Tree ${i + 1} overlaps with player or enemy. Repositioning.`);
             i--;
             continue;
         }
@@ -2473,7 +2630,7 @@ function createTrees(count) {
         compoundShape.addChildShape(transformFoliage, foliageShape);
 
         createObstaclePhysics(tree.position, compoundShape, tree);
-        console.log(`Tree ${i + 1} created and physics body assigned.`);
+        //console.log(`Tree ${i + 1} created and physics body assigned.`);
     }
 }
 
@@ -2515,7 +2672,7 @@ function spawnLogs(position) {
         // Track the log
         logs.push({ mesh: logMesh, body: logBody });
 
-        console.log(`Log ${i + 1} spawned at position: (${logMesh.position.x.toFixed(2)}, ${logMesh.position.y.toFixed(2)}, ${logMesh.position.z.toFixed(2)})`);
+        //console.log(`Log ${i + 1} spawned at position: (${logMesh.position.x.toFixed(2)}, ${logMesh.position.y.toFixed(2)}, ${logMesh.position.z.toFixed(2)})`);
     }
 }
 
@@ -2536,7 +2693,7 @@ function handleLogCollection() {
             // Remove from logs array
             logs.splice(index, 1);
 
-            console.log('Log collected!');
+            //console.log('Log collected!');
         }
     });
 }
@@ -2668,7 +2825,7 @@ function createTopMountainCollectible() {
     // Add physics body for the collectible
     createCollectiblePhysics(collectibleMesh);
 
-    console.log(`Top collectible placed at: (${manualPosition.x}, ${manualPosition.y}, ${manualPosition.z})`);
+    //console.log(`Top collectible placed at: (${manualPosition.x}, ${manualPosition.y}, ${manualPosition.z})`);
 }
 
 
@@ -2699,7 +2856,7 @@ function createStaticCollectiblePhysics(collectibleMesh) {
     collectibleMesh.userData.physicsBody = body;
     body.threeObject = collectibleMesh;
 
-    console.log('Static physics body added for collectible.');
+    //console.log('Static physics body added for collectible.');
 }
 
 /**
@@ -2735,7 +2892,7 @@ function createCubePhysics(cubeMesh, size) {
     cubeMesh.userData.physicsBody = body;
     body.threeObject = cubeMesh;
 
-    console.log('Physics body created for mountain cube at:', cubeMesh.position);
+    //console.log('Physics body created for mountain cube at:', cubeMesh.position);
 }
 
 
@@ -2764,7 +2921,7 @@ function createObstaclePhysics(position, shape, obstacleMesh) {
         COL_GROUP_PLAYER | COL_GROUP_PLAYER_PROJECTILE | COL_GROUP_ENEMY_PROJECTILE | COL_GROUP_ENEMY | COL_GROUP_TERRAIN // Collision mask
     );
 
-    console.log('Physics body created and associated with obstacle:', obstacleMesh);
+    //console.log('Physics body created and associated with obstacle:', obstacleMesh);
 }
 
 
@@ -2811,7 +2968,7 @@ function applyJump() {
     ));
 
     // Optional: Play a jump sound or trigger a visual effect here
-    console.log('Player jumped with force:', jumpForce);
+    //console.log('Player jumped with force:', jumpForce);
 }
 
 
@@ -2888,7 +3045,7 @@ function shootAtEnemy() {
     // Create and fire the projectile with shooterType 'player'
     createProjectile(playerPosition, direction, 'player');
 
-    console.log(`Player fired a projectile towards direction: (${direction.x.toFixed(2)}, ${direction.y.toFixed(2)}, ${direction.z.toFixed(2)})`);
+    //console.log(`Player fired a projectile towards direction: (${direction.x.toFixed(2)}, ${direction.y.toFixed(2)}, ${direction.z.toFixed(2)})`);
 }
 
 
@@ -2908,6 +3065,7 @@ function transformDirectionToWorldSpace(localDirection) {
     return worldDirection.normalize();
 }
 
+let shop;
 
 function initializeScene() {
     scene = new THREE.Scene();
@@ -3015,6 +3173,7 @@ function initializeScene() {
     player.castShadow = true;
     scene.add(player);
 
+
     // Create Player Health Bar
     createPlayerHealthBar();
 
@@ -3039,9 +3198,8 @@ function initializeScene() {
     createDestroyedBoat();
 
     // Create the shop
-    const shop = createShop();
-  
-    shop.position.set(-20, 7, -20); 
+    shop = createShop(); // Assign to the global variable
+    shop.position.set(-20, 7, -20);
     scene.add(shop);
 
     addPhysicsToShop(shop);
@@ -3198,7 +3356,7 @@ function performEnemyJump() {
         currentVelocity.z()
     ));
 
-    console.log('Enemy performed a jump.');
+    //console.log('Enemy performed a jump.');
 }
 
 function isEnemyOnGround() {
@@ -3263,7 +3421,7 @@ function enemyShootAtPlayer() {
     direction.applyQuaternion(quaternion).normalize();
 
     // Debugging log
-    console.log(`Enemy firing at player! Direction: ${direction.x.toFixed(2)}, ${direction.y.toFixed(2)}, ${direction.z.toFixed(2)}`);
+    //console.log(`Enemy firing at player! Direction: ${direction.x.toFixed(2)}, ${direction.y.toFixed(2)}, ${direction.z.toFixed(2)}`);
 
     // Create and fire the projectile with shooterType 'enemy'
     createProjectile(enemyPosition, direction, 'enemy');
@@ -3524,7 +3682,7 @@ function collectCollectible(collectibleBody, collector) {
             }
         }
     
-        console.log(`${collector.charAt(0).toUpperCase() + collector.slice(1)} collected a ${collectible.userData.type} collectible!`);
+        //console.log(`${collector.charAt(0).toUpperCase() + collector.slice(1)} collected a ${collectible.userData.type} collectible!`);
     } else {
         console.warn('Collectible not found in array. It may have already been collected.');
     }
@@ -3537,12 +3695,12 @@ function collectCollectible(collectibleBody, collector) {
 function handlePlayerMoneyCollection(amount) {
     playerInventory.money += amount;
     updateInventoryUI(); // Update the inventory UI to reflect the new money count
-    console.log(`Player collected money! Amount: ${amount}. Total Money: ${playerInventory.money}`);
+    //console.log(`Player collected money! Amount: ${amount}. Total Money: ${playerInventory.money}`);
     
 }
 
 function handleTopCollectibleCollection() {
-    console.log('Top mountain collectible collected!');
+    //console.log('Top mountain collectible collected!');
 
     // TODO: Implement the special logic for when the top collectible is collected.
     // For example, you might want to advance to the next level, display a message, etc.
@@ -3595,13 +3753,13 @@ function handleEnemySpikeCollision(body0, body1) {
 function handlePlayerHealthRestore(amount) {
     playerHealth = Math.min(playerHealth + amount, maxPlayerHealth);
     updatePlayerHealthBar();
-    console.log(`Player collected a collectible! Health restored by ${amount}. Current Health: ${playerHealth}`);
+    //console.log(`Player collected a collectible! Health restored by ${amount}. Current Health: ${playerHealth}`);
 }
 
 function handleEnemyHealthRestore(amount) {
     enemyHealth = Math.min(enemyHealth + amount, maxEnemyHealth);
     updateEnemyHealthBar();
-    console.log(`Enemy collected a collectible! Health restored by ${amount}. Current Health: ${enemyHealth}`);
+    //console.log(`Enemy collected a collectible! Health restored by ${amount}. Current Health: ${enemyHealth}`);
 }
 
 function damagePlayer(amount) {
@@ -3609,7 +3767,7 @@ function damagePlayer(amount) {
     playerHealth = Math.max(playerHealth, 0);
     updatePlayerHealthBar();
     applyPlayerHitEffect();
-    console.log(`Player hit by spike! Health decreased by ${amount}. Current Health: ${playerHealth}`);
+    //console.log(`Player hit by spike! Health decreased by ${amount}. Current Health: ${playerHealth}`);
 
     if (playerHealth <= 0) {
         handlePlayerDeath();
@@ -3621,7 +3779,7 @@ function damageEnemy(amount) {
     enemyHealth = Math.max(enemyHealth, 0);
     updateEnemyHealthBar();
     applyEnemyHitEffect();
-    console.log(`Enemy hit by spike! Health decreased by ${amount}. Current Health: ${enemyHealth}`);
+    //console.log(`Enemy hit by spike! Health decreased by ${amount}. Current Health: ${enemyHealth}`);
 
     if (enemyHealth <= 0) {
         destroyEnemy();
@@ -3681,7 +3839,7 @@ function isTouchWithinJoystick(touch, joystickContainer) {
         touch.clientY >= rect.top &&
         touch.clientY <= rect.bottom
     );
-    console.log(`Touch at (${touch.clientX}, ${touch.clientY}) within joystick: ${isWithin}`);
+    //console.log(`Touch at (${touch.clientX}, ${touch.clientY}) within joystick: ${isWithin}`);
     return isWithin;
 }
 
@@ -3797,13 +3955,13 @@ const outOfBoundsYThreshold = -10; // Threshold for detecting out-of-bounds
 function checkOutOfBounds() {
     // Check player position
     if (player.position.y < outOfBoundsYThreshold) {
-        console.log("Player is out of bounds! Respawning...");
+        //console.log("Player is out of bounds! Respawning...");
         respawnPlayer();
     }
 
     // Check enemy position
     if (enemy.position.y < outOfBoundsYThreshold) {
-        console.log("Enemy is out of bounds! Respawning...");
+        //console.log("Enemy is out of bounds! Respawning...");
         respawnEnemy();
     }
 }
@@ -3861,7 +4019,7 @@ function animateStartScreen() {
             }
         })
         .onComplete(() => {
-            console.log("Camera Animation Complete");
+            //console.log("Camera Animation Complete");
             // Start the game or transition to the player's view
             startGame();
         })
@@ -3889,7 +4047,7 @@ function fadeOutStartScreenOverlay() {
 // Example Start Game Function
 function startGame() {
     playerControlsEnabled = true
-    console.log("Game Started");
+    //console.log("Game Started");
     // Any other initialization code
     
     // Initialize game logic, animations, render loops, or other game components here.
@@ -3899,62 +4057,42 @@ function startGame() {
 let lastFrameTime = performance.now();
 function animate() {
     requestAnimationFrame(animate);
-    
+
     const now = performance.now();
     const deltaTime = (now - lastFrameTime) / 1000; // Convert to seconds
     lastFrameTime = now;
 
-    // Clamp deltaTime to avoid large jumps
     const clampedDeltaTime = Math.min(deltaTime, 0.05);
-
-    // Update total elapsed time
     totalElapsedTime += clampedDeltaTime;
 
-    // Update physics with clamped deltaTime
     updatePhysics(clampedDeltaTime);
-
     checkOutOfBounds();
 
-    // Update player rotation and position
-    updatePlayerRotation();
-    updatePlayerPosition();
+    if (!isPlayerShopping) {
+        // Update player rotation and position only when not shopping
+        updatePlayerRotation();
+        updatePlayerPosition();
+    }
 
-    // Update fireflies each frame
     updateFireflies();
-
-    // Update proximity for the destroyed boat
     checkBoatProximity();
-
-    // Check proximity to boarded boat
     checkBoatBoardingProximity();
 
-    // Update enemy AI (movement, shooting, jumping)
-    updateEnemyAI(deltaTime);
+    if (!isPlayerShopping) {
+        // Update enemy AI and interactions only when not shopping
+        updateEnemyAI(deltaTime);
+    }
 
-    // Update rotating spikes
     updateRotatingSpikes(deltaTime);
-
     checkTreeProximity();
-
-    // Handle log collection
     handleLogCollection();
-
-    // Update camera position
     updateCameraPosition();
-
-    // Update health bars to face the camera
     updateHealthBars();
-
-    // Check for collisions
     checkCollisions();
-
-    // Update flood progression
     updateFlood();
+    checkShopProximity(); // Check proximity to shop
 
-    // Update TWEEN animations
     TWEEN.update();
-
-    // Render the scene
     renderer.render(scene, camera);
 }
 
