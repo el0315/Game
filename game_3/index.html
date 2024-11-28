@@ -58,27 +58,30 @@
         </div>
     </div>
 
-    <!-- Shop UI -->
-    <div id="shopUI" class="shop-ui" style="display: none;">
+        <!-- Shop UI -->
+    <div id="shopUI" class="shop-ui hide">
         <h2>Shop</h2>
         <ul id="shopItems">
-            <!-- Items will be dynamically added here -->
             <li>
-                <span>Health Potion</span>
+                <span class="item-name">Health Potion</span>
+                <span class="item-price">Price: 10</span>
                 <button data-item="healthPotion">Buy</button>
             </li>
             <li>
-                <span>Speed Boost</span>
+                <span class="item-name">Speed Boost</span>
+                <span class="item-price">Price: 15</span>
                 <button data-item="speedBoost">Buy</button>
             </li>
+            <!-- New Item: Logs -->
             <li>
-                <span>Logs</span>
+                <span class="item-name">Logs</span>
+                <span class="item-price">Price: 1</span>
                 <button data-item="logs">Buy</button>
             </li>
-            <!-- Add more items as needed -->
         </ul>
         <button id="closeShopButton">Close Shop</button>
     </div>
+
 
     <!-- Game Over Overlay -->
     <div id="gameOverOverlay">Player Died! Respawning...</div>
