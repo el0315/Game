@@ -1465,8 +1465,11 @@ function createChest() {
     // Pivot for Lid: Translate geometry so that rotation happens around the base of the lid
     chestLid.geometry.translate(0, -lidThickness / 2, 0); // Shift geometry down by 0.25 units
 
-    // **Important:** Remove or comment out the following line to prevent resetting the lid's position
-    // chestLid.position.set(0, 0, 0); // This causes the lid to overlap with the base
+    // Define the emissive light inside the chest
+    const chestEmissiveLight = new THREE.PointLight(0x2bfc66, 0, 10); // green color, intensity 0, distance 5
+    chestEmissiveLight.position.set(0, 0, 0); // Position inside the chest
+    chestEmissiveLight.castShadow = false; // Emissive light typically doesn't cast shadows
+    chestGroup.add(chestEmissiveLight);
 
     // Define open and closed Y-positions for the lid
     const openPositionY = closedPositionY + 1; // Adjust the value as needed for desired floating height
@@ -1478,9 +1481,12 @@ function createChest() {
     chestGroup.userData = {
         base: chestBase,
         lid: chestLid,
+        light: chestEmissiveLight,
         isOpen: false,
         openPositionY: openPositionY,
         closedPositionY: closedPositionY,
+        openLightIntensity: 20, // Desired intensity when open
+        closedLightIntensity: 0, // Intensity when closed
     };
 
     return chestGroup;
@@ -1729,9 +1735,16 @@ function openShop() {
     if (independentChest) {
         const chestData = independentChest.userData;
         const chestLid = independentChest.getObjectByName('chestLid');
+        const chestLight = chestData.light;
         if (chestLid && chestData) {
             new TWEEN.Tween(chestLid.position)
                 .to({ y: chestData.openPositionY }, 500) // Float up over 500ms
+                .easing(TWEEN.Easing.Quadratic.Out)
+                .start();
+
+            // Animate the light's intensity
+                new TWEEN.Tween(chestLight)
+                .to({ intensity: chestData.openLightIntensity }, 500) // Fade in over 500ms
                 .easing(TWEEN.Easing.Quadratic.Out)
                 .start();
         }
@@ -1768,9 +1781,17 @@ function closeShop() {
     if (independentChest) {
         const chestData = independentChest.userData;
         const chestLid = independentChest.getObjectByName('chestLid');
+        const chestLight = chestData.light;
         if (chestLid && chestData) {
             new TWEEN.Tween(chestLid.position)
                 .to({ y: chestData.closedPositionY }, 500) // Float down over 500ms
+                .easing(TWEEN.Easing.Quadratic.Out)
+                .start();
+
+
+                    // Animate the light's intensity
+                new TWEEN.Tween(chestLight)
+                .to({ intensity: chestData.closedLightIntensity }, 500) // Fade out over 500ms
                 .easing(TWEEN.Easing.Quadratic.Out)
                 .start();
         }
