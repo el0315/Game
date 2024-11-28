@@ -1427,6 +1427,138 @@ function emitSmoke(obstacleMesh, coneHeight) {
     }, emitInterval);
 }
 
+// Materials
+const chestMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 }); // SaddleBrown
+/**
+ * Creates an independent chest with separate lid.
+ * @returns {THREE.Group} - The chest group containing base and lid.
+ */
+function createChest() {
+    const chestGroup = new THREE.Group();
+    chestGroup.name = 'Chest'; // Assign a name for easy retrieval
+
+    // Chest Base
+    const chestWidth = 4;
+    const chestHeight = 4;
+    const chestDepth = 4;
+    const chestGeometry = new THREE.BoxGeometry(chestWidth, chestHeight, chestDepth);
+    const chestBase = new THREE.Mesh(chestGeometry, chestMaterial);
+    chestBase.name = 'base'; // Assign a name for reference
+    chestBase.castShadow = true;
+    chestBase.receiveShadow = true;
+    chestGroup.add(chestBase);
+
+    // Chest Lid
+    const lidThickness = 0.5;
+    const lidGeometry = new THREE.BoxGeometry(chestWidth, lidThickness, chestDepth);
+    const chestLid = new THREE.Mesh(lidGeometry, chestMaterial);
+    chestLid.name = 'chestLid';
+    chestLid.castShadow = true;
+    chestLid.receiveShadow = true;
+
+    // Initial Positioning: Position lid on top of the base before translation
+    const closedPositionY = chestHeight / 2 + lidThickness / 2; // 2 + 0.25 = 2.25
+    chestLid.position.y = closedPositionY;
+
+    chestGroup.add(chestLid);
+
+    // Pivot for Lid: Translate geometry so that rotation happens around the base of the lid
+    chestLid.geometry.translate(0, -lidThickness / 2, 0); // Shift geometry down by 0.25 units
+
+    // **Important:** Remove or comment out the following line to prevent resetting the lid's position
+    // chestLid.position.set(0, 0, 0); // This causes the lid to overlap with the base
+
+    // Define open and closed Y-positions for the lid
+    const openPositionY = closedPositionY + 1; // Adjust the value as needed for desired floating height
+
+    // Add Physics to the Base Only
+    addPhysicsToChest(chestBase);
+
+    // Store references for animation
+    chestGroup.userData = {
+        base: chestBase,
+        lid: chestLid,
+        isOpen: false,
+        openPositionY: openPositionY,
+        closedPositionY: closedPositionY,
+    };
+
+    return chestGroup;
+}
+
+
+/**
+ * Adds a static physics body to the chest for collision handling.
+ * @param {THREE.Mesh} chestMesh - The Three.js mesh of the chest.
+ */
+function addPhysicsToChest(chestMesh) {
+    // Ensure Ammo.js is loaded
+    if (typeof Ammo === 'undefined') {
+        console.error('Ammo.js is not loaded.');
+        return;
+    }
+
+    // Create a box shape based on the chest's dimensions
+    const chestBox = new THREE.Box3().setFromObject(chestMesh);
+    const size = new THREE.Vector3();
+    chestBox.getSize(size);
+
+    // Define the collision shape
+    const shape = new Ammo.btBoxShape(new Ammo.btVector3(size.x / 2, size.y / 2, size.z / 2));
+    shape.setMargin(0.05);
+
+    // Define initial transform
+    const transform = new Ammo.btTransform();
+    transform.setIdentity();
+    transform.setOrigin(new Ammo.btVector3(chestMesh.position.x, chestMesh.position.y, chestMesh.position.z));
+
+    // Create motion state
+    const motionState = new Ammo.btDefaultMotionState(transform);
+
+    // Define mass and inertia (mass = 0 for static objects)
+    const mass = 0;
+    const localInertia = new Ammo.btVector3(0, 0, 0);
+    shape.calculateLocalInertia(mass, localInertia);
+
+    // Create rigid body construction info
+    const rbInfo = new Ammo.btRigidBodyConstructionInfo(mass, motionState, shape, localInertia);
+    const body = new Ammo.btRigidBody(rbInfo);
+
+    // Set physical properties
+    body.setFriction(0.5);
+    body.setRestitution(0.1);
+
+    // Set collision flags to static (prevent movement)
+    body.setCollisionFlags(body.getCollisionFlags() | 2); // 2 = Static object
+
+    // Tag the body for collision handling (optional)
+    body.userData = { type: 'chest' };
+
+    // Add the rigid body to the physics world
+    physicsWorld.addRigidBody(
+        body,
+        COL_GROUP_OBSTACLE, // Collision group
+        COL_GROUP_PLAYER | COL_GROUP_PLAYER_PROJECTILE | COL_GROUP_ENEMY_PROJECTILE | COL_GROUP_ENEMY | COL_GROUP_TERRAIN // Collision mask
+    );
+
+    // Associate the physics body with the chest mesh for future reference
+    chestMesh.userData.physicsBody = body;
+    body.threeObject = chestMesh;
+
+}
+
+// === Initialize Chest Reference ===
+let independentChest = null;
+
+/**
+ * Retrieves and stores a reference to the independent chest.
+ */
+function initializeChest() {
+    independentChest = scene.getObjectByName('Chest');
+    if (!independentChest) {
+        console.error('Independent Chest not found in the scene.');
+    }
+}
 
 // Materials
 const woodMaterial = new THREE.MeshStandardMaterial({ color: 0x823737 }); // wall color
@@ -1550,7 +1682,7 @@ function addPhysicsToShop(shop) {
 }
 
 // Proximity threshold for shopping
-const shopProximityThreshold = 3; // Adjust as needed
+const shopProximityThreshold = 6; // Adjust as needed
 
 // Track if the player is shopping
 let isPlayerShopping = false;
@@ -1592,8 +1724,21 @@ function openShop() {
     } else {
         console.error('Shop UI element (#shopUI) not found in the DOM.');
     }
-}
 
+    // Animate the chest lid to float upwards
+    if (independentChest) {
+        const chestData = independentChest.userData;
+        const chestLid = independentChest.getObjectByName('chestLid');
+        if (chestLid && chestData) {
+            new TWEEN.Tween(chestLid.position)
+                .to({ y: chestData.openPositionY }, 500) // Float up over 500ms
+                .easing(TWEEN.Easing.Quadratic.Out)
+                .start();
+        }
+    } else {
+        console.error('Independent Chest reference is missing.');
+    }
+}
 /**
  * Closes the Shop UI and resumes normal gameplay.
  */
@@ -1619,7 +1764,21 @@ function closeShop() {
         console.error('Shop UI element (#shopUI) not found in the DOM.');
     }
 
+    // Animate the chest lid to float downwards
+    if (independentChest) {
+        const chestData = independentChest.userData;
+        const chestLid = independentChest.getObjectByName('chestLid');
+        if (chestLid && chestData) {
+            new TWEEN.Tween(chestLid.position)
+                .to({ y: chestData.closedPositionY }, 500) // Float down over 500ms
+                .easing(TWEEN.Easing.Quadratic.Out)
+                .start();
+        }
+    } else {
+        console.error('Independent Chest reference is missing.');
+    }
 }
+
 
 /**
  * Handles purchasing an item from the shop.
@@ -3203,6 +3362,14 @@ function initializeScene() {
     scene.add(shop);
 
     addPhysicsToShop(shop);
+
+    // **Create and Add the Independent Chest**
+    const chest = createChest();
+    chest.position.set(-20, 7, -19.7); // Position in front of the front wall
+    scene.add(chest);
+    addPhysicsToChest(chest)    
+    // Initialize Chest Reference
+    initializeChest();
 
     // **Initialize the water at base scale**
     initializeWater();
