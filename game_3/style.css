@@ -276,36 +276,41 @@ html, body {
     text-align: center;
 }
 
-#shopItems {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
 #shopItems li {
-    background-color: rgba(255, 255, 255, 0.1);
-    padding: 12px 20px;
-    border-radius: 5px;
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    font-size: 18px;
-    font-weight: 600;
+    align-items: center; /* Vertically center the items */
+    margin-bottom: 10px;
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.1); /* Slight background for readability */
+    border-radius: 5px;
+}
+
+.item-name {
+    flex: 1; /* Take up remaining space */
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.item-price {
+    flex: 0 0 100px; /* Fixed width for price */
+    font-size: 14px;
+    color: #FFD700; /* Gold color to highlight the price */
+    margin-left: 10px;
 }
 
 #shopItems li button {
-    padding: 6px 12px;
+    padding: 5px 10px;
     background-color: #4CAF50;
     color: white;
     border: none;
     border-radius: 5px;
-    font-size: 14px;
     cursor: pointer;
-    transition: background-color 0.3s ease, transform 0.1s ease;
+}
+
+#shopItems li button:disabled {
+    background-color: #888; /* Gray out the button when disabled */
+    cursor: not-allowed;
 }
 
 #shopItems li button:hover {
