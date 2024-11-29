@@ -2,123 +2,35 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D Game</title>
-    
-    <!-- Google Fonts: Montserrat -->
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
-    
+    <!-- Viewport settings for mobile responsiveness and safe area handling -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Powerlifting Game</title>
+    <!-- Link to the comprehensive stylesheet -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Game Container (Play Window) -->
+    <!-- Game Container -->
     <div id="gameContainer">
+        <!-- Three.js Canvas -->
         <canvas id="gameCanvas"></canvas>
-    </div>
-
-    <!-- Controls Container -->
-    <div id="controls">
-        <!-- Movement Joystick -->
-        <div id="joystickContainerMove" class="joystick-container">
-            <div id="joystickKnobMove" class="joystick-knob"></div>
+        
+        <!-- Joystick Container for Movement -->
+        <div id="joystickContainerMove">
+            <div id="joystickKnobMove" class="joystickKnob"></div>
         </div>
-
+        
         <!-- Jump Button -->
-        <div id="jumpButton" class="jump-button">
-            <div class="jump-knob"></div>
-        </div>
-
-        <!-- Shoot Button -->
-        <div id="shootButton" class="shoot-button">
-            <div class="shoot-knob"></div>
-        </div>
-
-        <!-- Multifunctional Action Button -->
-        <div id="actionButton" class="action-button" style="display: none;">
-            <span id="actionButtonText">Shop</span>
-        </div>
-
-        <!-- Hidden Action Buttons (if needed) -->
-        <button id="bButton" class="control-button action-button" style="display: none;">B</button>
-        <button id="aButton" class="control-button action-button" style="display: none;">A</button>
+        <button id="jumpButton"></button>
+    
     </div>
 
-    <div id="inventoryUI">
-        <div id="logCount">Logs: 0</div>
-        <div id="moneyCount">Money: 0</div>
-        <p id="fishingRodStatus">Fishing Rod: Not Owned</p>
-        <p id="fishCount">Fish: 0</p> <!-- New Fish Count Element -->
-    </div>
-
-    <!-- Overlays -->
-
-    <!-- Start Screen -->
-    <div id="startScreen">
-        <div id="startScreenOverlay">
-            <h1>Erik's Game</h1>
-        </div>
-    </div>
-
-        <!-- Shop UI -->
-    <div id="shopUI" class="shop-ui hide">
-        <h2>Shop</h2>
-        <ul id="shopItems">
-            <li>
-                <span class="item-name">Health Potion</span>
-                <span class="item-price">Price: 10</span>
-                <button data-item="healthPotion">Buy</button>
-            </li>
-            <li>
-                <span class="item-name">Speed Boost</span>
-                <span class="item-price">Price: 15</span>
-                <button data-item="speedBoost">Buy</button>
-            </li>
-            <!-- New Item: Logs -->
-            <li>
-                <span class="item-name">Logs</span>
-                <span class="item-price">Price: 1</span>
-                <button data-item="logs">Buy</button>
-            </li>
-            <li>
-                <span class="item-name">Fishing Rod</span>
-                <span class="item-price">Price: 1</span>
-                <button data-item="fishingRod">Buy</button>
-            </li>
-
-
-        </ul>
-        <button id="closeShopButton">Close Shop</button>
-    </div>
-
-
-    <!-- Game Over Overlay -->
-    <div id="gameOverOverlay">Player Died! Respawning...</div>
-
-    <!-- Enemy Respawn Overlay -->
-    <div id="enemyRespawnOverlay">Enemy Respawning...</div>
-
-    <!-- Restart Button -->
-    <button id="restartButton" style="display: none;">Restart</button>
-
-    <!-- Fade Overlay -->
-    <div id="fadeOverlay"></div>
-
-    <!-- Level 2 Overlay -->
-    <div id="level2Overlay" style="display: none;">
-        <h1>Level 2</h1>
-        <button onclick="startLevel2()">Start Level 2</button>
-    </div>
-
-    <!-- Load External Libraries -->
+    <!-- Load Three.js from CDN -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.138.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.138.0/examples/js/objects/Sky.js"></script>
-    <!-- Include TWEEN.js via CDN in your HTML file -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
-
-    <!-- Load Ammo.js from local or CDN -->
-    <script src="ammo.js"></script> <!-- Ensure correct path to ammo.js -->
-
-    <!-- External JavaScript File -->
+    
+    <!-- Load Ammo.js from Local Source -->
+    <script src="ammo.js"></script> <!-- Ensure that ammo.js is in the same directory or provide the correct path -->
+    
+    <!-- Load Your Custom Script -->
     <script src="script.js"></script>
 </body>
 </html>
