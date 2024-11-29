@@ -95,7 +95,7 @@ function initializeScene() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Use PCFSoftShadowMap for softer shadows
 
     // Create and position the camera
     camera = new THREE.PerspectiveCamera(
@@ -129,7 +129,6 @@ function initializeScene() {
     window.addEventListener('resize', onWindowResize, false);
     window.addEventListener('orientationchange', onWindowResize, false);
 
-
     // Set up jump button functionality
     setupJumpButton();
 }
@@ -148,12 +147,17 @@ function setupLighting() {
         { x: -10, y: 20, z: 10 }
     ];
 
-    pointLightPositions.forEach(pos => {
+    pointLightPositions.forEach((pos, index) => {
         const pointLight = new THREE.PointLight(0xffffff, 1, 100);
         pointLight.position.set(pos.x, pos.y, pos.z);
-        pointLight.castShadow = true;
-        pointLight.shadow.mapSize.width = 512; // Reduced for performance
-        pointLight.shadow.mapSize.height = 512;
+        if (index < 2) { // Only first two lights cast shadows for performance
+            pointLight.castShadow = true;
+            pointLight.shadow.mapSize.width = 1024; // Increased for better quality
+            pointLight.shadow.mapSize.height = 1024;
+            pointLight.shadow.bias = -0.00005; // Adjusted bias to reduce shadow artifacts
+        } else {
+            pointLight.castShadow = false; // Disable shadows for other lights
+        }
         scene.add(pointLight);
     });
 }
@@ -196,6 +200,7 @@ function createPlayer() {
     const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x4682B4 }); // Steel Blue
     player = new THREE.Mesh(new THREE.SphereGeometry(playerRadius, 32, 32), playerMaterial);
     player.castShadow = true;
+    player.receiveShadow = true; // Optional: if you want the player to receive shadows
     scene.add(player);
 }
 
@@ -264,7 +269,6 @@ function onWindowResize() {
     // Update renderer size
     renderer.setSize(width, height);
 }
-
 
 // Function to set up the jump button functionality
 function setupJumpButton() {
