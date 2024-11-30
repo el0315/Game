@@ -1033,7 +1033,7 @@ function releaseBarbell(e) {
     barbellBody.applyCentralForce(releaseForceVector);
 
     // Change button text back
-    actionButton.innerText = "Squat";
+    actionButton.innerText = "Grab Bar";
 
     // Update event listener
     actionButton.removeEventListener('touchstart', onReleaseButtonPress);
@@ -1103,7 +1103,7 @@ function checkProximityToBarbell() {
     } else if (distance <= PROXIMITY_THRESHOLD) {
         // Barbell is nearby, show the "Squat" button
         actionButton.style.display = "block";
-        actionButton.innerText = "Squat";
+        actionButton.innerText = "Grab Bar";
     } else {
         // Barbell is not nearby and not attached
         actionButton.style.display = "none";
