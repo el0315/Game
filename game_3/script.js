@@ -239,6 +239,75 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
+// Settings Elements
+const settingsButton = document.getElementById('settingsButton');
+const settingsOverlay = document.getElementById('settingsOverlay');
+const closeSettingsButton = document.getElementById('closeSettingsButton');
+const barbellLoadSlider = document.getElementById('barbellLoadSlider');
+const barbellLoadValueDisplay = document.getElementById('barbellLoadValue');
+const springStrengthSlider = document.getElementById('springStrengthSlider');
+const springStrengthValueDisplay = document.getElementById('springStrengthValue');
+
+// Event listener to open the settings menu (touch event)
+settingsButton.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    e.stopPropagation(); // Prevent touch event from bubbling up
+    settingsOverlay.style.display = 'flex';
+}, { passive: false });
+
+// Optional: Event listener for click event (desktop compatibility)
+settingsButton.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    settingsOverlay.style.display = 'flex';
+});
+
+// Event listener to close the settings menu (touch event)
+closeSettingsButton.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    e.stopPropagation(); // Prevent touch event from bubbling up
+    settingsOverlay.style.display = 'none';
+}, { passive: false });
+
+// Optional: Event listener for click event (desktop compatibility)
+closeSettingsButton.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    settingsOverlay.style.display = 'none';
+});
+
+// Initialize display values
+barbellLoadValueDisplay.textContent = barbellLoadSlider.value;
+springStrengthValueDisplay.textContent = springStrengthSlider.value;
+
+// Update barbell load when slider changes
+barbellLoadSlider.addEventListener('input', () => {
+    const newLoad = parseInt(barbellLoadSlider.value);
+    barbellLoad = newLoad; // Update the global barbellLoad variable
+    barbellLoadValueDisplay.textContent = newLoad;
+});
+
+// Update spring strength when slider changes
+springStrengthSlider.addEventListener('input', () => {
+    const newStrength = parseInt(springStrengthSlider.value);
+    SPRING_CONFIG.stiffness = newStrength; // Update the stiffness in SPRING_CONFIG
+    springStrengthValueDisplay.textContent = newStrength;
+});
+
+// Prevent default touch behavior on sliders
+barbellLoadSlider.addEventListener('touchstart', (e) => {
+    e.stopPropagation();
+}, { passive: false });
+
+springStrengthSlider.addEventListener('touchstart', (e) => {
+    e.stopPropagation();
+}, { passive: false });
+
+
+
+
+
+
 // ==============================
 // Lighting Setup
 // ==============================
@@ -554,7 +623,7 @@ function updateSpring(deltaTime) {
         const dampingForce = -SPRING_CONFIG.damping * springVelocity;
 
         // Adjust net force based on barbellLoad
-        const loadEffect = barbellLoad * 1; // Scale the load effect as needed
+        const loadEffect = barbellLoad * 2; // Scale the load effect as needed
         const netForce = springForce + dampingForce - appliedForce - loadEffect;
 
         // Update velocity and height
@@ -1076,9 +1145,6 @@ let barbellLoad = 0;
 
 function attachBarbellToPlayer() {
     if (barbellConstraint) return; // Already attached
-
-    // Set barbellLoad to simulate the weight being lifted
-    barbellLoad = 50; // Adjust this value as needed
 
     // Set barbell mass to zero to make it kinematic while attached
     setBarbellMass(0);
