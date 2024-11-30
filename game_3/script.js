@@ -65,7 +65,6 @@ function loadAmmoAndStartGame() {
         console.error("Failed to load Ammo.js:", error);
     });
 }
-
 // ==============================
 // Initialize Physics
 // ==============================
@@ -158,6 +157,9 @@ function initializePhysics() {
     barbellBody = new Ammo.btRigidBody(barbellRbInfo);
     barbellBody.setActivationState(4); // Disable deactivation to keep barbell active
     physicsWorld.addRigidBody(barbellBody);
+
+    // Create the squat rack physics body
+    createSquatRackPhysics();
 }
 
 // ==============================
@@ -208,6 +210,13 @@ function initializeScene() {
 
     // Create the barbell on the central platform using global configuration
     createBarbellVisual();
+
+    // Create the squat rack visual
+    const squatRack = createSquatRack();
+    
+    // Position the squat rack relative to the barbell
+    squatRack.position.set(0, 0.5, 0); // Adjust as needed based on your scene
+
 
     // Add walls to the gym environment
     addWalls();
@@ -381,6 +390,143 @@ function createBarbellVisual() {
     barbell.position.set(0, BARBELL_CONFIG.position.y, 0); // Slightly above the platform
     scene.add(barbell);
 }
+
+function createSquatRack() {
+    const squatRack = new THREE.Group();
+
+    // Material for the squat rack
+    const rackMaterial = new THREE.MeshStandardMaterial({
+        color: 0x2e2929, // rack color
+        metalness: 0.3,
+        roughness: 0.7,
+    });
+
+    // Barbell proportions from configuration
+    const barbellLength = BARBELL_CONFIG.centralBar.length; // 5 units
+
+    // Squat rack configuration
+    const RACK_CONFIG = {
+        verticalHeight: 4, // Height of the vertical supports
+        verticalThickness: 0.2, // Thickness of the vertical supports
+        holderLength: 0.2, // Length of the holder (horizontal dimension)
+        holderHeight: 0.2, // Height of the holder (vertical dimension)
+        holderThickness: 0.7, // Thickness of the holder (depth)
+        holderOffsetFromTop: 0.3, // Distance of the holder from the top of the vertical
+    };
+
+    // Offset to position the vertical supports
+    const rackOffsetX = (barbellLength / 2) + 0.1; // Slightly beyond barbell ends
+
+    // Function to create a single vertical support with a holder
+    function createSupportWithHolder() {
+        const support = new THREE.Group();
+
+        // Vertical support
+        const verticalGeometry = new THREE.BoxGeometry(
+            RACK_CONFIG.verticalThickness,
+            RACK_CONFIG.verticalHeight,
+            RACK_CONFIG.verticalThickness
+        );
+        const vertical = new THREE.Mesh(verticalGeometry, rackMaterial);
+        vertical.position.set(0, RACK_CONFIG.verticalHeight / 2, 0); // Position vertically
+        support.add(vertical);
+
+        // Rectangular holder
+        const holderGeometry = new THREE.BoxGeometry(
+            RACK_CONFIG.holderLength,
+            RACK_CONFIG.holderHeight,
+            RACK_CONFIG.holderThickness
+        );
+        const holder = new THREE.Mesh(holderGeometry, rackMaterial);
+
+        // Position the holder near the top of the vertical
+        const holderOffsetZ = RACK_CONFIG.holderLength / 2; // Shift holder so one end is in contact with the vertical
+        const holderOffsetY = RACK_CONFIG.verticalHeight - RACK_CONFIG.holderOffsetFromTop; // Near the top
+        holder.position.set(0, holderOffsetY, holderOffsetZ); // Position the holder
+        support.add(holder);
+
+        return support;
+    }
+
+    // Create the left vertical support with holder
+    const leftSupport = createSupportWithHolder();
+    leftSupport.position.set(-rackOffsetX, 0, 0); // Position on the left
+    squatRack.add(leftSupport);
+
+    // Create the right vertical support with holder
+    const rightSupport = createSupportWithHolder();
+    rightSupport.position.set(rackOffsetX, 0, 0); // Position on the right
+    squatRack.add(rightSupport);
+
+    // Enable shadows for all components
+    squatRack.traverse((child) => {
+        if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+        }
+    });
+
+    // Add the squat rack to the scene
+    scene.add(squatRack);
+
+    return squatRack;
+}
+
+
+
+// Function to create the squat rack physics body
+function createSquatRackPhysics() {
+    // Define the compound shape for the squat rack
+    const compoundShape = new Ammo.btCompoundShape();
+   
+    // Vertical Cylinders Physics
+    const verticalShape = new Ammo.btCylinderShape(new Ammo.btVector3(0.1, 1.5, 0.1)); // Half-height, radius
+    const leftVerticalTransform = new Ammo.btTransform();
+    leftVerticalTransform.setIdentity();
+    leftVerticalTransform.setOrigin(new Ammo.btVector3(-1, 1.5, 0)); // Position matching visual
+    compoundShape.addChildShape(leftVerticalTransform, verticalShape);
+
+    const rightVerticalTransform = new Ammo.btTransform();
+    rightVerticalTransform.setIdentity();
+    rightVerticalTransform.setOrigin(new Ammo.btVector3(1, 1.5, 0)); // Position matching visual
+    compoundShape.addChildShape(rightVerticalTransform, verticalShape);
+
+    // Angled Bars Physics
+    const angledBarShape = new Ammo.btBoxShape(new Ammo.btVector3(1, 0.025, 0.025)); // Half-length, height, depth
+    const leftAngledBarTransform = new Ammo.btTransform();
+    leftAngledBarTransform.setIdentity();
+    leftAngledBarTransform.setOrigin(new Ammo.btVector3(-0.5, 3, 0)); // Position matching visual
+    leftAngledBarTransform.setRotation(new Ammo.btQuaternion(0, 0, Math.sin(Math.PI / 8), Math.cos(Math.PI / 8))); // 45 degrees
+    compoundShape.addChildShape(leftAngledBarTransform, angledBarShape);
+
+    const rightAngledBarTransform = new Ammo.btTransform();
+    rightAngledBarTransform.setIdentity();
+    rightAngledBarTransform.setOrigin(new Ammo.btVector3(0.5, 3, 0)); // Position matching visual
+    rightAngledBarTransform.setRotation(new Ammo.btQuaternion(0, 0, -Math.sin(Math.PI / 8), Math.cos(Math.PI / 8))); // -45 degrees
+    compoundShape.addChildShape(rightAngledBarTransform, angledBarShape);
+
+    // Calculate local inertia (mass is 0 for static objects)
+    const mass = 0;
+    const localInertia = new Ammo.btVector3(0, 0, 0);
+    compoundShape.calculateLocalInertia(mass, localInertia);
+
+    // Set the initial transform
+    const transform = new Ammo.btTransform();
+    transform.setIdentity();
+    transform.setOrigin(new Ammo.btVector3(0, 0, 0)); // Position matching visual
+    const motionState = new Ammo.btDefaultMotionState(transform);
+
+    // Create the rigid body
+    const rbInfo = new Ammo.btRigidBodyConstructionInfo(mass, motionState, compoundShape, localInertia);
+    const rackBody = new Ammo.btRigidBody(rbInfo);
+
+    // Disable deactivation to keep the rack active (optional for static objects)
+    rackBody.setActivationState(4);
+
+    // Add the rigid body to the physics world
+    physicsWorld.addRigidBody(rackBody);
+}
+
 
 // ==============================
 // Add Walls
