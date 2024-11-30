@@ -886,14 +886,36 @@ function updateBarbellPosition() {
         return;
     }
 
-    const transform = new Ammo.btTransform();
-    barbellBody.getMotionState().getWorldTransform(transform);
-    const origin = transform.getOrigin();
-    const rotation = transform.getRotation();
+    if (barbellConstraint) {
+        // Barbell is attached to the player
+        const playerTopY = player.position.y + (currentHeight / 2) + (BARBELL_CONFIG.centralBar.radius);
+        barbell.position.set(player.position.x, playerTopY, player.position.z);
+        barbell.quaternion.copy(player.quaternion);
 
-    barbell.position.set(origin.x(), origin.y(), origin.z());
-    barbell.quaternion.set(rotation.x(), rotation.y(), rotation.z(), rotation.w());
+        // Update the physics body position
+        const transform = new Ammo.btTransform();
+        transform.setIdentity();
+        transform.setOrigin(new Ammo.btVector3(barbell.position.x, barbell.position.y, barbell.position.z));
+        transform.setRotation(new Ammo.btQuaternion(
+            barbell.quaternion.x,
+            barbell.quaternion.y,
+            barbell.quaternion.z,
+            barbell.quaternion.w
+        ));
+        barbellBody.setWorldTransform(transform);
+        barbellBody.getMotionState().setWorldTransform(transform);
+    } else {
+        // Barbell is not attached, update normally
+        const transform = new Ammo.btTransform();
+        barbellBody.getMotionState().getWorldTransform(transform);
+        const origin = transform.getOrigin();
+        const rotation = transform.getRotation();
+
+        barbell.position.set(origin.x(), origin.y(), origin.z());
+        barbell.quaternion.set(rotation.x(), rotation.y(), rotation.z(), rotation.w());
+    }
 }
+
 
 // Reference the action button
 const actionButton = document.getElementById('actionButton');
@@ -997,7 +1019,6 @@ function releaseBarbell(e) {
     actionButton.removeEventListener('touchstart', onReleaseButtonPress);
     actionButton.addEventListener('touchstart', onActionButtonPress, { passive: false });
 }
-
 
 
 let barbellConstraint; // Declare globally to remove later if needed
