@@ -4,14 +4,18 @@
 
 // Declare global variables
 let scene, camera, renderer;
-let player, ground, platform, mirrors = [];
-let physicsWorld, playerBody, groundBody, platformBody;
+let player, ground, platform, barbell, mirrors = [];
+let physicsWorld, playerBody, groundBody, platformBody, barbellBody;
 let yaw = 0, pitch = 0;
 let joystickMoveAngle = null, movementTouchId = null, rotationTouchId = null, lastTouchX = 0, lastTouchY = 0;
 const playerRadius = 0.5;
 const playerSpeed = 10; // Constant speed for player movement
 const rotationSpeed = 0.005;
 let moveDirection = new THREE.Vector3();
+
+// **Added Constants for Camera Pitch Limitation**
+const maxPitch = Math.PI / 3;   // Maximum pitch (60 degrees up)
+const minPitch = -Math.PI / 7;  // Minimum pitch (~25.7 degrees down)
 
 // DOM Elements
 const joystickContainerMove = document.getElementById('joystickContainerMove');
@@ -39,8 +43,8 @@ function initializePhysics() {
     const broadphase = new Ammo.btDbvtBroadphase();
     const solver = new Ammo.btSequentialImpulseConstraintSolver();
     physicsWorld = new Ammo.btDiscreteDynamicsWorld(dispatcher, broadphase, solver, collisionConfiguration);
-    physicsWorld.setGravity(new Ammo.btVector3(0, -9.81, 0)); // Gravity set to -9.81 on Y-axis
-
+    physicsWorld.setGravity(new Ammo.btVector3(0, -19.62, 0)); // Increased gravity for faster fall
+    
     // Create the ground physics body
     const groundShape = new Ammo.btBoxShape(new Ammo.btVector3(100, 1, 100));
     const groundTransform = new Ammo.btTransform();
@@ -77,6 +81,42 @@ function initializePhysics() {
     playerBody = new Ammo.btRigidBody(playerRbInfo);
     playerBody.setActivationState(4); // Disable deactivation to keep player active
     physicsWorld.addRigidBody(playerBody);
+
+    // Create the barbell physics body
+    const barbellMass = 10; // Mass of the barbell
+    const barbellInertia = new Ammo.btVector3(0, 0, 0);
+    const barbellCompoundShape = new Ammo.btCompoundShape();
+
+    // Central bar
+    const barShape = new Ammo.btCylinderShape(new Ammo.btVector3(2.5, 0.05, 0.05)); // Half-length, radius
+    const barLocalTransform = new Ammo.btTransform();
+    barLocalTransform.setIdentity();
+    barLocalTransform.setOrigin(new Ammo.btVector3(0, 0, 0));
+    barbellCompoundShape.addChildShape(barLocalTransform, barShape);
+
+    // Left weight
+    const leftWeightShape = new Ammo.btSphereShape(0.3);
+    const leftWeightTransform = new Ammo.btTransform();
+    leftWeightTransform.setIdentity();
+    leftWeightTransform.setOrigin(new Ammo.btVector3(-2.5, 0, 0));
+    barbellCompoundShape.addChildShape(leftWeightTransform, leftWeightShape);
+
+    // Right weight
+    const rightWeightShape = new Ammo.btSphereShape(0.3);
+    const rightWeightTransform = new Ammo.btTransform();
+    rightWeightTransform.setIdentity();
+    rightWeightTransform.setOrigin(new Ammo.btVector3(2.5, 0, 0));
+    barbellCompoundShape.addChildShape(rightWeightTransform, rightWeightShape);
+
+    barbellCompoundShape.calculateLocalInertia(barbellMass, barbellInertia);
+    const barbellTransform = new Ammo.btTransform();
+    barbellTransform.setIdentity();
+    barbellTransform.setOrigin(new Ammo.btVector3(0, 0.75, 0)); // Same as barbellGroup.position
+    const barbellMotionState = new Ammo.btDefaultMotionState(barbellTransform);
+    const barbellRbInfo = new Ammo.btRigidBodyConstructionInfo(barbellMass, barbellMotionState, barbellCompoundShape, barbellInertia);
+    barbellBody = new Ammo.btRigidBody(barbellRbInfo);
+    barbellBody.setActivationState(4); // Disable deactivation to keep barbell active
+    physicsWorld.addRigidBody(barbellBody);
 }
 
 // Initialize the Three.js scene, camera, renderer, lighting, and objects
@@ -118,6 +158,9 @@ function initializeScene() {
 
     // Create the player mesh and add it to the scene
     createPlayer();
+
+    // Create the barbell on the central platform
+    createBarbellVisual();
 
     // Add walls to the gym environment
     addWalls();
@@ -204,6 +247,49 @@ function createPlayer() {
     scene.add(player);
 }
 
+// Function to create the barbell visual mesh and add it to the scene
+function createBarbellVisual() {
+    barbell = new THREE.Group();
+
+    // Create the central bar
+    const barGeometry = new THREE.CylinderGeometry(0.1, 0.1, 5, 32);
+    const barMaterial = new THREE.MeshStandardMaterial({
+        color: 0xC0C0C0, // Silver color
+        metalness: 1.0,
+        roughness: 0.2,
+    });
+    const bar = new THREE.Mesh(barGeometry, barMaterial);
+    bar.rotation.z = Math.PI / 2; // Rotate to align with X-axis
+    bar.castShadow = true;
+    bar.receiveShadow = true;
+    barbell.add(bar);
+
+    // Create left weight
+    const weightGeometry = new THREE.SphereGeometry(0.3, 32, 32);
+    const weightMaterial = new THREE.MeshStandardMaterial({
+        color: 0xC0C0C0, // Silver color
+        metalness: 1.0,
+        roughness: 0.2,
+    });
+    const leftWeight = new THREE.Mesh(weightGeometry, weightMaterial);
+    leftWeight.position.set(-2.5, 0, 0);
+    leftWeight.castShadow = true;
+    leftWeight.receiveShadow = true;
+    barbell.add(leftWeight);
+
+    // Create right weight
+    const rightWeight = new THREE.Mesh(weightGeometry, weightMaterial);
+    rightWeight.position.set(2.5, 0, 0);
+    rightWeight.castShadow = true;
+    rightWeight.receiveShadow = true;
+    barbell.add(rightWeight);
+
+    // Position the barbell on the central platform
+    barbell.position.set(0, 0.75, 0); // platform.y + barbell height offset
+
+    scene.add(barbell);
+}
+
 // Function to add walls around the gym environment
 function addWalls() {
     // Wall material
@@ -224,11 +310,33 @@ function addWalls() {
     frontWall.receiveShadow = true;
     scene.add(frontWall);
 
+    // Add physics body for front wall
+    const frontWallShape = new Ammo.btBoxShape(new Ammo.btVector3(wallLength / 2, wallHeight / 2, wallThickness / 2));
+    const frontWallTransform = new Ammo.btTransform();
+    frontWallTransform.setIdentity();
+    frontWallTransform.setOrigin(new Ammo.btVector3(0, wallHeight / 2, -100));
+    const frontWallMass = 0; // Static
+    const frontWallMotionState = new Ammo.btDefaultMotionState(frontWallTransform);
+    const frontWallRbInfo = new Ammo.btRigidBodyConstructionInfo(frontWallMass, frontWallMotionState, frontWallShape, new Ammo.btVector3(0, 0, 0));
+    const frontWallBody = new Ammo.btRigidBody(frontWallRbInfo);
+    physicsWorld.addRigidBody(frontWallBody);
+
     // Back Wall
     const backWall = new THREE.Mesh(new THREE.BoxGeometry(wallLength, wallHeight, wallThickness), wallMaterial);
     backWall.position.set(0, wallHeight / 2, 100); // Position at the front of the ground
     backWall.receiveShadow = true;
     scene.add(backWall);
+
+    // Add physics body for back wall
+    const backWallShape = new Ammo.btBoxShape(new Ammo.btVector3(wallLength / 2, wallHeight / 2, wallThickness / 2));
+    const backWallTransform = new Ammo.btTransform();
+    backWallTransform.setIdentity();
+    backWallTransform.setOrigin(new Ammo.btVector3(0, wallHeight / 2, 100));
+    const backWallMass = 0; // Static
+    const backWallMotionState = new Ammo.btDefaultMotionState(backWallTransform);
+    const backWallRbInfo = new Ammo.btRigidBodyConstructionInfo(backWallMass, backWallMotionState, backWallShape, new Ammo.btVector3(0, 0, 0));
+    const backWallBody = new Ammo.btRigidBody(backWallRbInfo);
+    physicsWorld.addRigidBody(backWallBody);
 
     // Left Wall
     const leftWall = new THREE.Mesh(new THREE.BoxGeometry(wallThickness, wallHeight, wallLength), wallMaterial);
@@ -236,11 +344,33 @@ function addWalls() {
     leftWall.receiveShadow = true;
     scene.add(leftWall);
 
+    // Add physics body for left wall
+    const leftWallShape = new Ammo.btBoxShape(new Ammo.btVector3(wallThickness / 2, wallHeight / 2, wallLength / 2));
+    const leftWallTransform = new Ammo.btTransform();
+    leftWallTransform.setIdentity();
+    leftWallTransform.setOrigin(new Ammo.btVector3(-100, wallHeight / 2, 0));
+    const leftWallMass = 0; // Static
+    const leftWallMotionState = new Ammo.btDefaultMotionState(leftWallTransform);
+    const leftWallRbInfo = new Ammo.btRigidBodyConstructionInfo(leftWallMass, leftWallMotionState, leftWallShape, new Ammo.btVector3(0, 0, 0));
+    const leftWallBody = new Ammo.btRigidBody(leftWallRbInfo);
+    physicsWorld.addRigidBody(leftWallBody);
+
     // Right Wall
     const rightWall = new THREE.Mesh(new THREE.BoxGeometry(wallThickness, wallHeight, wallLength), wallMaterial);
     rightWall.position.set(100, wallHeight / 2, 0); // Right side of the ground
     rightWall.receiveShadow = true;
     scene.add(rightWall);
+
+    // Add physics body for right wall
+    const rightWallShape = new Ammo.btBoxShape(new Ammo.btVector3(wallThickness / 2, wallHeight / 2, wallLength / 2));
+    const rightWallTransform = new Ammo.btTransform();
+    rightWallTransform.setIdentity();
+    rightWallTransform.setOrigin(new Ammo.btVector3(100, wallHeight / 2, 0));
+    const rightWallMass = 0; // Static
+    const rightWallMotionState = new Ammo.btDefaultMotionState(rightWallTransform);
+    const rightWallRbInfo = new Ammo.btRigidBodyConstructionInfo(rightWallMass, rightWallMotionState, rightWallShape, new Ammo.btVector3(0, 0, 0));
+    const rightWallBody = new Ammo.btRigidBody(rightWallRbInfo);
+    physicsWorld.addRigidBody(rightWallBody);
 
     // Ceiling
     const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(wallLength, wallLength), wallMaterial);
@@ -248,6 +378,17 @@ function addWalls() {
     ceiling.position.y = wallHeight; // Same height as walls
     ceiling.receiveShadow = true;
     scene.add(ceiling);
+
+    // Add physics body for ceiling
+    const ceilingShape = new Ammo.btBoxShape(new Ammo.btVector3(wallLength / 2, 0.5, wallLength / 2));
+    const ceilingTransform = new Ammo.btTransform();
+    ceilingTransform.setIdentity();
+    ceilingTransform.setOrigin(new Ammo.btVector3(0, wallHeight, 0));
+    const ceilingMass = 0; // Static
+    const ceilingMotionState = new Ammo.btDefaultMotionState(ceilingTransform);
+    const ceilingRbInfo = new Ammo.btRigidBodyConstructionInfo(ceilingMass, ceilingMotionState, ceilingShape, new Ammo.btVector3(0, 0, 0));
+    const ceilingBody = new Ammo.btRigidBody(ceilingRbInfo);
+    physicsWorld.addRigidBody(ceilingBody);
 }
 
 // Function to set CSS variable --vh for mobile responsiveness
@@ -296,16 +437,25 @@ function setupJumpButton() {
 // Function to handle jumping
 function jump() {
     // Check if the player is on the ground by checking the Y velocity
+    if (!playerBody) {
+        console.warn("playerBody is undefined.");
+        return;
+    }
     const velocity = playerBody.getLinearVelocity();
     if (velocity.y() < 0.1) { // Threshold to determine if on or near the ground
         // Apply an upward impulse
-        const jumpForce = new Ammo.btVector3(0, 8, 0); // Adjusted Y value for jump strength
+        const jumpForce = new Ammo.btVector3(0, 15, 0); // Increased Y value for stronger jump
         playerBody.applyCentralImpulse(jumpForce);
     }
 }
 
 // Function to update the player's position based on joystick input and physics
 function updatePlayerPosition() {
+    if (!playerBody) {
+        console.warn("playerBody is undefined in updatePlayerPosition.");
+        return;
+    }
+
     if (joystickMoveAngle !== null) {
         // Calculate the movement direction based on joystick angle
         moveDirection.set(Math.cos(joystickMoveAngle), 0, Math.sin(joystickMoveAngle));
@@ -339,7 +489,26 @@ function updatePlayerPosition() {
     const transform = new Ammo.btTransform();
     playerBody.getMotionState().getWorldTransform(transform);
     const origin = transform.getOrigin();
+    const rotation = transform.getRotation();
+
     player.position.set(origin.x(), origin.y(), origin.z());
+    player.quaternion.set(rotation.x(), rotation.y(), rotation.z(), rotation.w());
+}
+
+// Function to update the barbell's mesh based on its physics body
+function updateBarbellPosition() {
+    if (!barbellBody) {
+        console.warn("barbellBody is undefined in updateBarbellPosition.");
+        return;
+    }
+
+    const transform = new Ammo.btTransform();
+    barbellBody.getMotionState().getWorldTransform(transform);
+    const origin = transform.getOrigin();
+    const rotation = transform.getRotation();
+
+    barbell.position.set(origin.x(), origin.y(), origin.z());
+    barbell.quaternion.set(rotation.x(), rotation.y(), rotation.z(), rotation.w());
 }
 
 // Joystick Event Handlers
@@ -404,7 +573,8 @@ function setupEventListeners() {
                 const deltaX = touch.clientX - lastTouchX;
                 const deltaY = touch.clientY - lastTouchY;
                 yaw -= deltaX * rotationSpeed;
-                pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch + deltaY * rotationSpeed));
+                // **Clamping the pitch between minPitch and maxPitch**
+                pitch = Math.max(minPitch, Math.min(maxPitch, pitch + deltaY * rotationSpeed));
                 lastTouchX = touch.clientX;
                 lastTouchY = touch.clientY;
             }
@@ -445,6 +615,7 @@ function animate() {
     requestAnimationFrame(animate);
     physicsWorld.stepSimulation(1 / 60, 10);
     updatePlayerPosition();
+    updateBarbellPosition();
     updateCameraPosition();
     renderer.render(scene, camera);
 }
