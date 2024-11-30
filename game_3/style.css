@@ -71,15 +71,11 @@ html, body {
     touch-action: none; /* Prevent default touch actions */
 }
 
-/* =========================
-   Joystick Styles
-   ========================= */
-
 /* Joystick Container for Movement */
 #joystickContainerMove {
     position: absolute;
-    bottom: calc(var(--safe-bottom, 20px) + 20px); /* Adjust for safe area and add padding */
-    left: calc(var(--safe-left, 20px) + 20px); /* Adjust for safe area and add padding */
+    bottom: 20px; /* Align to the same bottom position as the jump button */
+    left: 20px; /* Left-aligned */
     width: 120px;
     height: 120px;
     border-radius: 50%;
@@ -88,7 +84,6 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: center;
-    /* Optional: Add a subtle shadow for depth */
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
     transition: background-color 0.2s ease;
 }
@@ -99,35 +94,29 @@ html, body {
     width: 60px;
     height: 60px;
     border-radius: 50%;
-    background-color: rgba(255, 255, 255, 0.5); /* Semi-transparent white for visibility */
+    background-color: rgba(255, 255, 255, 0.5); /* Semi-transparent white */
     touch-action: none;
-    /* Optional: Add a subtle shadow for depth */
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     transition: transform 0.1s ease, background-color 0.2s ease;
 }
 
-/* =========================
-   Jump Button Styles
-   ========================= */
-
 /* Jump Button Styling */
 #jumpButton {
     position: absolute;
-    bottom: calc(var(--safe-bottom, 20px) + 20px); /* Adjust for safe area and add padding */
-    right: calc(var(--safe-right, 20px) + 20px); /* Adjust for safe area and add padding */
+    bottom: 30px; /* Align to the same bottom position as the joystick */
+    right: 20px; /* Right-aligned */
     width: 80px;
     height: 80px;
     border-radius: 50%;
-    background-color: rgba(255, 0, 0, 0.7); /* Semi-transparent red for visibility */
+    background-color: rgba(255, 0, 0, 0.7); /* Semi-transparent red */
     color: white;
-    font-size: 20px;
+    font-size: 18px; /* Adjusted size */
     border: none;
     z-index: 10;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    /* Optional: Add a subtle shadow for depth */
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
     transition: background-color 0.2s ease, transform 0.1s ease;
 }
@@ -137,6 +126,7 @@ html, body {
     background-color: rgba(255, 0, 0, 0.9);
     transform: scale(1.1);
 }
+
 
 
 /* Adjust sizes for smaller screens if necessary */
@@ -163,3 +153,40 @@ html, body {
         font-size: 20px;
     }
 }
+
+/* =========================
+   Toggle Camera Button Styles
+   ========================= */
+
+   #toggleCameraButton {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    background-color: rgba(0, 0, 0, 0.2); /* Subtle semi-transparent background */
+    border: none;
+    border-radius: 50%; /* Circular button */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px; /* Smaller icon size */
+    color: white;
+    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1); /* Very subtle shadow */
+    cursor: pointer;
+    z-index: 100; /* Ensure it's on top */
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+#toggleCameraButton:hover {
+    background-color: rgba(255, 255, 255, 0.4); /* Slightly lighter on hover */
+    color: black; /* Change text color for contrast */
+    transform: scale(1.05); /* Subtle enlargement on hover */
+}
+
+#toggleCameraButton:active {
+    transform: scale(0.95); /* Slightly shrink on click */
+}
+
+
+
