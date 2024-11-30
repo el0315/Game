@@ -7,6 +7,9 @@
     <title>Powerlifting Game</title>
     <!-- Link to the comprehensive stylesheet -->
     <link rel="stylesheet" href="style.css">
+    <!-- Google Font -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap">
+</head>
 </head>
 <body>
     <!-- Game Container -->
@@ -35,6 +38,28 @@
         <!-- Apply Force Button -->
         <button id="applyForceButton">Squat</button>
     </div>
+
+        <!-- Settings Button -->
+        <button id="settingsButton" title="Settings">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="white">
+                <path d="M12 2a2 2 0 011.995 1.85L14 4v1.085a1.5 1.5 0 01.356.38l.738.895 1.093-.364a2 2 0 012.486 1.53l.03.128.364 1.093.895.738a1.5 1.5 0 01.38.356H20a2 2 0 011.995 1.85L22 12a2 2 0 01-1.85 1.995L20 14h-1.085a1.5 1.5 0 01-.38.356l-.895.738.364 1.093a2 2 0 01-1.53 2.486l-.128.03-1.093.364-.738.895a1.5 1.5 0 01-.356.38V20a2 2 0 01-1.85 1.995L12 22a2 2 0 01-1.995-1.85L10 20v-1.085a1.5 1.5 0 01-.356-.38l-.738-.895-1.093.364a2 2 0 01-2.486-1.53l-.03-.128-.364-1.093-.895-.738a1.5 1.5 0 01-.38-.356H4a2 2 0 01-1.995-1.85L2 12a2 2 0 011.85-1.995L4 10h1.085a1.5 1.5 0 01.38-.356l.895-.738-.364-1.093a2 2 0 011.53-2.486l.128-.03 1.093-.364.738-.895a1.5 1.5 0 01.356-.38V4a2 2 0 011.85-1.995L12 2zm0 5a5 5 0 100 10 5 5 0 000-10z"/>
+            </svg>
+        </button>
+
+        <!-- Settings Menu Overlay -->
+        <div id="settingsOverlay">
+            <div id="settingsMenu">
+                <h2>Settings</h2>
+                <label for="barbellLoadSlider">Barbell Load: <span id="barbellLoadValue">50</span> kg</label>
+                <input type="range" id="barbellLoadSlider" min="0" max="200" value="50" step="1">
+                
+                <label for="springStrengthSlider">Player Strength: <span id="springStrengthValue">200</span></label>
+                <input type="range" id="springStrengthSlider" min="100" max="500" value="200" step="10">
+                
+                <button id="closeSettingsButton">Close</button>
+            </div>
+        </div>
+
 
     <!-- Load Three.js from CDN -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.138.0/build/three.min.js"></script>
