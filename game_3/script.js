@@ -1,6 +1,7 @@
 // script.js
 
 // Ensure that Three.js and Ammo.js are loaded via script tags in index.html
+
 // ==============================
 // Global Configuration
 // ==============================
