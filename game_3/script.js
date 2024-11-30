@@ -415,9 +415,7 @@ function createBarbellVisual() {
     scene.add(barbell);
 }
 
-
 function createBarbellPhysics() {
-    const barbellMass = BARBELL_CONFIG.centralBar.mass + 2 * BARBELL_CONFIG.plate.mass;
     const barbellCompoundShape = new Ammo.btCompoundShape();
 
     // Central bar
@@ -447,22 +445,21 @@ function createBarbellPhysics() {
     barbellTransform.setIdentity();
     barbellTransform.setOrigin(new Ammo.btVector3(
         BARBELL_CONFIG.position.initialPosition.x,
-        BARBELL_CONFIG.position.initialPosition.y,
+        BARBELL_CONFIG.position.initialPosition.y, // Start at specified height
         BARBELL_CONFIG.position.initialPosition.z
     ));
 
     const motionState = new Ammo.btDefaultMotionState(barbellTransform);
-    const barbellInertia = new Ammo.btVector3(0, 0, 0);
-    barbellCompoundShape.calculateLocalInertia(barbellMass, barbellInertia);
-    const rbInfo = new Ammo.btRigidBodyConstructionInfo(barbellMass, motionState, barbellCompoundShape, barbellInertia);
-
+    const rbInfo = new Ammo.btRigidBodyConstructionInfo(0, motionState, barbellCompoundShape, new Ammo.btVector3(0, 0, 0)); // Initial mass = 0
     barbellBody = new Ammo.btRigidBody(rbInfo);
+
+    // Barbell remains immobile initially
     barbellBody.setFriction(0.5);
     barbellBody.setDamping(0.1, 0.2);
+    barbellBody.setGravity(new Ammo.btVector3(0, 0, 0)); // Disable gravity
 
     physicsWorld.addRigidBody(barbellBody);
 }
-
 
 function setBarbellMass(mass) {
     if (!barbellBody) return;
@@ -486,10 +483,12 @@ function setBarbellMass(mass) {
     barbellBody.setRollingFriction(0.1);
     barbellBody.setDamping(0.1, 0.2);
 
+    // Enable gravity
+    barbellBody.setGravity(new Ammo.btVector3(0, -19.6, 0)); // Standard gravity
+
     // Add back to physics world
     physicsWorld.addRigidBody(barbellBody);
 }
-
 
 // ==============================
 // Add Walls
@@ -769,7 +768,7 @@ actionButton.addEventListener('touchstart', (e) => {
 });
 
 
-const PROXIMITY_THRESHOLD = 50; // Distance to trigger action
+const PROXIMITY_THRESHOLD = 10; // Distance to trigger action
 const ACTION_TEXT = "Squat";    // Text for the action button
 
 function checkProximityToBarbell() {
