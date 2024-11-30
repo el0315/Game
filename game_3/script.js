@@ -297,8 +297,11 @@ function createGround() {
 function createPlayer() {
     const { height, radius, initialPosition } = PLAYER_CONFIG;
 
-    // Create a material for the player
-    const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x4682B4 }); // Steel Blue
+    const playerMaterial = new THREE.MeshStandardMaterial({
+        color: 0x4682B4, // Steel Blue
+        transparent: true,
+        opacity: 0.4, // Adjust opacity for slight transparency
+    });
 
     // Create the cylinder mesh
     const playerGeometry = new THREE.CylinderGeometry(radius, radius, height, 32);
