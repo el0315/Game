@@ -251,5 +251,152 @@ html, body {
     box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5); /* Stronger shadow for hover effect */
 }
 
+/* =========================
+   Settings Button Styling
+   ========================= */
+   #settingsButton {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    width: 50px;
+    height: 50px;
+    background-color: rgba(0, 0, 0, 0.5); /* Dark semi-transparent background */
+    border: none;
+    border-radius: 50%; /* Circular button */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px; /* Icon size */
+    color: white;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3); /* Subtle shadow */
+    cursor: pointer;
+    z-index: 100; /* Ensure it's on top */
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+#settingsButton:hover {
+    background-color: rgba(255, 87, 34, 0.8); /* Bright accent color on hover */
+    color: white; /* Keep icon color white */
+    transform: scale(1.05); /* Slight enlargement on hover */
+}
+
+#settingsButton:active {
+    transform: scale(0.95); /* Slight shrink on click */
+}
+
+/* =========================
+   Settings Overlay Styling
+   ========================= */
+   #settingsOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8); /* Slightly transparent dark background */
+    display: none; /* Hidden by default */
+    align-items: center;
+    justify-content: center;
+    z-index: 200; /* Above other elements */
+    backdrop-filter: blur(5px); /* Optional: adds a subtle blur effect */
+    font-family: 'Roboto', sans-serif; /* Apply the modern font */
+}
+
+/* Settings Menu Container */
+#settingsMenu {
+    background-color: rgba(30, 30, 30, 0.95); /* Dark background for the menu */
+    padding: 20px;
+    border-radius: 10px;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+    color: #ffffff; /* White text for contrast */
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3); /* Soft shadow for depth */
+}
+
+/* Settings Menu Heading */
+#settingsMenu h2 {
+    margin-bottom: 20px;
+    font-size: 24px;
+    font-weight: 500;
+    color: #ffffff;
+}
+
+/* Labels for Sliders */
+#settingsMenu label {
+    display: block;
+    margin: 20px 0 10px;
+    font-weight: 400;
+    font-size: 16px;
+    color: #dddddd;
+}
+
+
+/* Sliders */
+#settingsMenu input[type="range"] {
+    -webkit-appearance: none; /* Remove default styling for WebKit browsers */
+    appearance: none;         /* Remove default styling for standard-compliant browsers */
+    width: 100%;
+    height: 4px;
+    background: #555555;
+    border-radius: 2px;
+    outline: none;
+    margin-bottom: 10px;
+}
+
+
+/* Slider Thumb */
+#settingsMenu input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #ff5722; /* Bright color for the thumb */
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+#settingsMenu input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #ff5722;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+#settingsMenu input[type="range"]::-webkit-slider-thumb:hover,
+#settingsMenu input[type="range"]::-moz-range-thumb:hover {
+    background: #ff784e; /* Lighter shade on hover */
+}
+
+/* Close Button */
+#closeSettingsButton {
+    margin-top: 30px;
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: 500;
+    background-color: #ff5722; /* Bright accent color */
+    color: #ffffff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    width: 100%;
+    max-width: 200px;
+    transition: background-color 0.2s ease;
+}
+
+#closeSettingsButton:hover {
+    background-color: #ff784e; /* Lighter shade on hover */
+}
+
+/* Adjust font and color for the value display */
+#settingsMenu span {
+    color: #ffcc00; /* Bright color to highlight values */
+    font-weight: 500;
+}
+
+
 
 
