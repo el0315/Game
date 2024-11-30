@@ -910,7 +910,7 @@ function checkProximityToBarbell() {
     const distance = player.position.distanceTo(barbell.position);
 
     // Show the action button if within proximity (e.g., 3 units)
-    if (distance <= 50) {
+    if (distance <= 5) {
         actionButton.style.display = 'block';
         actionButton.innerText = 'Squat'; // Example text
     } else {
