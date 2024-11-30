@@ -40,7 +40,7 @@ const BARBELL_CONFIG = {
 };
 
 const RACK_CONFIG = {
-    verticalHeight: 5,        // Height of the vertical supports
+    verticalHeight: 4.5,        // Height of the vertical supports
     verticalThickness: 0.2,  // Thickness of the vertical supports
     holderLength: 0.4,       // Length of the holder (horizontal dimension)
     holderHeight: 0.2,       // Height of the holder (vertical dimension)
@@ -423,8 +423,8 @@ function createPlayer() {
     // Create the cylinder mesh
     const playerGeometry = new THREE.CylinderGeometry(radius, radius, height, 32);
     player = new THREE.Mesh(playerGeometry, playerMaterial);
-    player.castShadow = true;
-    player.receiveShadow = true;
+    player.castShadow = false;
+    player.receiveShadow = false;
 
     // Position the player visually to match the physics body
     player.position.set(initialPosition.x, initialPosition.y, initialPosition.z);
