@@ -6,6 +6,7 @@
 // Global Configuration
 // ==============================
 
+
 const BARBELL_CONFIG = {
     centralBar: {
         radius: 0.08,        // Radius of the central bar
@@ -118,22 +119,7 @@ function initializePhysics() {
     platformBody.setFriction(0.7); // Medium friction for rolling
     physicsWorld.addRigidBody(platformBody);
 
-    // Create the player physics body
-    const playerShape = new Ammo.btSphereShape(playerRadius);
-    const playerTransform = new Ammo.btTransform();
-    playerTransform.setIdentity();
-    playerTransform.setOrigin(new Ammo.btVector3(0, playerRadius + 1, 0)); // Positioned slightly above the ground
-    const playerMass = 10; // Dynamic object
-    const playerInertia = new Ammo.btVector3(0, 0, 0);
-    playerShape.calculateLocalInertia(playerMass, playerInertia);
-
-    const playerMotionState = new Ammo.btDefaultMotionState(playerTransform);
-    const playerRbInfo = new Ammo.btRigidBodyConstructionInfo(playerMass, playerMotionState, playerShape, playerInertia);
-    playerBody = new Ammo.btRigidBody(playerRbInfo);
-    playerBody.setActivationState(4); // Disable deactivation to keep the player active
-
-    // Add to physics world
-    physicsWorld.addRigidBody(playerBody);
+   createPlayerPhysics()
 
     // Create the barbell physics body
     const barbellMass = BARBELL_CONFIG.centralBar.mass + 2 * BARBELL_CONFIG.plate.mass;
@@ -287,7 +273,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 camera.fov = 75; // Default FOV for third-person view
             } else {
                 // Increase FOV for first-person mode
-                camera.fov = 90; // Wider FOV for first-person view
+                camera.fov = 100; // Wider FOV for first-person view
             }
 
             camera.updateProjectionMatrix(); // Important: Apply the FOV change
@@ -418,16 +404,66 @@ function createCentralPlatform() {
 }
 
 // ==============================
-// Create Player
+// Create Player Visual and Physics
 // ==============================
 
 function createPlayer() {
+    const playerHeight = 4; // Match height from physics
+    const playerRadius = 0.5; // Match radius from physics
+   
+    // Create a material for the player
     const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x4682B4 }); // Steel Blue
-    player = new THREE.Mesh(new THREE.SphereGeometry(playerRadius, 32, 32), playerMaterial);
+
+    // Create the cylinder mesh
+    const playerGeometry = new THREE.CylinderGeometry(playerRadius, playerRadius, playerHeight, 32);
+    player = new THREE.Mesh(playerGeometry, playerMaterial);
     player.castShadow = true;
-    player.receiveShadow = true; // Optional: if you want the player to receive shadows
+    player.receiveShadow = true;
+
+    // Position the player visually to match the physics body
+    player.position.set(0, playerHeight / 2, 0);
+
+    // Add the player to the scene
     scene.add(player);
 }
+
+
+function createPlayerPhysics() {
+    const playerHeight = 4; // Match height from physics
+    const playerRadius = 0.5; // Match radius from physics
+    
+    // Create a cylinder shape for the player
+    const cylinderShape = new Ammo.btCylinderShape(new Ammo.btVector3(playerRadius, playerHeight / 2, playerRadius));
+    cylinderShape.setMargin(0); // Remove default collision margin for better precision
+
+    // Set up the player's starting transform
+    const startTransform = new Ammo.btTransform();
+    startTransform.setIdentity();
+    startTransform.setOrigin(new Ammo.btVector3(0, playerHeight / 2, 0)); // Place base of cylinder on the ground
+
+    // Calculate inertia for the cylinder
+    const playerMass = 10; // Adjust mass as needed
+    const localInertia = new Ammo.btVector3(0, 0, 0);
+    cylinderShape.calculateLocalInertia(playerMass, localInertia);
+
+    // Create motion state and rigid body
+    const motionState = new Ammo.btDefaultMotionState(startTransform);
+    const rbInfo = new Ammo.btRigidBodyConstructionInfo(playerMass, motionState, cylinderShape, localInertia);
+    playerBody = new Ammo.btRigidBody(rbInfo);
+
+    // Freeze rotation along the X and Z axes to keep the cylinder upright
+    playerBody.setAngularFactor(new Ammo.btVector3(0, 1, 0)); // Allow only Y-axis rotation
+
+    // Add friction and damping for stability
+    playerBody.setFriction(0.8);
+    playerBody.setRollingFriction(0.1);
+    playerBody.setDamping(0.1, 0.2);
+
+    // Add the player body to the physics world
+    physicsWorld.addRigidBody(playerBody);
+}
+
+
 
 // ==============================
 // Create Barbell Visual
@@ -838,12 +874,13 @@ function updatePlayerPosition() {
         ));
     }
 
-    // Sync player mesh position with physics
+    // Get the player's transform from Ammo.js
     const transform = new Ammo.btTransform();
     playerBody.getMotionState().getWorldTransform(transform);
     const origin = transform.getOrigin();
     const rotation = transform.getRotation();
 
+    // Update the player visuals
     player.position.set(origin.x(), origin.y(), origin.z());
     player.quaternion.set(rotation.x(), rotation.y(), rotation.z(), rotation.w());
 }
