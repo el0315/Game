@@ -281,6 +281,16 @@ document.addEventListener("DOMContentLoaded", () => {
         toggleCameraButton.addEventListener("touchstart", (e) => {
             e.preventDefault(); // Prevent unintended behavior like scrolling
             isThirdPerson = !isThirdPerson;
+
+            if (isThirdPerson) {
+                // Reset to standard FOV for third-person
+                camera.fov = 75; // Default FOV for third-person view
+            } else {
+                // Increase FOV for first-person mode
+                camera.fov = 90; // Wider FOV for first-person view
+            }
+
+            camera.updateProjectionMatrix(); // Important: Apply the FOV change
             console.log(`Camera mode: ${isThirdPerson ? "Third-person" : "First-person"}`);
         });
     } else {
@@ -309,14 +319,22 @@ function updateCameraPosition() {
         camera.lookAt(player.position);
     } else {
         // First-person camera logic
+        const cameraHeightAboveGround = 1.6; // Approximate average human eye level in meters
+        const cameraYOffset = playerRadius + cameraHeightAboveGround; // Adjust for sphere size and eye level
+
         camera.position.set(
             player.position.x,
-            player.position.y + playerRadius / 2, // Slightly above the sphere's center
+            player.position.y - playerRadius + cameraYOffset, // Offset the camera to simulate a human's perspective
             player.position.z
         );
-        camera.rotation.set(pitch, yaw, 0); // Align with player's orientation
+
+        // Apply pitch and yaw to camera rotation
+        const quaternion = new THREE.Quaternion();
+        quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, "YXZ")); // YXZ order ensures correct FPS-like orientation
+        camera.quaternion.copy(quaternion);
     }
 }
+
 
 // ==============================
 // Lighting Setup
@@ -968,7 +986,7 @@ function updateCameraPosition() {
         // First-person camera logic
         camera.position.set(
             player.position.x,
-            player.position.y + playerRadius / 2, // Slightly above the player's center
+            player.position.y + 2, // Slightly above the player's center
             player.position.z
         );
 
