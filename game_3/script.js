@@ -6,12 +6,21 @@
 // Global Configuration
 // ==============================
 
+const PLAYER_CONFIG = {
+    initialPosition: { x: 0, y: 2, z: 20 }, // Adjust this based on your desired initial position
+    height: 5,
+    radius: 0.5,
+    mass: 10
+};
+
+let platformSize = new THREE.Vector3(10, 0.05, 10); // Width, height, depth
+
 
 const BARBELL_CONFIG = {
     centralBar: {
         radius: 0.08,        // Radius of the central bar
         length: 5,          // Total length of the central bar
-        mass: 10,           // Mass of the central bar
+        mass: 20,           // Mass of the central bar
         segments: 32        // Number of segments for smoothness
     },
     plate: {
@@ -31,12 +40,12 @@ const BARBELL_CONFIG = {
 };
 
 const RACK_CONFIG = {
-    verticalHeight: 4,        // Height of the vertical supports
+    verticalHeight: 5,        // Height of the vertical supports
     verticalThickness: 0.2,  // Thickness of the vertical supports
     holderLength: 0.4,       // Length of the holder (horizontal dimension)
     holderHeight: 0.2,       // Height of the holder (vertical dimension)
     holderThickness: 0.7,    // Thickness of the holder (depth)
-    holderOffsetFromTop: 0.5 // Distance of the holder from the top of the vertical support
+    holderOffsetFromTop: 0 // Distance of the holder from the top of the vertical support
 };
 
 // ==============================
@@ -58,7 +67,7 @@ let moveDirection = new THREE.Vector3();
 
 // Constants for Camera Pitch Limitation
 const maxPitch = Math.PI / 3;   // Maximum pitch (60 degrees up)
-const minPitch = -Math.PI / 7;  // Minimum pitch (~25.7 degrees down)
+const minPitch = -Math.PI / 6;  // Minimum pitch (~25.7 degrees down)
 
 // DOM Elements
 const joystickContainerMove = document.getElementById('joystickContainerMove');
@@ -106,8 +115,7 @@ function initializePhysics() {
     groundBody.setFriction(0.9); // High friction for better interaction
     physicsWorld.addRigidBody(groundBody);
 
-    // Create the platform physics body
-    const platformSize = new THREE.Vector3(10, 0.5, 10); // Width, height, depth
+    // Use the global platformSize for platform dimensions
     const platformShape = new Ammo.btBoxShape(new Ammo.btVector3(platformSize.x / 2, platformSize.y / 2, platformSize.z / 2));
     const platformTransform = new Ammo.btTransform();
     platformTransform.setIdentity();
@@ -258,7 +266,7 @@ function initializeScene() {
 // Camera Toggle Configuration
 // ==============================
 
-let isThirdPerson = true; // Flag to toggle between third-person and first-person
+let isThirdPerson = false; // Flag to toggle between third-person and first-person
 
 document.addEventListener("DOMContentLoaded", () => {
     const toggleCameraButton = document.getElementById("toggleCameraButton");
@@ -385,9 +393,7 @@ function createGround() {
 // ==============================
 
 function createCentralPlatform() {
-    const platformSize = new THREE.Vector3(10, 0.5, 10); // Width, Height, Depth
     const platformGeometry = new THREE.BoxGeometry(platformSize.x, platformSize.y, platformSize.z);
-
     const platformMaterial = new THREE.MeshPhysicalMaterial({
         color: 0x8B4513,           // SaddleBrown color to resemble wood
         metalness: 0.1,            // Low metalness since wood isn't metallic
@@ -397,62 +403,61 @@ function createCentralPlatform() {
     });
 
     platform = new THREE.Mesh(platformGeometry, platformMaterial);
-    platform.position.set(0, platformSize.y / 2, 0); // Positioned on the ground
+    platform.position.set(0, platformSize.y / 2, 0); // Use global `platformSize`
     platform.castShadow = true;
     platform.receiveShadow = true;
     scene.add(platform);
 }
+
 
 // ==============================
 // Create Player Visual and Physics
 // ==============================
 
 function createPlayer() {
-    const playerHeight = 4; // Match height from physics
-    const playerRadius = 0.5; // Match radius from physics
-   
+    const { height, radius, initialPosition } = PLAYER_CONFIG;
+
     // Create a material for the player
     const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x4682B4 }); // Steel Blue
 
     // Create the cylinder mesh
-    const playerGeometry = new THREE.CylinderGeometry(playerRadius, playerRadius, playerHeight, 32);
+    const playerGeometry = new THREE.CylinderGeometry(radius, radius, height, 32);
     player = new THREE.Mesh(playerGeometry, playerMaterial);
     player.castShadow = true;
     player.receiveShadow = true;
 
     // Position the player visually to match the physics body
-    player.position.set(0, playerHeight / 2, 0);
+    player.position.set(initialPosition.x, initialPosition.y, initialPosition.z);
 
     // Add the player to the scene
     scene.add(player);
 }
 
 
+
 function createPlayerPhysics() {
-    const playerHeight = 4; // Match height from physics
-    const playerRadius = 0.5; // Match radius from physics
-    
+    const { height, radius, mass, initialPosition } = PLAYER_CONFIG;
+
     // Create a cylinder shape for the player
-    const cylinderShape = new Ammo.btCylinderShape(new Ammo.btVector3(playerRadius, playerHeight / 2, playerRadius));
+    const cylinderShape = new Ammo.btCylinderShape(new Ammo.btVector3(radius, height / 2, radius));
     cylinderShape.setMargin(0); // Remove default collision margin for better precision
 
     // Set up the player's starting transform
     const startTransform = new Ammo.btTransform();
     startTransform.setIdentity();
-    startTransform.setOrigin(new Ammo.btVector3(0, playerHeight / 2, 0)); // Place base of cylinder on the ground
+    startTransform.setOrigin(new Ammo.btVector3(initialPosition.x, initialPosition.y, initialPosition.z));
 
     // Calculate inertia for the cylinder
-    const playerMass = 10; // Adjust mass as needed
     const localInertia = new Ammo.btVector3(0, 0, 0);
-    cylinderShape.calculateLocalInertia(playerMass, localInertia);
+    cylinderShape.calculateLocalInertia(mass, localInertia);
 
     // Create motion state and rigid body
     const motionState = new Ammo.btDefaultMotionState(startTransform);
-    const rbInfo = new Ammo.btRigidBodyConstructionInfo(playerMass, motionState, cylinderShape, localInertia);
+    const rbInfo = new Ammo.btRigidBodyConstructionInfo(mass, motionState, cylinderShape, localInertia);
     playerBody = new Ammo.btRigidBody(rbInfo);
 
     // Freeze rotation along the X and Z axes to keep the cylinder upright
-    playerBody.setAngularFactor(new Ammo.btVector3(0, 1, 0)); // Allow only Y-axis rotation
+    playerBody.setAngularFactor(new Ammo.btVector3(0, 1, 0));
 
     // Add friction and damping for stability
     playerBody.setFriction(0.8);
@@ -462,7 +467,6 @@ function createPlayerPhysics() {
     // Add the player body to the physics world
     physicsWorld.addRigidBody(playerBody);
 }
-
 
 
 // ==============================
@@ -530,21 +534,20 @@ function createBarbellVisual() {
 function createSquatRack() {
     const squatRack = new THREE.Group();
 
-    // Material for the squat rack
     const rackMaterial = new THREE.MeshStandardMaterial({
-        color: 0x2e2929, // rack color
+        color: 0x2e2929, // Rack color
         metalness: 0.3,
         roughness: 0.7,
     });
 
-    // Offset to position the vertical supports
-    const rackOffsetX = BARBELL_CONFIG.centralBar.length / 2 - 0.5; // Align with barbell length
+    const rackOffsetX = BARBELL_CONFIG.centralBar.length / 2 - 0.5;
 
-    // Function to create a single vertical support with a holder
+    // Manual position adjustment (height above platform)
+    const manualRackYOffset = -0.5; // Adjust this value as needed
+
     function createSupportWithHolder() {
         const support = new THREE.Group();
 
-        // Vertical support
         const verticalGeometry = new THREE.BoxGeometry(
             RACK_CONFIG.verticalThickness,
             RACK_CONFIG.verticalHeight,
@@ -554,7 +557,6 @@ function createSquatRack() {
         vertical.position.set(0, RACK_CONFIG.verticalHeight / 2, 0); // Center vertically
         support.add(vertical);
 
-        // Rectangular holder
         const holderGeometry = new THREE.BoxGeometry(
             RACK_CONFIG.holderLength,
             RACK_CONFIG.holderHeight,
@@ -562,26 +564,22 @@ function createSquatRack() {
         );
         const holder = new THREE.Mesh(holderGeometry, rackMaterial);
 
-        // Position the holder near the top of the vertical support
-        const holderOffsetZ = RACK_CONFIG.holderThickness / 2; // Extend out from the vertical
-        const holderOffsetY = RACK_CONFIG.verticalHeight - RACK_CONFIG.holderOffsetFromTop; // Position below the top
+        const holderOffsetZ = RACK_CONFIG.holderThickness / 2;
+        const holderOffsetY = RACK_CONFIG.verticalHeight - RACK_CONFIG.holderOffsetFromTop;
         holder.position.set(0, holderOffsetY, holderOffsetZ);
         support.add(holder);
 
         return support;
     }
 
-    // Create the left vertical support with holder
     const leftSupport = createSupportWithHolder();
-    leftSupport.position.set(-rackOffsetX, 0, 0); // Position on the left
+    leftSupport.position.set(-rackOffsetX, platformSize.y + manualRackYOffset, 0); // Use manual adjustment
     squatRack.add(leftSupport);
 
-    // Create the right vertical support with holder
     const rightSupport = createSupportWithHolder();
-    rightSupport.position.set(rackOffsetX, 0, 0); // Position on the right
+    rightSupport.position.set(rackOffsetX, platformSize.y + manualRackYOffset, 0); // Use manual adjustment
     squatRack.add(rightSupport);
 
-    // Enable shadows for all components
     squatRack.traverse((child) => {
         if (child.isMesh) {
             child.castShadow = true;
@@ -589,7 +587,6 @@ function createSquatRack() {
         }
     });
 
-    // Add the squat rack to the scene
     scene.add(squatRack);
 
     return squatRack;
@@ -609,45 +606,20 @@ function createSquatRackPhysics() {
     const leftVerticalTransform = new Ammo.btTransform();
     leftVerticalTransform.setIdentity();
     leftVerticalTransform.setOrigin(new Ammo.btVector3(
-        -RACK_CONFIG.verticalHeight / 2,  // Position under barbell
-        RACK_CONFIG.verticalHeight / 2,  // Centered vertically
-        0                                // Centered depth-wise
+        -BARBELL_CONFIG.centralBar.length / 2 + 0.5, // Align with barbell length
+        platformSize.y + RACK_CONFIG.verticalHeight / 2, // Add platform height
+        0
     ));
     compoundShape.addChildShape(leftVerticalTransform, verticalShape);
 
     const rightVerticalTransform = new Ammo.btTransform();
     rightVerticalTransform.setIdentity();
     rightVerticalTransform.setOrigin(new Ammo.btVector3(
-        RACK_CONFIG.verticalHeight / 2,
-        RACK_CONFIG.verticalHeight / 2,
+        BARBELL_CONFIG.centralBar.length / 2 - 0.5, // Align with barbell length
+        platformSize.y + RACK_CONFIG.verticalHeight / 2, // Add platform height
         0
     ));
     compoundShape.addChildShape(rightVerticalTransform, verticalShape);
-
-    // Add Holder Collision Boxes
-    const holderShape = new Ammo.btBoxShape(new Ammo.btVector3(
-        RACK_CONFIG.holderLength / 2,   // Half-length
-        RACK_CONFIG.holderHeight / 2,  // Half-height
-        RACK_CONFIG.holderThickness / 2 // Half-thickness
-    ));
-
-    const leftHolderTransform = new Ammo.btTransform();
-    leftHolderTransform.setIdentity();
-    leftHolderTransform.setOrigin(new Ammo.btVector3(
-        -RACK_CONFIG.verticalHeight / 2,
-        RACK_CONFIG.verticalHeight - RACK_CONFIG.holderOffsetFromTop,
-        0 // Centered depth-wise
-    ));
-    compoundShape.addChildShape(leftHolderTransform, holderShape);
-
-    const rightHolderTransform = new Ammo.btTransform();
-    rightHolderTransform.setIdentity();
-    rightHolderTransform.setOrigin(new Ammo.btVector3(
-        RACK_CONFIG.verticalHeight / 2,
-        RACK_CONFIG.verticalHeight - RACK_CONFIG.holderOffsetFromTop,
-        0 // Centered depth-wise
-    ));
-    compoundShape.addChildShape(rightHolderTransform, holderShape);
 
     // Add Compound Shape to the Physics World
     const rackMass = 0; // Static object
@@ -663,6 +635,7 @@ function createSquatRackPhysics() {
 
     physicsWorld.addRigidBody(rackBody);
 }
+
 
 
 // ==============================
@@ -829,7 +802,7 @@ function jump() {
     const velocity = playerBody.getLinearVelocity();
     if (velocity.y() < 0.1) { // Threshold to determine if on or near the ground
         // Apply an upward impulse
-        const jumpForce = new Ammo.btVector3(0, 150, 0); // Adjusted Y value for jump strength as per user specification
+        const jumpForce = new Ammo.btVector3(0, 50, 0); // Adjusted Y value for jump strength as per user specification
         playerBody.applyCentralImpulse(jumpForce);
     }
 }
@@ -900,6 +873,31 @@ function updateBarbellPosition() {
     barbell.position.set(origin.x(), origin.y(), origin.z());
     barbell.quaternion.set(rotation.x(), rotation.y(), rotation.z(), rotation.w());
 }
+
+const actionButton = document.getElementById('actionButton');
+
+function checkProximityToBarbell() {
+    if (!player || !barbell) return;
+
+    // Calculate the distance between the player and the barbell
+    const distance = player.position.distanceTo(barbell.position);
+
+    // Show the action button if within proximity (e.g., 3 units)
+    if (distance <= 5) {
+        actionButton.style.display = 'block';
+        actionButton.innerText = 'Squat'; // Example text
+    } else {
+        actionButton.style.display = 'none';
+    }
+}
+
+actionButton.addEventListener('touchstart', (e) => {
+    e.preventDefault(); // Prevent any default touch behavior
+    console.log('Barbell action triggered!');
+    // Add your specific action logic here (e.g., lifting the barbell)
+});
+
+
 
 // ==============================
 // Joystick Event Handlers
@@ -1045,6 +1043,7 @@ function animate() {
     updatePlayerPosition();
     updateBarbellPosition();
     updateCameraPosition();
+    checkProximityToBarbell();
     renderer.render(scene, camera);
 }
 
