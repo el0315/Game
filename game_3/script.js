@@ -33,8 +33,10 @@ const BARBELL_CONFIG = {
             y: 5,
             z: 0.05
         }
-    }
+    },
+    releaseForce: 7000  // Force applied to barbell on release (in Newtons)
 };
+
 
 
 // ==============================
@@ -1012,6 +1014,24 @@ function releaseBarbell(e) {
     // Activate the barbell to ensure physics are applied
     barbellBody.activate(true);
 
+    // Apply force to the barbell to push it off the player's top
+
+    // Calculate the player's forward direction
+    const forwardVector = new THREE.Vector3(0, 0.5, -1);
+    forwardVector.applyQuaternion(player.quaternion);
+    forwardVector.normalize();
+
+    // Multiply by the release force
+    const forceMagnitude = BARBELL_CONFIG.releaseForce;
+    const releaseForceVector = new Ammo.btVector3(
+        forwardVector.x * forceMagnitude,
+        forwardVector.y * forceMagnitude,
+        forwardVector.z * forceMagnitude
+    );
+
+    // Apply the force to the barbell
+    barbellBody.applyCentralForce(releaseForceVector);
+
     // Change button text back
     actionButton.innerText = "Squat";
 
@@ -1019,6 +1039,7 @@ function releaseBarbell(e) {
     actionButton.removeEventListener('touchstart', onReleaseButtonPress);
     actionButton.addEventListener('touchstart', onActionButtonPress, { passive: false });
 }
+
 
 
 let barbellConstraint; // Declare globally to remove later if needed
