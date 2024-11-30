@@ -874,7 +874,34 @@ function updateBarbellPosition() {
     barbell.quaternion.set(rotation.x(), rotation.y(), rotation.z(), rotation.w());
 }
 
+// Reference the action button
 const actionButton = document.getElementById('actionButton');
+
+// Define the force value (you can adjust this as needed)
+const forceValue = 10000; // Set your desired force in Newtons (e.g., 100 N)
+
+// Function to apply force on the barbell
+function applyForceOnBarbell(force) {
+    if (!barbellBody) {
+        console.warn("Barbell body not initialized.");
+        return;
+    }
+
+    // Apply a force in the +z direction
+    const forceVector = new Ammo.btVector3(0, 0, -force);
+
+    // Apply the force to the barbell at its current center of mass
+    barbellBody.applyCentralForce(forceVector);
+
+    console.log(`Applied force of ${force} N to the barbell.`);
+}
+
+// Set up the action button to apply force
+actionButton.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    applyForceOnBarbell(forceValue);
+});
+
 
 function checkProximityToBarbell() {
     if (!player || !barbell) return;
@@ -883,7 +910,7 @@ function checkProximityToBarbell() {
     const distance = player.position.distanceTo(barbell.position);
 
     // Show the action button if within proximity (e.g., 3 units)
-    if (distance <= 5) {
+    if (distance <= 50) {
         actionButton.style.display = 'block';
         actionButton.innerText = 'Squat'; // Example text
     } else {
