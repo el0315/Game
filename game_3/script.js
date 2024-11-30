@@ -304,7 +304,7 @@ function createPlayer() {
     const playerGeometry = new THREE.CylinderGeometry(radius, radius, height, 32);
     player = new THREE.Mesh(playerGeometry, playerMaterial);
     player.castShadow = false;
-    player.receiveShadow = false;
+    player.receiveShadow = true;
 
     // Position the player visually to match the physics body
     player.position.set(initialPosition.x, initialPosition.y, initialPosition.z);
