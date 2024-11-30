@@ -132,8 +132,13 @@ function checkCollisions() {
         const body0 = contactManifold.getBody0();
         const body1 = contactManifold.getBody1();
 
+        // Check if collision is between player and barbell
         if ((body0 === playerBody && body1 === barbellBody) || (body1 === playerBody && body0 === barbellBody)) {
-            setBarbellMass(BARBELL_CONFIG.centralBar.mass + 2 * BARBELL_CONFIG.plate.mass);
+            // Only proceed if the barbell is not already attached
+            if (!barbellConstraint) {
+                // You can include logic here if needed
+                // For example, prevent the barbell from passing through the player
+            }
             return;
         }
     }
@@ -487,8 +492,12 @@ function setBarbellMass(mass) {
     barbellBody.setRollingFriction(0.1);
     barbellBody.setDamping(0.1, 0.2);
 
-    // Enable gravity
-    barbellBody.setGravity(new Ammo.btVector3(0, -19.6, 0)); // Standard gravity
+    // Set gravity based on mass
+    if (mass > 0) {
+        barbellBody.setGravity(new Ammo.btVector3(0, -19.6, 0)); // Enable gravity
+    } else {
+        barbellBody.setGravity(new Ammo.btVector3(0, 0, 0)); // Disable gravity
+    }
 
     // Add back to physics world
     physicsWorld.addRigidBody(barbellBody);
@@ -757,7 +766,7 @@ function jump() {
 
     if (velocity.y() < 0.1 && !jumpInProgress) { // Ensure grounded and not already jumping
         jumpInProgress = true; // Set jump flag
-        const jumpForce = new Ammo.btVector3(0, 50, 0); // Adjust jump strength
+        const jumpForce = new Ammo.btVector3(0, 100, 0); // Adjust jump strength
         playerBody.applyCentralImpulse(jumpForce);
 
         // Reset jumpInProgress after the jump is complete
@@ -889,8 +898,11 @@ function updateBarbellPosition() {
 // Reference the action button
 const actionButton = document.getElementById('actionButton');
 
+// Attach the initial event listener for picking up the barbell
+actionButton.addEventListener('touchstart', onActionButtonPress, { passive: false });
+
 // Define the force value (you can adjust this as needed)
-const forceValue = 10000; // Set your desired force in Newtons (e.g., 100 N)
+const forceValue = 0; // Set your desired force in Newtons (e.g., 100 N)
 
 // Function to apply force on the barbell
 function applyForceOnBarbell(force) {
@@ -905,14 +917,133 @@ function applyForceOnBarbell(force) {
     console.log(`Applied force: ${force} N`);
 }
 
-// Set up the action button to apply force
-actionButton.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    e.stopPropagation(); // Prevent touch event from bubbling up
-    console.log('Barbell action triggered!');
-    applyForceOnBarbell(forceValue);
-});
+function moveBarbellToPlayerTop() {
+    if (!barbell || !player || !barbellBody || !playerBody) return;
 
+    // Calculate the target position on top of the player
+    const playerTopY = player.position.y + (currentHeight / 2) + (BARBELL_CONFIG.centralBar.radius);
+    const targetPosition = {
+        x: player.position.x,
+        y: playerTopY,
+        z: player.position.z
+    };
+
+    // Current barbell position
+    const startPosition = {
+        x: barbell.position.x,
+        y: barbell.position.y,
+        z: barbell.position.z
+    };
+
+    // Use Tween.js to animate the barbell's position
+    new TWEEN.Tween(startPosition)
+        .to(targetPosition, 1000) // Duration in milliseconds
+        .easing(TWEEN.Easing.Quadratic.Out)
+        .onUpdate(() => {
+            // Update barbell mesh position
+            barbell.position.set(startPosition.x, startPosition.y, startPosition.z);
+
+            // Update barbell physics body position
+            const transform = new Ammo.btTransform();
+            transform.setIdentity();
+            transform.setOrigin(new Ammo.btVector3(startPosition.x, startPosition.y, startPosition.z));
+            transform.setRotation(new Ammo.btQuaternion(
+                barbell.quaternion.x,
+                barbell.quaternion.y,
+                barbell.quaternion.z,
+                barbell.quaternion.w
+            ));
+
+            barbellBody.setWorldTransform(transform);
+            barbellBody.getMotionState().setWorldTransform(transform);
+        })
+        .onComplete(() => {
+            // Attach the barbell
+            attachBarbellToPlayer();
+
+            // Change button text
+            actionButton.innerText = "Release";
+
+            // Update event listener
+            actionButton.removeEventListener('touchstart', onActionButtonPress);
+            actionButton.addEventListener('touchstart', onReleaseButtonPress, { passive: false });
+        })
+        .start();
+}
+
+function releaseBarbell(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Remove the constraint
+    if (barbellConstraint) {
+        physicsWorld.removeConstraint(barbellConstraint);
+        barbellConstraint = null;
+    }
+
+    // Reset barbell mass to make it dynamic again
+    setBarbellMass(BARBELL_CONFIG.centralBar.mass + 2 * BARBELL_CONFIG.plate.mass);
+
+    // Ensure the barbell is affected by gravity
+    barbellBody.setGravity(new Ammo.btVector3(0, -19.6, 0));
+
+    // Activate the barbell to ensure physics are applied
+    barbellBody.activate(true);
+
+    // Change button text back
+    actionButton.innerText = "Squat";
+
+    // Update event listener
+    actionButton.removeEventListener('touchstart', onReleaseButtonPress);
+    actionButton.addEventListener('touchstart', onActionButtonPress, { passive: false });
+}
+
+
+
+let barbellConstraint; // Declare globally to remove later if needed
+
+function attachBarbellToPlayer() {
+    if (barbellConstraint) return; // Already attached
+
+    // Set barbell mass to zero to make it kinematic while attached
+    setBarbellMass(0);
+
+    // Create a constraint to attach the barbell to the player
+    const frameInA = new Ammo.btTransform();
+    frameInA.setIdentity();
+    frameInA.getOrigin().setY((currentHeight / 2) + (BARBELL_CONFIG.centralBar.radius));
+
+    const frameInB = new Ammo.btTransform();
+    frameInB.setIdentity();
+
+    // Create the constraint
+    barbellConstraint = new Ammo.btGeneric6DofConstraint(playerBody, barbellBody, frameInA, frameInB, true);
+
+    // Lock all movement and rotation between the bodies
+    const zeroVec = new Ammo.btVector3(0, 0, 0);
+    barbellConstraint.setLinearLowerLimit(zeroVec);
+    barbellConstraint.setLinearUpperLimit(zeroVec);
+    barbellConstraint.setAngularLowerLimit(zeroVec);
+    barbellConstraint.setAngularUpperLimit(zeroVec);
+
+    // Add the constraint to the physics world
+    physicsWorld.addConstraint(barbellConstraint, true);
+}
+
+
+function onActionButtonPress(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Barbell action triggered!');
+    moveBarbellToPlayerTop();
+}
+
+function onReleaseButtonPress(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Barbell release triggered!');
+    releaseBarbell(e);
+}
 
 
 const PROXIMITY_THRESHOLD = 10; // Distance to trigger action
@@ -923,19 +1054,20 @@ function checkProximityToBarbell() {
 
     const distance = player.position.distanceTo(barbell.position);
 
-    if (distance <= PROXIMITY_THRESHOLD) {
+    if (barbellConstraint) {
+        // Barbell is attached, show the "Release" button
         actionButton.style.display = "block";
-        actionButton.innerText = ACTION_TEXT;
+        actionButton.innerText = "Release";
+    } else if (distance <= PROXIMITY_THRESHOLD) {
+        // Barbell is nearby, show the "Squat" button
+        actionButton.style.display = "block";
+        actionButton.innerText = "Squat";
     } else {
+        // Barbell is not nearby and not attached
         actionButton.style.display = "none";
     }
 }
 
-actionButton.addEventListener('touchstart', (e) => {
-    e.preventDefault(); // Prevent any default touch behavior
-    console.log('Barbell action triggered!');
-    // Add your specific action logic here (e.g., lifting the barbell)
-});
 
 // ==============================
 // Joystick Event Handlers
@@ -1130,6 +1262,8 @@ function animate() {
     // Check collisions and proximity
     checkCollisions();
     checkProximityToBarbell();
+    // Update Tween animations
+    TWEEN.update();
 
     renderer.render(scene, camera);
 }
