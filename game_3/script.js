@@ -24,7 +24,7 @@ const BARBELL_CONFIG = {
         initialPosition: {  // Initial X, Y, Z coordinates
             x: 0,
             y: 5,
-            z: 0
+            z: 0.05
         }
     }
 };
@@ -79,6 +79,7 @@ function loadAmmoAndStartGame() {
         console.error("Failed to load Ammo.js:", error);
     });
 }
+
 // ==============================
 // Initialize Physics
 // ==============================
@@ -122,7 +123,7 @@ function initializePhysics() {
     const playerTransform = new Ammo.btTransform();
     playerTransform.setIdentity();
     playerTransform.setOrigin(new Ammo.btVector3(0, playerRadius + 1, 0)); // Positioned slightly above the ground
-    const playerMass = 1; // Dynamic object
+    const playerMass = 10; // Dynamic object
     const playerInertia = new Ammo.btVector3(0, 0, 0);
     playerShape.calculateLocalInertia(playerMass, playerInertia);
 
@@ -264,6 +265,57 @@ function initializeScene() {
 
     // Set up jump button functionality
     setupJumpButton();
+}
+
+
+// ==============================
+// Camera Toggle Configuration
+// ==============================
+
+let isThirdPerson = true; // Flag to toggle between third-person and first-person
+
+document.addEventListener("DOMContentLoaded", () => {
+    const toggleCameraButton = document.getElementById("toggleCameraButton");
+
+    if (toggleCameraButton) {
+        toggleCameraButton.addEventListener("touchstart", (e) => {
+            e.preventDefault(); // Prevent unintended behavior like scrolling
+            isThirdPerson = !isThirdPerson;
+            console.log(`Camera mode: ${isThirdPerson ? "Third-person" : "First-person"}`);
+        });
+    } else {
+        console.error("Toggle Camera Button not found in the DOM.");
+    }
+});
+
+
+// ==============================
+// Camera Update Function
+// ==============================
+
+function updateCameraPosition() {
+    if (isThirdPerson) {
+        // Third-person camera logic
+        const cameraDistance = 10;
+        const offsetX = cameraDistance * Math.cos(pitch) * Math.sin(yaw);
+        const offsetY = cameraDistance * Math.sin(pitch) + 5; // Elevated slightly for better view
+        const offsetZ = cameraDistance * Math.cos(pitch) * Math.cos(yaw);
+
+        camera.position.set(
+            player.position.x + offsetX,
+            player.position.y + offsetY,
+            player.position.z + offsetZ
+        );
+        camera.lookAt(player.position);
+    } else {
+        // First-person camera logic
+        camera.position.set(
+            player.position.x,
+            player.position.y + playerRadius / 2, // Slightly above the sphere's center
+            player.position.z
+        );
+        camera.rotation.set(pitch, yaw, 0); // Align with player's orientation
+    }
 }
 
 // ==============================
@@ -723,7 +775,7 @@ function jump() {
     const velocity = playerBody.getLinearVelocity();
     if (velocity.y() < 0.1) { // Threshold to determine if on or near the ground
         // Apply an upward impulse
-        const jumpForce = new Ammo.btVector3(0, 15, 0); // Adjusted Y value for jump strength as per user specification
+        const jumpForce = new Ammo.btVector3(0, 150, 0); // Adjusted Y value for jump strength as per user specification
         playerBody.applyCentralImpulse(jumpForce);
     }
 }
@@ -798,7 +850,6 @@ function updateBarbellPosition() {
 // Joystick Event Handlers
 // ==============================
 
-// Function to handle the start of joystick movement
 function handleMoveJoystickStart(touch) {
     const rect = joystickContainerMove.getBoundingClientRect();
     const dx = touch.clientX - rect.left - (rect.width / 2);
@@ -811,7 +862,6 @@ function handleMoveJoystickStart(touch) {
     }
 }
 
-// Function to handle joystick movement
 function handleMoveJoystick(touch) {
     const rect = joystickContainerMove.getBoundingClientRect();
     let dx = touch.clientX - rect.left - (rect.width / 2);
@@ -828,11 +878,12 @@ function handleMoveJoystick(touch) {
     joystickMoveAngle = Math.atan2(dy, dx);
 }
 
-// Function to reset the joystick position smoothly
+
 function resetMoveJoystick() {
     joystickMoveAngle = null;
     joystickKnobMove.style.transform = 'translate(0px, 0px)';
 }
+
 
 // Function to set up touch event listeners for joystick and rotation
 function setupEventListeners() {
@@ -849,23 +900,38 @@ function setupEventListeners() {
         }
         e.preventDefault();
     }, { passive: false });
+    
+    
 
-    document.addEventListener('touchmove', (e) => {
+    document.addEventListener("touchmove", (e) => {
         for (const touch of e.changedTouches) {
+            // Handle movement joystick
             if (touch.identifier === movementTouchId) {
                 handleMoveJoystick(touch);
-            } else if (touch.identifier === rotationTouchId) {
+            }
+    
+            // Handle rotation joystick
+            if (touch.identifier === rotationTouchId) {
                 const deltaX = touch.clientX - lastTouchX;
                 const deltaY = touch.clientY - lastTouchY;
-                yaw -= deltaX * rotationSpeed;
-                // Clamping the pitch between minPitch and maxPitch
-                pitch = Math.max(minPitch, Math.min(maxPitch, pitch + deltaY * rotationSpeed));
+    
+                yaw -= deltaX * rotationSpeed; // Horizontal rotation remains the same
+    
+                if (!isThirdPerson) {
+                    // Invert vertical rotation in first-person mode
+                    pitch = Math.max(minPitch, Math.min(maxPitch, pitch - deltaY * rotationSpeed));
+                } else {
+                    // Default vertical rotation for third-person mode
+                    pitch = Math.max(minPitch, Math.min(maxPitch, pitch + deltaY * rotationSpeed));
+                }
+    
                 lastTouchX = touch.clientX;
                 lastTouchY = touch.clientY;
             }
         }
-        e.preventDefault();
+        e.preventDefault(); // Prevent default browser behavior
     }, { passive: false });
+    
 
     document.addEventListener('touchend', (e) => {
         for (const touch of e.changedTouches) {
@@ -885,18 +951,34 @@ function setupEventListeners() {
 // ==============================
 
 function updateCameraPosition() {
-    const cameraDistance = 10;
-    const offsetX = cameraDistance * Math.cos(pitch) * Math.sin(yaw);
-    const offsetY = cameraDistance * Math.sin(pitch) + 5; // Elevated slightly for better view
-    const offsetZ = cameraDistance * Math.cos(pitch) * Math.cos(yaw);
+    if (isThirdPerson) {
+        // Third-person camera logic
+        const cameraDistance = 10;
+        const offsetX = cameraDistance * Math.cos(pitch) * Math.sin(yaw);
+        const offsetY = cameraDistance * Math.sin(pitch) + 5; // Elevated slightly for better view
+        const offsetZ = cameraDistance * Math.cos(pitch) * Math.cos(yaw);
 
-    camera.position.set(
-        player.position.x + offsetX,
-        player.position.y + offsetY,
-        player.position.z + offsetZ
-    );
-    camera.lookAt(player.position);
+        camera.position.set(
+            player.position.x + offsetX,
+            player.position.y + offsetY,
+            player.position.z + offsetZ
+        );
+        camera.lookAt(player.position);
+    } else {
+        // First-person camera logic
+        camera.position.set(
+            player.position.x,
+            player.position.y + playerRadius / 2, // Slightly above the player's center
+            player.position.z
+        );
+
+        // Apply pitch and yaw to camera rotation
+        const quaternion = new THREE.Quaternion();
+        quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, "YXZ")); // YXZ order ensures correct FPS-like orientation
+        camera.quaternion.copy(quaternion);
+    }
 }
+
 
 // ==============================
 // Animation Loop
