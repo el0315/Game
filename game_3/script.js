@@ -22,9 +22,9 @@ const BARBELL_CONFIG = {
     position: {
         y: 3,              // Default Y-position of the barbell
         initialPosition: {  // Initial X, Y, Z coordinates
-            x: -0.1,
+            x: 0,
             y: 5,
-            z: 0.5
+            z: 0
         }
     }
 };
@@ -35,10 +35,8 @@ const RACK_CONFIG = {
     holderLength: 0.4,       // Length of the holder (horizontal dimension)
     holderHeight: 0.2,       // Height of the holder (vertical dimension)
     holderThickness: 0.7,    // Thickness of the holder (depth)
-    holderOffsetFromTop: 0.3 // Distance of the holder from the top of the vertical support
+    holderOffsetFromTop: 0.5 // Distance of the holder from the top of the vertical support
 };
-
-
 
 // ==============================
 // Declare Global Variables
@@ -92,7 +90,7 @@ function initializePhysics() {
     const broadphase = new Ammo.btDbvtBroadphase();
     const solver = new Ammo.btSequentialImpulseConstraintSolver();
     physicsWorld = new Ammo.btDiscreteDynamicsWorld(dispatcher, broadphase, solver, collisionConfiguration);
-    physicsWorld.setGravity(new Ammo.btVector3(0, -9.8, 0)); // Standard gravity
+    physicsWorld.setGravity(new Ammo.btVector3(0, -19.6, 0)); // Standard gravity
 
     // Create the ground physics body
     const groundShape = new Ammo.btBoxShape(new Ammo.btVector3(100, 1, 100));
@@ -423,7 +421,6 @@ function createBarbellVisual() {
     scene.add(barbell);
 }
 
-
 function createSquatRack() {
     const squatRack = new THREE.Group();
 
@@ -434,21 +431,8 @@ function createSquatRack() {
         roughness: 0.7,
     });
 
-    // Barbell proportions from configuration
-    const barbellLength = BARBELL_CONFIG.centralBar.length; // 5 units
-
-    // Squat rack configuration
-    const RACK_CONFIG = {
-        verticalHeight: 4, // Height of the vertical supports
-        verticalThickness: 0.2, // Thickness of the vertical supports
-        holderLength: 0.2, // Length of the holder (horizontal dimension)
-        holderHeight: 0.2, // Height of the holder (vertical dimension)
-        holderThickness: 2, // Thickness of the holder (depth)
-        holderOffsetFromTop: 0.3, // Distance of the holder from the top of the vertical
-    };
-
     // Offset to position the vertical supports
-    const rackOffsetX = (barbellLength / 2) - 0.5; // Slightly beyond barbell ends
+    const rackOffsetX = BARBELL_CONFIG.centralBar.length / 2 - 0.5; // Align with barbell length
 
     // Function to create a single vertical support with a holder
     function createSupportWithHolder() {
@@ -461,7 +445,7 @@ function createSquatRack() {
             RACK_CONFIG.verticalThickness
         );
         const vertical = new THREE.Mesh(verticalGeometry, rackMaterial);
-        vertical.position.set(0, RACK_CONFIG.verticalHeight / 2, 0); // Position vertically
+        vertical.position.set(0, RACK_CONFIG.verticalHeight / 2, 0); // Center vertically
         support.add(vertical);
 
         // Rectangular holder
@@ -472,10 +456,10 @@ function createSquatRack() {
         );
         const holder = new THREE.Mesh(holderGeometry, rackMaterial);
 
-        // Position the holder near the top of the vertical
-        const holderOffsetZ = RACK_CONFIG.holderLength / 2; // Shift holder so one end is in contact with the vertical
-        const holderOffsetY = RACK_CONFIG.verticalHeight - RACK_CONFIG.holderOffsetFromTop; // Near the top
-        holder.position.set(0, holderOffsetY, holderOffsetZ); // Position the holder
+        // Position the holder near the top of the vertical support
+        const holderOffsetZ = RACK_CONFIG.holderThickness / 2; // Extend out from the vertical
+        const holderOffsetY = RACK_CONFIG.verticalHeight - RACK_CONFIG.holderOffsetFromTop; // Position below the top
+        holder.position.set(0, holderOffsetY, holderOffsetZ);
         support.add(holder);
 
         return support;
@@ -504,6 +488,7 @@ function createSquatRack() {
 
     return squatRack;
 }
+
 
 function createSquatRackPhysics() {
     const compoundShape = new Ammo.btCompoundShape();
