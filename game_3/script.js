@@ -509,39 +509,34 @@ function setBarbellMass(mass) {
 // Global Variables for Spring Force
 // ==============================
 
+// ==============================
+// Global Variables for Spring Force
+// ==============================
+
 // Configurable parameters for the spring system
 const SPRING_CONFIG = {
-    stiffness: 500,      // Spring stiffness (higher = stiffer spring)
-    damping: 5,          // Damping factor (higher = less oscillation)
-    oscillationEnabled: true, // Enable or disable oscillations
-    minHeight: 1.5,      // Minimum player height
-    maxHeight: 5.0,      // Maximum player height
-    additionalForce: 50000, // Additional force applied when pressing the button
+    stiffness: 200,        // Spring stiffness (higher = stiffer spring)
+    damping: 50,           // Damping factor (higher = less oscillation)
+    minHeight: PLAYER_CONFIG.height * 0.5, // Minimum player height
+    maxHeight: PLAYER_CONFIG.height,       // Maximum player height
+    additionalForce: 1000, // Additional force applied when pressing the button
 };
 
 // Variables to track spring force and height
-let currentHeight = PLAYER_CONFIG.height; // Current height of the player
+let originalHeight = PLAYER_CONFIG.height; // Original player height
+let currentHeight = originalHeight;        // Current height of the player
+let springVelocity = 0;                    // Velocity of the spring
+let appliedForce = 0;                      // External force applied to the spring
 
 // Reference to the Apply Force button
 const applyForceButton = document.getElementById("applyForceButton");
-
-// Define variables for the spring system
-let originalHeight = PLAYER_CONFIG.height; // Original player height
-//let currentHeight = originalHeight;        // Current height of the player
-let springVelocity = 0;                    // Velocity of the spring
-let springConstant = 500;   // Increased from 100 to make the spring stiffer
-let dampingCoefficient = 50; // Increased from 10 to dampen oscillations faster
-let playerMass = 10;                       // Mass of the player
-let appliedForce = 0;                      // External force applied to the spring
-let minHeight = originalHeight * 0.7;      // Minimum compressed height
-let maxHeight = originalHeight;            // Maximum height
-
 
 // ==============================
 // Spring Force System
 // ==============================
 
 let jumpInProgress = false; // Track if a jump is in progress
+
 function updateSpring(deltaTime) {
     if (!player) return;
 
@@ -550,22 +545,30 @@ function updateSpring(deltaTime) {
 
     // Calculate displacement and forces only if needed
     const displacement = originalHeight - currentHeight;
+
     if (Math.abs(displacement) > 0.01 || appliedForce > 0) {
-        const springForce = springConstant * displacement;
-        const dampingForce = -dampingCoefficient * springVelocity;
+        const springForce = SPRING_CONFIG.stiffness * displacement;
+        const dampingForce = -SPRING_CONFIG.damping * springVelocity;
 
         // Calculate net force
         const netForce = springForce + dampingForce - appliedForce;
 
         // Update velocity and height
-        springVelocity += (netForce / playerMass) * deltaTime;
+        springVelocity += (netForce / PLAYER_CONFIG.mass) * deltaTime;
         currentHeight += springVelocity * deltaTime;
 
         // Clamp height within limits
-        currentHeight = Math.max(minHeight, Math.min(maxHeight, currentHeight));
+        currentHeight = Math.max(
+            SPRING_CONFIG.minHeight,
+            Math.min(SPRING_CONFIG.maxHeight, currentHeight)
+        );
 
         // Reset velocity if spring is at equilibrium
-        if (Math.abs(displacement) <= 0.01 && Math.abs(springVelocity) <= 0.01 && appliedForce === 0) {
+        if (
+            Math.abs(displacement) <= 0.01 &&
+            Math.abs(springVelocity) <= 0.01 &&
+            appliedForce === 0
+        ) {
             springVelocity = 0;
             currentHeight = originalHeight; // Ensure exact original height
         }
@@ -576,25 +579,38 @@ function updateSpring(deltaTime) {
 // Apply Force Button Handlers
 // ==============================
 
-applyForceButton.addEventListener("mousedown", () => {
-    appliedForce = SPRING_CONFIG.additionalForce;
-});
+if (applyForceButton) {
+    applyForceButton.addEventListener("mousedown", () => {
+        appliedForce = SPRING_CONFIG.additionalForce;
+    });
 
-applyForceButton.addEventListener("mouseup", () => {
-    appliedForce = 0;
-});
+    applyForceButton.addEventListener("mouseup", () => {
+        appliedForce = 0;
+    });
 
-applyForceButton.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    e.stopPropagation(); // Prevent touch event from bubbling up
-    appliedForce = SPRING_CONFIG.additionalForce;
-}, { passive: false });
+    applyForceButton.addEventListener(
+        "touchstart",
+        (e) => {
+            e.preventDefault();
+            e.stopPropagation(); // Prevent touch event from bubbling up
+            appliedForce = SPRING_CONFIG.additionalForce;
+        },
+        { passive: false }
+    );
 
-applyForceButton.addEventListener("touchend", (e) => {
-    e.preventDefault();
-    e.stopPropagation(); // Prevent touch event from bubbling up
-    appliedForce = 0;
-}, { passive: false });
+    applyForceButton.addEventListener(
+        "touchend",
+        (e) => {
+            e.preventDefault();
+            e.stopPropagation(); // Prevent touch event from bubbling up
+            appliedForce = 0;
+        },
+        { passive: false }
+    );
+} else {
+    console.warn("Apply Force Button not found in the DOM.");
+}
+
 
 
 // ==============================
