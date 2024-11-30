@@ -188,5 +188,35 @@ html, body {
     transform: scale(0.95); /* Slightly shrink on click */
 }
 
+/* =========================
+   Action Button Styling
+   ========================= */
 
+   #actionButton {
+    position: absolute;
+    bottom: 120px; /* Above the joystick and jump button */
+    left: 50%; /* Centered horizontally */
+    transform: translateX(-35%);
+    padding: 15px 30px;
+    font-size: 16px;
+    font-weight: bold;
+    background-color: rgba(0, 0, 0, 0.4); /* Sleek black background */
+    color: white;
+    border: none;
+    border-radius: 50px; /* Rounded edges for a modern look */
+    cursor: pointer;
+    display: none; /* Initially hidden */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+    transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+}
+
+#actionButton:hover {
+    background-color: rgba(50, 50, 50, 0.9); /* Slightly lighter black */
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5); /* Stronger shadow for hover effect */
+}
+
+#actionButton:active {
+    transform: scale(0.95); /* Slightly shrink on touch for feedback */
+}
 
