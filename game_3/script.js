@@ -547,11 +547,15 @@ function updateSpring(deltaTime) {
     const displacement = originalHeight - currentHeight;
 
     if (Math.abs(displacement) > 0.01 || appliedForce > 0) {
+        // Spring force proportional to displacement
         const springForce = SPRING_CONFIG.stiffness * displacement;
+
+        // Damping force proportional to velocity
         const dampingForce = -SPRING_CONFIG.damping * springVelocity;
 
-        // Calculate net force
-        const netForce = springForce + dampingForce - appliedForce;
+        // Adjust net force based on barbellLoad
+        const loadEffect = barbellLoad * 1; // Scale the load effect as needed
+        const netForce = springForce + dampingForce - appliedForce - loadEffect;
 
         // Update velocity and height
         springVelocity += (netForce / PLAYER_CONFIG.mass) * deltaTime;
@@ -574,6 +578,7 @@ function updateSpring(deltaTime) {
         }
     }
 }
+
 
 // ==============================
 // Apply Force Button Handlers
@@ -1022,7 +1027,9 @@ function releaseBarbell(e) {
     }
 
     // Reset barbell mass to make it dynamic again
-    setBarbellMass(BARBELL_CONFIG.centralBar.mass + 2 * BARBELL_CONFIG.plate.mass);
+    setBarbellMass(
+        BARBELL_CONFIG.centralBar.mass + 2 * BARBELL_CONFIG.plate.mass
+    );
 
     // Ensure the barbell is affected by gravity
     barbellBody.setGravity(new Ammo.btVector3(0, -19.6, 0));
@@ -1048,20 +1055,30 @@ function releaseBarbell(e) {
     // Apply the force to the barbell
     barbellBody.applyCentralForce(releaseForceVector);
 
+    // Reset barbellLoad since the player is no longer lifting the barbell
+    barbellLoad = 0;
+
     // Change button text back
     actionButton.innerText = "Grab Bar";
 
     // Update event listener
     actionButton.removeEventListener('touchstart', onReleaseButtonPress);
-    actionButton.addEventListener('touchstart', onActionButtonPress, { passive: false });
+    actionButton.addEventListener('touchstart', onActionButtonPress, {
+        passive: false,
+    });
 }
-
 
 
 let barbellConstraint; // Declare globally to remove later if needed
 
+// Global variable to represent the load the player is lifting
+let barbellLoad = 0;
+
 function attachBarbellToPlayer() {
     if (barbellConstraint) return; // Already attached
+
+    // Set barbellLoad to simulate the weight being lifted
+    barbellLoad = 50; // Adjust this value as needed
 
     // Set barbell mass to zero to make it kinematic while attached
     setBarbellMass(0);
@@ -1069,13 +1086,19 @@ function attachBarbellToPlayer() {
     // Create a constraint to attach the barbell to the player
     const frameInA = new Ammo.btTransform();
     frameInA.setIdentity();
-    frameInA.getOrigin().setY((currentHeight / 2) + (BARBELL_CONFIG.centralBar.radius));
+    frameInA.getOrigin().setY((currentHeight / 2) + BARBELL_CONFIG.centralBar.radius);
 
     const frameInB = new Ammo.btTransform();
     frameInB.setIdentity();
 
     // Create the constraint
-    barbellConstraint = new Ammo.btGeneric6DofConstraint(playerBody, barbellBody, frameInA, frameInB, true);
+    barbellConstraint = new Ammo.btGeneric6DofConstraint(
+        playerBody,
+        barbellBody,
+        frameInA,
+        frameInB,
+        true
+    );
 
     // Lock all movement and rotation between the bodies
     const zeroVec = new Ammo.btVector3(0, 0, 0);
