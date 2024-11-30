@@ -214,6 +214,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (toggleCameraButton) {
         toggleCameraButton.addEventListener("touchstart", (e) => {
             e.preventDefault(); // Prevent unintended behavior like scrolling
+            e.stopPropagation(); // Prevent touch event from bubbling up
             isThirdPerson = !isThirdPerson;
 
             if (isThirdPerson) {
@@ -306,7 +307,7 @@ function createPlayer() {
     // Create the cylinder mesh
     const playerGeometry = new THREE.CylinderGeometry(radius, radius, height, 32);
     player = new THREE.Mesh(playerGeometry, playerMaterial);
-    player.castShadow = false;
+    player.castShadow = true;
     player.receiveShadow = true;
 
     // Position the player visually to match the physics body
@@ -494,6 +495,104 @@ function setBarbellMass(mass) {
 }
 
 // ==============================
+// Global Variables for Spring Force
+// ==============================
+
+// Configurable parameters for the spring system
+const SPRING_CONFIG = {
+    stiffness: 500,      // Spring stiffness (higher = stiffer spring)
+    damping: 5,          // Damping factor (higher = less oscillation)
+    oscillationEnabled: true, // Enable or disable oscillations
+    minHeight: 1.5,      // Minimum player height
+    maxHeight: 5.0,      // Maximum player height
+    additionalForce: 50000, // Additional force applied when pressing the button
+};
+
+// Variables to track spring force and height
+let currentHeight = PLAYER_CONFIG.height; // Current height of the player
+
+// Reference to the Apply Force button
+const applyForceButton = document.getElementById("applyForceButton");
+
+// Define variables for the spring system
+let originalHeight = PLAYER_CONFIG.height; // Original player height
+//let currentHeight = originalHeight;        // Current height of the player
+let springVelocity = 0;                    // Velocity of the spring
+let springConstant = 500;   // Increased from 100 to make the spring stiffer
+let dampingCoefficient = 50; // Increased from 10 to dampen oscillations faster
+let playerMass = 10;                       // Mass of the player
+let appliedForce = 0;                      // External force applied to the spring
+let minHeight = originalHeight * 0.7;      // Minimum compressed height
+let maxHeight = originalHeight;            // Maximum height
+
+
+// ==============================
+// Spring Force System
+// ==============================
+
+let jumpInProgress = false; // Track if a jump is in progress
+function updateSpring(deltaTime) {
+    if (!player) return;
+
+    // Skip spring logic while jumping
+    if (jumpInProgress) return;
+
+    // Calculate displacement and forces only if needed
+    const displacement = originalHeight - currentHeight;
+    if (Math.abs(displacement) > 0.01 || appliedForce > 0) {
+        const springForce = springConstant * displacement;
+        const dampingForce = -dampingCoefficient * springVelocity;
+
+        // Calculate net force
+        const netForce = springForce + dampingForce - appliedForce;
+
+        // Update velocity and height
+        springVelocity += (netForce / playerMass) * deltaTime;
+        currentHeight += springVelocity * deltaTime;
+
+        // Clamp height within limits
+        currentHeight = Math.max(minHeight, Math.min(maxHeight, currentHeight));
+
+        // Reset velocity if spring is at equilibrium
+        if (Math.abs(displacement) <= 0.01 && Math.abs(springVelocity) <= 0.01 && appliedForce === 0) {
+            springVelocity = 0;
+            currentHeight = originalHeight; // Ensure exact original height
+        }
+    }
+}
+
+// ==============================
+// Apply Force Button Handlers
+// ==============================
+
+applyForceButton.addEventListener("mousedown", () => {
+    appliedForce = SPRING_CONFIG.additionalForce;
+});
+
+applyForceButton.addEventListener("mouseup", () => {
+    appliedForce = 0;
+});
+
+applyForceButton.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    e.stopPropagation(); // Prevent touch event from bubbling up
+    appliedForce = SPRING_CONFIG.additionalForce;
+}, { passive: false });
+
+applyForceButton.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    e.stopPropagation(); // Prevent touch event from bubbling up
+    appliedForce = 0;
+}, { passive: false });
+
+
+// ==============================
+// Animation Loop Integration
+// ==============================
+
+
+
+// ==============================
 // Add Walls
 // ==============================
 
@@ -629,15 +728,17 @@ function setupJumpButton() {
     if (jumpButton) {
         // Touch events for mobile
         jumpButton.addEventListener('touchstart', (e) => {
-            e.preventDefault(); // Prevents triggering other touch events
-            jumpButton.classList.add('active'); // Visual feedback
+            e.preventDefault();
+            e.stopPropagation(); // Prevent touch event from bubbling up
+            jumpButton.classList.add('active');
             jump();
         }, { passive: false });
-
+        
         jumpButton.addEventListener('touchend', (e) => {
             e.preventDefault();
-            jumpButton.classList.remove('active'); // Remove visual feedback
-        });
+            e.stopPropagation(); // Prevent touch event from bubbling up
+            jumpButton.classList.remove('active');
+        });        
 
         // Click event for compatibility
         jumpButton.addEventListener('click', (e) => {
@@ -646,21 +747,31 @@ function setupJumpButton() {
         });
     }
 }
-
-// Function to handle jumping
 function jump() {
-    // Check if the player is on the ground by checking the Y velocity
     if (!playerBody) {
         console.warn("playerBody is undefined.");
         return;
     }
+
     const velocity = playerBody.getLinearVelocity();
-    if (velocity.y() < 0.1) { // Threshold to determine if on or near the ground
-        // Apply an upward impulse
-        const jumpForce = new Ammo.btVector3(0, 50, 0); // Adjusted Y value for jump strength as per user specification
+
+    if (velocity.y() < 0.1 && !jumpInProgress) { // Ensure grounded and not already jumping
+        jumpInProgress = true; // Set jump flag
+        const jumpForce = new Ammo.btVector3(0, 50, 0); // Adjust jump strength
         playerBody.applyCentralImpulse(jumpForce);
+
+        // Reset jumpInProgress after the jump is complete
+        const checkLandingInterval = setInterval(() => {
+            const newVelocity = playerBody.getLinearVelocity();
+            if (Math.abs(newVelocity.y()) < 0.1) { // Adjust threshold as needed
+                jumpInProgress = false; // Allow spring logic to resume
+                clearInterval(checkLandingInterval);
+            }
+        }, 100); // Check every 100 ms
     }
 }
+
+
 
 // ==============================
 // Update Functions
@@ -675,6 +786,7 @@ function updatePlayerPosition() {
     // Ensure the player body is always active
     playerBody.activate(true);
 
+    // Handle joystick movement
     if (joystickMoveAngle !== null) {
         // Calculate the movement direction based on joystick angle
         moveDirection.set(Math.cos(joystickMoveAngle), 0, Math.sin(joystickMoveAngle));
@@ -694,7 +806,6 @@ function updatePlayerPosition() {
             moveDirection.z * playerSpeed
         );
         playerBody.setLinearVelocity(desiredVelocity);
-
     } else {
         // Joystick is inactive, ensure the player stops
         const currentVelocity = playerBody.getLinearVelocity();
@@ -705,7 +816,6 @@ function updatePlayerPosition() {
                 currentVelocity.y(), // Preserve vertical velocity (gravity)
                 0  // Stop movement on Z-axis
             ));
-            console.log("Joystick released, stopping movement on X/Z axes.");
         }
     }
 
@@ -715,18 +825,49 @@ function updatePlayerPosition() {
     const origin = transform.getOrigin();
     const rotation = transform.getRotation();
 
-    // Update the player visuals to match physics body
+    // Update the player mesh's position and rotation to match the physics body
     player.position.set(origin.x(), origin.y(), origin.z());
     player.quaternion.set(rotation.x(), rotation.y(), rotation.z(), rotation.w());
 
-    // Ensure player remains active and responsive only when joystick is active
-    if (joystickMoveAngle !== null && playerBody.getLinearVelocity().length() < 0.1) {
-        console.warn("Player velocity too low, reapplying movement.");
-        const fallbackVelocity = new Ammo.btVector3(0, 0, 0); // Or desired default velocity
-        playerBody.setLinearVelocity(fallbackVelocity);
-        playerBody.activate(true);
+    // **Always apply spring compression**
+    const heightReduction = originalHeight - currentHeight;
+    player.scale.set(1, currentHeight / originalHeight, 1); // Adjust Y-scale for compression
+    player.position.y = origin.y() - heightReduction / 2;   // Adjust vertical position
+
+    // Update camera position to follow the player
+    if (isThirdPerson) {
+        // Third-person camera logic
+        const cameraDistance = 10; // Distance behind the player
+        const elevation = 5 + (currentHeight - originalHeight) / 2; // Adjust elevation for spring compression
+
+        const offsetX = cameraDistance * Math.cos(pitch) * Math.sin(yaw);
+        const offsetY = elevation + cameraDistance * Math.sin(pitch);
+        const offsetZ = cameraDistance * Math.cos(pitch) * Math.cos(yaw);
+
+        camera.position.set(
+            player.position.x + offsetX,
+            player.position.y + offsetY,
+            player.position.z + offsetZ
+        );
+        camera.lookAt(player.position);
+    } else {
+        // First-person camera logic
+        const eyeLevelOffset = currentHeight / 2 - 0.2; // Eye level at half the current player height
+        const cameraYOffset = player.position.y + eyeLevelOffset;
+
+        camera.position.set(
+            player.position.x,
+            cameraYOffset,
+            player.position.z
+        );
+
+        // Apply pitch and yaw for first-person perspective
+        const quaternion = new THREE.Quaternion();
+        quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, "YXZ")); // YXZ ensures FPS-like orientation
+        camera.quaternion.copy(quaternion);
     }
 }
+
 
 
 // Function to update the barbell's mesh based on its physics body
@@ -767,8 +908,11 @@ function applyForceOnBarbell(force) {
 // Set up the action button to apply force
 actionButton.addEventListener('touchstart', (e) => {
     e.preventDefault();
+    e.stopPropagation(); // Prevent touch event from bubbling up
+    console.log('Barbell action triggered!');
     applyForceOnBarbell(forceValue);
 });
+
 
 
 const PROXIMITY_THRESHOLD = 10; // Distance to trigger action
@@ -832,51 +976,94 @@ function resetMoveJoystick() {
 
 
 function setupEventListeners() {
-    const onTouchStart = (e) => {
-        for (const touch of e.changedTouches) {
-            if (touch.clientX < window.innerWidth / 2 && movementTouchId === null) {
-                movementTouchId = touch.identifier;
-                handleMoveJoystickStart(touch);
-            } else if (touch.clientX > window.innerWidth / 2 && rotationTouchId === null) {
-                rotationTouchId = touch.identifier;
-                lastTouchX = touch.clientX;
-                lastTouchY = touch.clientY;
-            }
-        }
-        e.preventDefault();
-    };
+    // Movement joystick touch events
+    joystickContainerMove.addEventListener("touchstart", onMovementTouchStart, { passive: false });
+    joystickContainerMove.addEventListener("touchmove", onMovementTouchMove, { passive: false });
+    joystickContainerMove.addEventListener("touchend", onMovementTouchEnd, { passive: false });
 
-    const onTouchMove = (e) => {
-        for (const touch of e.changedTouches) {
-            if (touch.identifier === movementTouchId) handleMoveJoystick(touch);
-            if (touch.identifier === rotationTouchId) {
-                const deltaX = touch.clientX - lastTouchX;
-                const deltaY = touch.clientY - lastTouchY;
-                yaw -= deltaX * rotationSpeed;
-                pitch = Math.max(minPitch, Math.min(maxPitch, pitch + deltaY * rotationSpeed));
-                lastTouchX = touch.clientX;
-                lastTouchY = touch.clientY;
-            }
-        }
-        e.preventDefault();
-    };
+    // Rotation touch events
+    const rotationOverlay = document.createElement('div');
+    rotationOverlay.style.position = 'absolute';
+    rotationOverlay.style.top = '0';
+    rotationOverlay.style.left = '50%';
+    rotationOverlay.style.width = '50%';
+    rotationOverlay.style.height = '100%';
+    rotationOverlay.style.zIndex = '5'; // Adjust as needed
+    rotationOverlay.style.background = 'transparent';
+    rotationOverlay.style.touchAction = 'none';
+    document.body.appendChild(rotationOverlay);
 
-    const onTouchEnd = (e) => {
-        for (const touch of e.changedTouches) {
-            if (touch.identifier === movementTouchId) {
-                resetMoveJoystick();
-                movementTouchId = null;
-            } else if (touch.identifier === rotationTouchId) {
-                rotationTouchId = null;
-            }
-        }
-        e.preventDefault();
-    };
-
-    document.addEventListener("touchstart", onTouchStart, { passive: false });
-    document.addEventListener("touchmove", onTouchMove, { passive: false });
-    document.addEventListener("touchend", onTouchEnd, { passive: false });
+    rotationOverlay.addEventListener("touchstart", onRotationTouchStart, { passive: false });
+    rotationOverlay.addEventListener("touchmove", onRotationTouchMove, { passive: false });
+    rotationOverlay.addEventListener("touchend", onRotationTouchEnd, { passive: false });
 }
+function onMovementTouchStart(e) {
+    e.preventDefault();
+    if (movementTouchId === null) {
+        const touch = e.changedTouches[0];
+        movementTouchId = touch.identifier;
+        handleMoveJoystickStart(touch);
+    }
+}
+
+function onMovementTouchMove(e) {
+    e.preventDefault();
+    for (const touch of e.changedTouches) {
+        if (touch.identifier === movementTouchId) {
+            handleMoveJoystick(touch);
+            break;
+        }
+    }
+}
+
+function onMovementTouchEnd(e) {
+    e.preventDefault();
+    for (const touch of e.changedTouches) {
+        if (touch.identifier === movementTouchId) {
+            resetMoveJoystick();
+            movementTouchId = null;
+            break;
+        }
+    }
+}
+
+function onRotationTouchStart(e) {
+    e.preventDefault();
+    if (rotationTouchId === null) {
+        const touch = e.changedTouches[0];
+        rotationTouchId = touch.identifier;
+        lastTouchX = touch.clientX;
+        lastTouchY = touch.clientY;
+    }
+}
+
+function onRotationTouchMove(e) {
+    e.preventDefault();
+    for (const touch of e.changedTouches) {
+        if (touch.identifier === rotationTouchId) {
+            const deltaX = touch.clientX - lastTouchX;
+            const deltaY = touch.clientY - lastTouchY;
+            yaw -= deltaX * rotationSpeed;
+            pitch = Math.max(minPitch, Math.min(maxPitch, pitch + deltaY * rotationSpeed));
+            lastTouchX = touch.clientX;
+            lastTouchY = touch.clientY;
+            break;
+        }
+    }
+}
+
+function onRotationTouchEnd(e) {
+    e.preventDefault();
+    for (const touch of e.changedTouches) {
+        if (touch.identifier === rotationTouchId) {
+            rotationTouchId = null;
+            break;
+        }
+    }
+}
+
+
+
 
 // ==============================
 // Camera Update
@@ -900,7 +1087,7 @@ function updateCameraPosition() {
         camera.lookAt(player.position);
     } else {
         // First-person camera logic
-        const eyeLevelOffset = PLAYER_CONFIG.height / 2 - 0.2; // Slightly below the top of the cylinder
+        const eyeLevelOffset = currentHeight / 2 - 0.2; // Eye level at half the current player height
         const cameraYOffset = player.position.y + eyeLevelOffset;
 
         camera.position.set(
@@ -916,18 +1103,34 @@ function updateCameraPosition() {
     }
 }
 
+
 // ==============================
 // Animation Loop
 // ==============================
 
 function animate() {
     requestAnimationFrame(animate);
-    physicsWorld.stepSimulation(1 / 60, 10);
+
+    // Calculate deltaTime for smoother updates
+    const deltaTime = 1 / 60;
+
+    // Update physics world
+    physicsWorld.stepSimulation(deltaTime, 10);
+
+    // Update spring system
+    updateSpring(deltaTime);
+
+    // Update player and barbell positions
     updatePlayerPosition();
     updateBarbellPosition();
+
+    // Update camera position
     updateCameraPosition();
-    checkCollisions(); // Check for collisions
-    checkProximityToBarbell(); // Check if player is near the barbell
+
+    // Check collisions and proximity
+    checkCollisions();
+    checkProximityToBarbell();
+
     renderer.render(scene, camera);
 }
 
