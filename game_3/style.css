@@ -194,7 +194,7 @@ html, body {
 
    #actionButton {
     position: absolute;
-    bottom: 120px; /* Above the joystick and jump button */
+    bottom: 50px; /* Above the joystick and jump button */
     left: 50%; /* Centered horizontally */
     transform: translateX(-35%);
     padding: 15px 30px;
@@ -219,4 +219,37 @@ html, body {
 #actionButton:active {
     transform: scale(0.95); /* Slightly shrink on touch for feedback */
 }
+
+/* Apply Force Button Styling */
+#applyForceButton {
+    position: absolute;
+    bottom: 120px; /* Place above the Jump button */
+    right: 20px;   /* Align to the right side, same as Jump button */
+    padding: 15px 30px;
+    font-size: 16px;
+    font-weight: bold;
+    background-color: rgba(0, 0, 0, 0.4); /* Sleek black background */
+    color: white;
+    border: none;
+    border-radius: 50px; /* Rounded edges for a modern look */
+    cursor: pointer;
+    /* Remove 'display: none' to keep it visible */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+    transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+}
+
+/* Optional: Active State for Apply Force Button */
+#applyForceButton:active {
+    background-color: rgba(50, 50, 50, 0.9); /* Slightly darker when pressed */
+    transform: scale(0.95); /* Slightly shrink on touch for feedback */
+}
+
+
+#applyForceButton:hover {
+    background-color: rgba(50, 50, 50, 0.9); /* Darker black on hover */
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5); /* Stronger shadow for hover effect */
+}
+
+
 
