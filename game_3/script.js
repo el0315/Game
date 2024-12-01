@@ -1401,33 +1401,49 @@ function resetBarbellPosition() {
         console.warn("No barbell constraint found to remove.");
     }
 
-    // Reset the barbell's position above the ground
+    // Define the target reset position
     const resetPosition = {
         x: BARBELL_CONFIG.position.initialPosition.x,
         y: BARBELL_CONFIG.position.initialPosition.y,
         z: BARBELL_CONFIG.position.initialPosition.z,
     };
 
-    // Update the barbell's physics body
-    const transform = new Ammo.btTransform();
-    transform.setIdentity();
-    transform.setOrigin(new Ammo.btVector3(resetPosition.x, resetPosition.y, resetPosition.z));
-    transform.setRotation(new Ammo.btQuaternion(0, 0, 0, 1));
+    // Animate the barbell's position using Tween.js
+    const startPosition = {
+        x: barbell.position.x,
+        y: barbell.position.y,
+        z: barbell.position.z,
+    };
 
-    barbellBody.setWorldTransform(transform);
-    barbellBody.getMotionState().setWorldTransform(transform);
-    console.log(`Barbell physics body reset to position (${resetPosition.x}, ${resetPosition.y}, ${resetPosition.z}).`);
+    new TWEEN.Tween(startPosition)
+        .to(resetPosition, 1000) // Duration of 1 second
+        .easing(TWEEN.Easing.Quadratic.Out)
+        .onUpdate(() => {
+            // Update the barbell's mesh position during the tween
+            barbell.position.set(startPosition.x, startPosition.y, startPosition.z);
 
-    // Make the barbell kinematic (no gravity and immovable)
-    setBarbellMass(0); // Set mass to 0 for kinematic behavior
-    barbellBody.setGravity(new Ammo.btVector3(0, 0, 0)); // Remove gravity
-    barbellBody.setLinearVelocity(new Ammo.btVector3(0, 0, 0)); // Stop all movement
-    barbellBody.setAngularVelocity(new Ammo.btVector3(0, 0, 0)); // Stop all rotation
+            // Update the physics body's transform
+            const transform = new Ammo.btTransform();
+            transform.setIdentity();
+            transform.setOrigin(new Ammo.btVector3(startPosition.x, startPosition.y, startPosition.z));
+            transform.setRotation(new Ammo.btQuaternion(0, 0, 0, 1));
+            barbellBody.setWorldTransform(transform);
+            barbellBody.getMotionState().setWorldTransform(transform);
+        })
+        .onComplete(() => {
+            console.log("Barbell reset animation completed.");
 
-    // Update the visual barbell mesh
-    barbell.position.set(resetPosition.x, resetPosition.y, resetPosition.z);
-    barbell.quaternion.set(0, 0, 0, 1);
-    console.log("Barbell mesh position and rotation reset.");
+            // Make the barbell kinematic (no gravity and immovable)
+            setBarbellMass(0);
+            barbellBody.setGravity(new Ammo.btVector3(0, 0, 0));
+            barbellBody.setLinearVelocity(new Ammo.btVector3(0, 0, 0));
+            barbellBody.setAngularVelocity(new Ammo.btVector3(0, 0, 0));
+
+            // Ensure the mesh's position is exact after animation
+            barbell.position.set(resetPosition.x, resetPosition.y, resetPosition.z);
+            barbell.quaternion.set(0, 0, 0, 1);
+        })
+        .start();
 
     // Reset UI and state
     hideLockoutButton();
@@ -1446,7 +1462,7 @@ function resetBarbellPosition() {
         actionButton.removeEventListener('touchstart', onActionButtonPress);
         actionButton.addEventListener('touchstart', onActionButtonPress, { passive: false });
     }
-    console.log("Barbell reset to initial floating state. Ready to be grabbed.");
+    console.log("Barbell reset initiated. Tween animation in progress.");
 }
 
 
