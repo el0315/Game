@@ -34,7 +34,7 @@ const BARBELL_CONFIG = {
             z: 0.05
         }
     },
-    releaseForce: 7000  // Force applied to barbell on release (in Newtons)
+    releaseForce: 5000  // Force applied to barbell on release (in Newtons)
 };
 
 
@@ -743,6 +743,7 @@ function updateSpring(deltaTime) {
             // Timer expired without meeting conditions
             if (liftInProgress) {
                 liftInProgress = false;
+                releaseBarbell();
                 showLiftFeedback("No Lift. Try Again!", false);
                 console.log("No Lift: Timer expired.");
                 if (liftTimer) clearInterval(liftTimer); // Stop timer
@@ -808,6 +809,7 @@ if (applyForceButton) {
                             timerDisplay.textContent = "Time's Up!";
                             liftStatus = squatDepthReached ? "No Lift" : "Failed Lift";
                             console.log(`Lift failed: ${liftStatus}`);
+                            releaseBarbell(e);
     
                             // Hide the timer
                             timerDisplay.style.visibility = "hidden";
@@ -843,6 +845,7 @@ if (applyForceButton) {
                 // Player did not reach the minimum squat depth
                 liftStatus = "No Lift";
                 showLiftFeedback("No Lift. Try Again!", false);
+                releaseBarbell(e);
             }
     
             // Stop the timer as the player has released the button
@@ -1346,9 +1349,11 @@ function moveBarbellToPlayerTop() {
         .start();
 }
 
-function releaseBarbell(e) {
-    e.preventDefault();
-    e.stopPropagation();
+function releaseBarbell(e = null) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
 
     // Proceed only if the barbell is attached
     if (barbellConstraint) {
@@ -1368,7 +1373,7 @@ function releaseBarbell(e) {
         barbellBody.activate(true);
 
         // Apply force to the barbell to push it off the player's top
-        const forwardVector = new THREE.Vector3(0, 0.5, -1);
+        const forwardVector = new THREE.Vector3(-1, 0, -1);
         forwardVector.applyQuaternion(player.quaternion);
         forwardVector.normalize();
 
