@@ -643,6 +643,8 @@ let maxSpringVelocity = 0;
 const velocityDecreaseThreshold = 1.5; // Adjust as needed based on testing
 let originalAscentDamping = SPRING_CONFIG.damping; // Store the original ascent damping
 const requiredDecreaseFrames = 1; // Adjust as needed
+
+// Modify the updateSpring logic
 function updateSpring(deltaTime) {
     if (!player) return;
 
@@ -666,67 +668,29 @@ function updateSpring(deltaTime) {
             springForce = DESCENT_SPRING_CONFIG.stiffness * displacement;
             dampingForce = -DESCENT_SPRING_CONFIG.damping * springVelocity;
 
-            // Net force includes applied force
+            // Include applied force
             netForce = springForce + dampingForce - appliedForce;
 
             // Reset ascent completion status and maxSpringVelocity
             ascentCompleted = false;
             maxSpringVelocity = 0;
-
-            // Set damping to 50 during descent
-            SPRING_CONFIG.damping = 50;
-
-            // Console log for descent phase
-            console.log('Descent phase. ascentCompleted reset to false. Damping set to 50.');
         } else {
             // **Ascent Phase Logic**
 
-            if (!ascentCompleted) {
-                // Ensure damping is 50 during initial ascent
-                SPRING_CONFIG.damping = 50;
-
-                // Update maxSpringVelocity
-                if (springVelocity > maxSpringVelocity) {
-                    maxSpringVelocity = springVelocity;
-                } else if ((maxSpringVelocity - springVelocity) >= velocityDecreaseThreshold) {
-                    // Velocity has decreased significantly from its peak
-                    ascentCompleted = true;
-
-                    // Set damping to 500 after ascent completion
-                    SPRING_CONFIG.damping = 500;
-
-                    // Console log when ascent is completed
-                    console.log('Ascent completed. Damping set to 500.');
-                }
-            } else {
-                // Damping remains at 500 until velocity reaches near zero
-                if (Math.abs(springVelocity) <= 0.005) {
-                    // Reset damping to 50
-                    SPRING_CONFIG.damping = 50;
-
-                    // Console log when damping is reset
-                    console.log('Velocity reached zero. Damping reset to 50.');
-                }
-            }
-
-            // Use player's strength
             springForce = SPRING_CONFIG.stiffness * displacement;
             dampingForce = -SPRING_CONFIG.damping * springVelocity;
 
-            // Determine if the barbell is attached
+            // Check if the barbell is attached
             const isBarbellAttached = barbellConstraint !== null;
 
             if (isBarbellAttached) {
-                // **Barbell is attached: Include barbell load**
-                const loadEffect = barbellLoad * 10; // Scale as needed
+                // Barbell is attached: Include barbell load
+                const loadEffect = barbellLoad * 10; // Scale the load effect as needed
                 netForce = springForce + dampingForce - loadEffect;
             } else {
-                // **Barbell is not attached: Only player's strength**
+                // Barbell is not attached: Only player's strength
                 netForce = springForce + dampingForce;
             }
-
-            // Console log current spring velocity and damping value
-            console.log(`Ascent phase. Spring Velocity: ${springVelocity.toFixed(3)}, Damping: ${SPRING_CONFIG.damping}`);
         }
 
         // Update velocity and height
@@ -739,14 +703,9 @@ function updateSpring(deltaTime) {
             Math.min(SPRING_CONFIG.maxHeight, currentHeight)
         );
 
-        // Check if player has reached maximum height
-        if (currentHeight >= SPRING_CONFIG.maxHeight * 0.90) {
-            hideLockoutButton();
-
-            // Reset barbell load to original value after lockout
-            barbellLoad = originalBarbellLoad;
-            console.log('Lockout completed. Barbell load reset to original value.');
-            console.log (barbellLoad)
+        // Check if lockout conditions are met
+        if (!isApplyForceButtonPressed && barbellConstraint) {
+            checkLockout();
         }
 
         // Reset velocity if spring is at equilibrium
@@ -762,26 +721,37 @@ function updateSpring(deltaTime) {
 }
 
 
-
 // ==============================
 // Apply Force Button Handlers
 // ==============================
 
+// Add a state variable to track if the apply force button is pressed
+let isApplyForceButtonPressed = false;
+
 if (applyForceButton) {
     applyForceButton.addEventListener("mousedown", () => {
         appliedForce = SPRING_CONFIG.additionalForce;
+        isApplyForceButtonPressed = true; // Mark as pressed
     });
 
     applyForceButton.addEventListener("mouseup", () => {
         appliedForce = 0;
+        isApplyForceButtonPressed = false; // Mark as released
     });
 
     applyForceButton.addEventListener(
         "touchstart",
         (e) => {
             e.preventDefault();
-            e.stopPropagation(); // Prevent touch event from bubbling up
+            e.stopPropagation();
             appliedForce = SPRING_CONFIG.additionalForce;
+            isApplyForceButtonPressed = true; // Mark as pressed
+
+            if (barbellConstraint) {
+                // Reset barbell load if attached
+                barbellLoad = originalBarbellLoad;
+                console.log("Barbell load reset on apply force button press.");
+            }
         },
         { passive: false }
     );
@@ -790,15 +760,28 @@ if (applyForceButton) {
         "touchend",
         (e) => {
             e.preventDefault();
-            e.stopPropagation(); // Prevent touch event from bubbling up
+            e.stopPropagation();
             appliedForce = 0;
+            isApplyForceButtonPressed = false; // Mark as released
             showLockoutButton();
+            checkLockout(); // Check lockout after button release
         },
         { passive: false }
     );
-} else {
-    console.warn("Apply Force Button not found in the DOM.");
 }
+
+// Function to check for lockout
+function checkLockout() {
+    if (
+        !isApplyForceButtonPressed && // Ensure the button is released
+        barbellConstraint && // Ensure the barbell is attached
+        currentHeight >= SPRING_CONFIG.maxHeight * 0.90 // Check for maximum height
+    ) {
+        hideLockoutButton(); // Hide the lockout button
+        console.log("Lockout completed.");
+    }
+}
+
 
 function setupLockoutButton() {
     if (lockoutButton) {
