@@ -16,7 +16,7 @@ const PLAYER_CONFIG = {
 const BARBELL_CONFIG = {
     centralBar: {
         radius: 0.08,        // Radius of the central bar
-        length: 5,          // Total length of the central bar
+        length: 7.5,          // Total length of the central bar
         mass: 20,           // Mass of the central bar
         segments: 32        // Number of segments for smoothness
     },
@@ -489,7 +489,7 @@ function createBarbellVisual() {
         roughness: 0.3,
     });
 
-    // Create the central bar
+    // Create the central bar (shaft + implied sleeves)
     const barGeometry = new THREE.CylinderGeometry(
         BARBELL_CONFIG.centralBar.radius,
         BARBELL_CONFIG.centralBar.radius,
@@ -502,6 +502,9 @@ function createBarbellVisual() {
     bar.receiveShadow = true;
     barbell.add(bar);
 
+    // Define the inward position for plates
+    const sleeveLength = 0.9; // Adjust this for how much "sleeve" you want visible
+
     // Left plate
     const leftPlateGeometry = new THREE.CylinderGeometry(
         BARBELL_CONFIG.plate.radius,
@@ -511,7 +514,7 @@ function createBarbellVisual() {
     );
     const leftPlate = new THREE.Mesh(leftPlateGeometry, barMaterial);
     leftPlate.rotation.z = Math.PI / 2;
-    leftPlate.position.set(-BARBELL_CONFIG.centralBar.length / 2, 0, 0);
+    leftPlate.position.set(-BARBELL_CONFIG.centralBar.length / 2 + sleeveLength, 0, 0);
     leftPlate.castShadow = true;
     leftPlate.receiveShadow = true;
     barbell.add(leftPlate);
@@ -525,7 +528,7 @@ function createBarbellVisual() {
     );
     const rightPlate = new THREE.Mesh(rightPlateGeometry, barMaterial);
     rightPlate.rotation.z = Math.PI / 2;
-    rightPlate.position.set(BARBELL_CONFIG.centralBar.length / 2, 0, 0);
+    rightPlate.position.set(BARBELL_CONFIG.centralBar.length / 2 - sleeveLength, 0, 0);
     rightPlate.castShadow = true;
     rightPlate.receiveShadow = true;
     barbell.add(rightPlate);
@@ -540,6 +543,7 @@ function createBarbellVisual() {
     // Add the barbell to the scene
     scene.add(barbell);
 }
+
 
 function createBarbellPhysics() {
     const barbellCompoundShape = new Ammo.btCompoundShape();
