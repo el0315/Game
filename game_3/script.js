@@ -479,11 +479,15 @@ function createPlayerPhysics() {
 // Create Barbell Visual
 // ==============================
 
+// Global Material for the Barbell and Plates
+let barMaterial;
+
+// Create Barbell Visual
 function createBarbellVisual() {
     barbell = new THREE.Group();
 
-    // Material for the barbell
-    const barMaterial = new THREE.MeshStandardMaterial({
+    // Define the material globally so it can be reused
+    barMaterial = new THREE.MeshStandardMaterial({
         color: 0xC0C0C0, // Silver color for the barbell
         metalness: 0.9,
         roughness: 0.3,
@@ -544,6 +548,67 @@ function createBarbellVisual() {
     scene.add(barbell);
 }
 
+
+// Variables for tracking plate additions and gap width
+let currentPlatesPerSide = 1; // Default: 1 plate per side
+const maxPlatesPerSide = 8; // Maximum additional plates per side
+const plateGap = 0.12; // Adjustable gap width between plates
+
+// Reference the Add Plates Button
+const addPlatesButton = document.getElementById("addPlatesButton");
+addPlatesButton.style.display = "none"; // Initially hidden
+
+// Add Plates Button Touch Event Handler
+addPlatesButton.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (currentPlatesPerSide < maxPlatesPerSide) {
+        addPlatesToBarbell();
+        currentPlatesPerSide++;
+    } else {
+        console.log("Maximum plates reached.");
+    }
+});
+
+// Function to add plates symmetrically to the barbell
+function addPlatesToBarbell() {
+    if (!barbell) return;
+
+    const baseOffset = BARBELL_CONFIG.centralBar.length / 2 - 0.9; // Offset for initial plate
+    const newPlateOffset = baseOffset + currentPlatesPerSide * plateGap; // Calculate new plate position
+
+    // Left Plate
+    const leftPlateGeometry = new THREE.CylinderGeometry(
+        BARBELL_CONFIG.plate.radius,
+        BARBELL_CONFIG.plate.radius,
+        BARBELL_CONFIG.plate.thickness,
+        BARBELL_CONFIG.plate.segments
+    );
+    const leftPlate = new THREE.Mesh(leftPlateGeometry, barMaterial);
+    leftPlate.rotation.z = Math.PI / 2;
+    leftPlate.position.set(-newPlateOffset, 0, 0); // Place closer using `plateGap`
+    leftPlate.castShadow = true;
+    barbell.add(leftPlate);
+
+    // Right Plate
+    const rightPlateGeometry = new THREE.CylinderGeometry(
+        BARBELL_CONFIG.plate.radius,
+        BARBELL_CONFIG.plate.radius,
+        BARBELL_CONFIG.plate.thickness,
+        BARBELL_CONFIG.plate.segments
+    );
+    const rightPlate = new THREE.Mesh(rightPlateGeometry, barMaterial);
+    rightPlate.rotation.z = Math.PI / 2;
+    rightPlate.position.set(newPlateOffset, 0, 0); // Place closer using `plateGap`
+    rightPlate.castShadow = true;
+    barbell.add(rightPlate);
+
+    // Update barbell mass in physics
+    const newPlateMass = 2 * BARBELL_CONFIG.plate.mass; // 2 plates added
+    setBarbellMass(BARBELL_CONFIG.centralBar.mass + newPlateMass + currentPlatesPerSide * newPlateMass);
+
+    console.log(`Added plates. Total plates per side: ${currentPlatesPerSide + 1}`);
+}
 
 function createBarbellPhysics() {
     const barbellCompoundShape = new Ammo.btCompoundShape();
@@ -983,9 +1048,6 @@ function showLiftFeedback(message, isGoodLift) {
         liftFeedback.classList.add("hidden");
     }, 3000);
 }
-
-
-
 
 
 function setupLockoutButton() {
@@ -1619,16 +1681,27 @@ function checkProximityToBarbell() {
     const distance = player.position.distanceTo(barbell.position);
 
     if (barbellConstraint) {
-        // Barbell is attached, show the "Release" button
-        actionButton.style.display = "block";
+        // Barbell is attached, show buttons based on plate count
+        actionButton.style.display = "block"; // Show "Release" button
         actionButton.innerText = "Release";
+        if (currentPlatesPerSide < maxPlatesPerSide) {
+            addPlatesButton.style.display = "block"; // Show "Add Plates" button
+        } else {
+            addPlatesButton.style.display = "none"; // Hide "Add Plates" if max plates reached
+        }
     } else if (distance <= PROXIMITY_THRESHOLD) {
-        // Barbell is nearby, show the "Squat" button
-        actionButton.style.display = "block";
+        // Barbell is nearby, show "Grab Bar" and "Add Plates" buttons if not maxed out
+        actionButton.style.display = "block"; // Show "Grab Bar" button
         actionButton.innerText = "Grab Bar";
+        if (currentPlatesPerSide < maxPlatesPerSide) {
+            addPlatesButton.style.display = "block"; // Show "Add Plates" button
+        } else {
+            addPlatesButton.style.display = "none"; // Hide "Add Plates" if max plates reached
+        }
     } else {
-        // Barbell is not nearby and not attached
+        // Barbell is not nearby or attached, hide both buttons
         actionButton.style.display = "none";
+        addPlatesButton.style.display = "none";
     }
 }
 
