@@ -68,7 +68,7 @@ const lockoutButton = document.getElementById('lockoutButton'); // Reusing the s
 
 // Function to show the Lockout Button with fade-in effect
 function showLockoutButton() {
-    if (lockoutButton && barbellConstraint && squatDepthReached) { // Only show if barbell is attached and depth was reached
+    if (lockoutButton && barbellConstraint) { // Only show if barbell is attached
         lockoutButton.classList.add('visible'); // Add the 'visible' class
         lockoutButton.setAttribute('aria-hidden', 'false'); // Make it accessible
         lockoutButtonVisible = true;
@@ -830,33 +830,28 @@ if (applyForceButton) {
         isApplyForceButtonPressed = false;
     
         if (liftInProgress) {
-            if (squatDepthReached && currentHeight >= SPRING_CONFIG.maxHeight * 0.95) {
-                liftStatus = "Good Lift";
-                console.log("Good Lift: Depth and lockout achieved within time limit!");
-                clearInterval(liftTimer); // Stop the timer
-                liftInProgress = false; // End the lift
-    
-                // Trigger Good Lift Feedback
-                showLiftFeedback("Good Lift!", true);
+            if (squatDepthReached) {
+                // Player has reached the minimum squat depth
+                liftStatus = "Lockout Phase";
+                console.log("Lockout Phase Initiated.");
+                
+                // Show the Lockout Button
+                showLockoutButton();
+                
+        
             } else {
+                // Player did not reach the minimum squat depth
                 liftStatus = "No Lift";
-                console.log("No Lift: Conditions not met within time limit.");
-    
-                // **Trigger No Lift Feedback**
                 showLiftFeedback("No Lift. Try Again!", false);
-                liftInProgress = false; // End the lift
-    
-                // Hide the timer
-                timerDisplay.style.visibility = "hidden";
-                timerDisplay.style.opacity = "0";
             }
-        }
     
-        // **Conditionally Show Lockout Button Only If Depth Was Reached**
-        if (squatDepthReached) {
-            showLockoutButton();
-        } else {
-            hideLockoutButton(); // Ensure it's hidden if depth wasn't reached
+            // Stop the timer as the player has released the button
+            if (liftTimer) {
+                clearInterval(liftTimer);
+                liftTimer = null;
+            }
+    
+            liftInProgress = false; // Reset the lift progress flag
         }
     
         checkLockout();
@@ -896,6 +891,7 @@ function updateDepthMeter(currentHeight, minDepth, maxHeight) {
     }
 }
 
+
 function checkLockout() {
     if (
         !isApplyForceButtonPressed && // Ensure the button is released
@@ -923,6 +919,7 @@ function checkLockout() {
         }
     }
 }
+
 
 
 function showLiftFeedback(message, isGoodLift) {
@@ -978,11 +975,6 @@ setupLockoutButton();
 // script.js
 
 function performLockoutTap() {
-    if (!squatDepthReached) {
-        console.log("Cannot perform lockout: Minimum squat depth not reached.");
-        return;
-    }
-
     // Decrease barbell load
     barbellLoad = Math.max(barbellLoad - BARBELL_LOAD_DECREASE_PER_TAP, MIN_BARBELL_LOAD);
     console.log(`Barbell load decreased to: ${barbellLoad}`);
@@ -1001,12 +993,12 @@ function performLockoutTap() {
     if (barbellLoad <= MIN_BARBELL_LOAD) {
         console.log('Lockout load reached minimum. Hiding Lockout Button.');
         hideLockoutButton();
-
-        // **Optional: Trigger Feedback if needed**
-        showLiftFeedback("Lockout Achieved!", true); // Or any other appropriate message
     }
     checkLockout();
 }
+
+
+
 
 // ==============================
 // Animation Loop Integration
