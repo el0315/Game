@@ -34,7 +34,7 @@ const BARBELL_CONFIG = {
             z: 0.05
         }
     },
-    releaseForce: 5000  // Force applied to barbell on release (in Newtons)
+    releaseForce: 10000  // Force applied to barbell on release (in Newtons)
 };
 
 
