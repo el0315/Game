@@ -243,7 +243,7 @@ function initializeScene() {
 // Camera Toggle Configuration
 // ==============================
 
-let isThirdPerson = false; // Flag to toggle between third-person and first-person
+let isThirdPerson = true; // Flag to toggle between third-person and first-person
 
 document.addEventListener("DOMContentLoaded", () => {
     // Toggle Camera Button Setup
@@ -951,6 +951,21 @@ function updateTimerDisplay(time) {
     timerDisplay.textContent = `Time Left: ${time}s`;
 }
 
+function resetAndHideTimer() {
+    if (timerDisplay) {
+        timerDisplay.style.visibility = "hidden";
+        timerDisplay.style.opacity = "0";
+        timerDisplay.textContent = `Time Left: ${LIFT_TIME_LIMIT}s`; // Reset timer text
+    }
+    if (liftTimer) {
+        clearInterval(liftTimer); // Stop any running timer
+        liftTimer = null;
+    }
+    remainingTime = LIFT_TIME_LIMIT; // Reset remaining time
+    console.log("Timer reset and hidden.");
+}
+
+
 // References to depth meter and feedback elements
 const depthMeterBar = document.getElementById("depthMeterBar");
 const liftFeedback = document.getElementById("liftFeedback");
@@ -1528,8 +1543,14 @@ function resetBarbellPosition() {
         actionButton.removeEventListener('touchstart', onActionButtonPress);
         actionButton.addEventListener('touchstart', onActionButtonPress, { passive: false });
     }
+
+    // Hide the timer now that the barbell is reset
+    resetAndHideTimer();
+
+
     console.log("Barbell reset initiated. Tween animation in progress.");
 }
+
 
 
 function releaseBarbell(e = null) {
@@ -1583,24 +1604,24 @@ function releaseBarbell(e = null) {
             passive: false,
         });
 
-        // **Set the lift as interrupted**
-        liftInterrupted = true;
-
-        // **Hide the Lockout Button**
+        // Hide the Lockout Button
         hideLockoutButton();
 
-        // **Trigger "No Lift" Feedback**
+        // Trigger "No Lift" Feedback
         showLiftFeedback("No Lift. Try Again!", false);
 
-        // **Stop the timer if it's running**
+        // Stop the timer if it's running
         if (liftTimer) {
             clearInterval(liftTimer);
             liftTimer = null;
         }
 
-        // **Reset lift-related flags**
+        // Reset lift-related flags
         liftInProgress = false;
         squatDepthReached = false;
+
+        resetAndHideTimer();
+
     }
 }
 
@@ -1649,7 +1670,12 @@ function attachBarbellToPlayer() {
     originalBarbellLoad = barbellLoad;
 
     console.log(`Barbell attached. Load: ${barbellLoad}`);
+
+    // Show the timer now that the barbell is attached
+    timerDisplay.style.visibility = "visible";
+    timerDisplay.style.opacity = "1";
 }
+
 
 
 function onActionButtonPress(e) {
