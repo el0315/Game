@@ -100,6 +100,25 @@ html, body {
     transition: transform 0.1s ease, background-color 0.2s ease;
 }
 
+#timerDisplay {
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out; /* Smooth transition when showing/hiding */
+    position: absolute;
+    top: 15px;
+    right: 135px;
+    padding: 10px 20px;
+    background: rgba(0, 0, 0, 0.3);
+    color: #fff;
+    font-family: 'Poppins', sans-serif; /* Better font */
+    font-size: 18px; /* Adjust font size */
+    font-weight: bold;
+    border-radius: 8px;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
+    z-index: 100;
+}
+
+
 /* styles.css */
 /* =========================
    Lockout Button Styling with Fade-In
@@ -430,7 +449,4 @@ html, body {
     color: #ffcc00; /* Bright color to highlight values */
     font-weight: 500;
 }
-
-
-
 
