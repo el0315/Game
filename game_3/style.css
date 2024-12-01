@@ -100,34 +100,68 @@ html, body {
     transition: transform 0.1s ease, background-color 0.2s ease;
 }
 
-/* Jump Button Styling */
-#jumpButton {
+/* styles.css */
+/* =========================
+   Lockout Button Styling with Fade-In
+   ========================= */
+
+/* Base state: hidden */
+#lockoutButton {
     position: absolute;
-    bottom: 30px; /* Align to the same bottom position as the joystick */
-    right: 20px; /* Right-aligned */
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    background-color: rgba(255, 0, 0, 0.7); /* Semi-transparent red */
+    bottom: 200px; /* Positioned above other buttons */
+    left: 50%; /* Center horizontally */
+    transform: translateX(-50%);
+    padding: 15px 30px; /* Similar padding to Apply Force Button */
+    font-size: 18px; /* Adjusted font size for better readability */
+    font-weight: bold;
+    border-radius: 50px; /* Rounded edges for pill-shaped appearance */
+    background-color: #FF4136; /* Vibrant red color */
     color: white;
-    font-size: 18px; /* Adjusted size */
     border: none;
     z-index: 10;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-    transition: background-color 0.2s ease, transform 0.1s ease;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+    
+    /* Initial hidden state */
+    opacity: 0;
+    visibility: hidden;
+    
+    /* Transition for opacity and visibility */
+    transition: opacity 0.5s ease, visibility 0.5s ease;
 }
 
-/* Active State for Jump Button */
-#jumpButton.active {
-    background-color: rgba(255, 0, 0, 0.9);
-    transform: scale(1.1);
+/* Visible state */
+#lockoutButton.visible {
+    opacity: 1;
+    visibility: visible;
 }
 
+/* Hover Effect for Lockout Button */
+#lockoutButton:hover {
+    background-color: #FF6347; /* Tomato red on hover */
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
+    transform: translateX(-50%) scale(1.05);
+}
 
+/* Active/Pressed State with Shaking Animation for Lockout Button */
+#lockoutButton.active {
+    animation: shake 0.5s;
+    background-color: #FF0000; /* Brighter red when active */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+    transform: translateX(-50%) scale(1.1);
+}
+
+/* Responsive Adjustments for Smaller Screens */
+@media (max-width: 375px) {
+    #lockoutButton {
+        padding: 12px 25px; /* Reduced padding for smaller screens */
+        font-size: 16px; /* Slightly smaller font */
+        bottom: 110px; /* Adjust position for smaller screens */
+    }
+}
 
 /* Adjust sizes for smaller screens if necessary */
 @media (max-width: 375px) {
