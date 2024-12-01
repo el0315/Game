@@ -1373,7 +1373,7 @@ function releaseBarbell(e = null) {
         barbellBody.activate(true);
 
         // Apply force to the barbell to push it off the player's top
-        const forwardVector = new THREE.Vector3(-1, 0, -1);
+        const forwardVector = new THREE.Vector3(-1, 0.5, -1);
         forwardVector.applyQuaternion(player.quaternion);
         forwardVector.normalize();
 
