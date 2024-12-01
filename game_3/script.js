@@ -30,7 +30,7 @@ const BARBELL_CONFIG = {
         y: 3,              // Default Y-position of the barbell
         initialPosition: {  // Initial X, Y, Z coordinates
             x: 0,
-            y: 5,
+            y: 5.1,
             z: 0.05
         }
     },
