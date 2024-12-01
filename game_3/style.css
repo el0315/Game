@@ -121,7 +121,7 @@ html, body {
 #depthMeter {
     position: absolute;
     top: 70px; /* Adjust to be under the eye icon */
-    left: 375px; /* Align with the eye icon */
+    right: 27px;
     width: 30px; /* Fixed width */
     height: 150px; /* Fixed height */
     background-color: #333; /* Dark gray background for contrast */
