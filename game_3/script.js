@@ -1437,11 +1437,17 @@ function resetBarbellPosition() {
 
     // Reset action button state
     if (actionButton) {
-        actionButton.style.display = "none";
+        actionButton.style.display = "block";
         actionButton.innerText = "Grab Bar";
+
+        // Remove any existing event listener and attach the "grab" functionality
+        actionButton.removeEventListener('touchstart', onReleaseButtonPress);
+        actionButton.removeEventListener('touchstart', onActionButtonPress);
+        actionButton.addEventListener('touchstart', onActionButtonPress, { passive: false });
     }
     console.log("UI and state reset. Player must grab the barbell again.");
 }
+
 
 
 function releaseBarbell(e = null) {
