@@ -253,6 +253,7 @@ settingsButton.addEventListener('touchstart', (e) => {
     e.preventDefault();
     e.stopPropagation(); // Prevent touch event from bubbling up
     settingsOverlay.style.display = 'flex';
+    releaseBarbell(e)
 }, { passive: false });
 
 // Optional: Event listener for click event (desktop compatibility)
@@ -290,7 +291,7 @@ barbellLoadSlider.addEventListener('input', () => {
 // Update spring strength when slider changes
 springStrengthSlider.addEventListener('input', () => {
     const newStrength = parseInt(springStrengthSlider.value);
-    SPRING_CONFIG.stiffness = newStrength * 6; // Update the stiffness in SPRING_CONFIG
+    SPRING_CONFIG.stiffness = newStrength * 3; // Update the stiffness in SPRING_CONFIG
     springStrengthValueDisplay.textContent = newStrength;
 });
 
@@ -585,8 +586,8 @@ function setBarbellMass(mass) {
 // Configurable parameters for the spring system
 const SPRING_CONFIG = {
     stiffness: 200,        // Spring stiffness (higher = stiffer spring)
-    damping: 500,           // Damping factor (higher = less oscillation)
-    minHeight: PLAYER_CONFIG.height * 0.5, // Minimum player height
+    damping: 50,           // Damping factor (higher = less oscillation)
+    minHeight: PLAYER_CONFIG.height * 0.2, // Minimum player height
     maxHeight: PLAYER_CONFIG.height,       // Maximum player height
     additionalForce: 1000, // Additional force applied when pressing the button
 };
@@ -594,7 +595,7 @@ const SPRING_CONFIG = {
 // Fixed spring parameters for descent phase
 const DESCENT_SPRING_CONFIG = {
     stiffness: 300, // Fixed stiffness during descent
-    damping: 50,    // Fixed damping during descent
+    damping: 500,    // Fixed damping during descent
 };
 
 // Variables to track spring force and height
@@ -611,6 +612,12 @@ const applyForceButton = document.getElementById("applyForceButton");
 // ==============================
 
 let jumpInProgress = false; // Track if a jump is in progress
+// Variables to track ascent state and velocities
+let ascentCompleted = false;
+let maxSpringVelocity = 0;
+const velocityDecreaseThreshold = 1.5; // Adjust as needed based on testing
+let originalAscentDamping = SPRING_CONFIG.damping; // Store the original ascent damping
+const requiredDecreaseFrames = 1; // Adjust as needed
 function updateSpring(deltaTime) {
     if (!player) return;
 
@@ -636,8 +643,46 @@ function updateSpring(deltaTime) {
 
             // Net force includes applied force
             netForce = springForce + dampingForce - appliedForce;
+
+            // Reset ascent completion status and maxSpringVelocity
+            ascentCompleted = false;
+            maxSpringVelocity = 0;
+
+            // Set damping to 50 during descent
+            SPRING_CONFIG.damping = 50;
+
+            // Console log for descent phase
+            console.log('Descent phase. ascentCompleted reset to false. Damping set to 50.');
         } else {
             // **Ascent Phase Logic**
+
+            if (!ascentCompleted) {
+                // Ensure damping is 50 during initial ascent
+                SPRING_CONFIG.damping = 50;
+
+                // Update maxSpringVelocity
+                if (springVelocity > maxSpringVelocity) {
+                    maxSpringVelocity = springVelocity;
+                } else if ((maxSpringVelocity - springVelocity) >= velocityDecreaseThreshold) {
+                    // Velocity has decreased significantly from its peak
+                    ascentCompleted = true;
+
+                    // Set damping to 500 after ascent completion
+                    SPRING_CONFIG.damping = 500;
+
+                    // Console log when ascent is completed
+                    console.log('Ascent completed. Damping set to 500.');
+                }
+            } else {
+                // Damping remains at 500 until velocity reaches near zero
+                if (Math.abs(springVelocity) <= 0.005) {
+                    // Reset damping to 50
+                    SPRING_CONFIG.damping = 50;
+
+                    // Console log when damping is reset
+                    console.log('Velocity reached zero. Damping reset to 50.');
+                }
+            }
 
             // Use player's strength
             springForce = SPRING_CONFIG.stiffness * displacement;
@@ -654,6 +699,9 @@ function updateSpring(deltaTime) {
                 // **Barbell is not attached: Only player's strength**
                 netForce = springForce + dampingForce;
             }
+
+            // Console log current spring velocity and damping value
+            console.log(`Ascent phase. Spring Velocity: ${springVelocity.toFixed(3)}, Damping: ${SPRING_CONFIG.damping}`);
         }
 
         // Update velocity and height
@@ -1119,52 +1167,49 @@ function releaseBarbell(e) {
     e.preventDefault();
     e.stopPropagation();
 
-    // Remove the constraint
+    // Proceed only if the barbell is attached
     if (barbellConstraint) {
+        // Remove the constraint
         physicsWorld.removeConstraint(barbellConstraint);
         barbellConstraint = null;
+
+        // Reset barbell mass to make it dynamic again
+        setBarbellMass(
+            BARBELL_CONFIG.centralBar.mass + 2 * BARBELL_CONFIG.plate.mass
+        );
+
+        // Ensure the barbell is affected by gravity
+        barbellBody.setGravity(new Ammo.btVector3(0, -19.6, 0));
+
+        // Activate the barbell to ensure physics are applied
+        barbellBody.activate(true);
+
+        // Apply force to the barbell to push it off the player's top
+        const forwardVector = new THREE.Vector3(0, 0.5, -1);
+        forwardVector.applyQuaternion(player.quaternion);
+        forwardVector.normalize();
+
+        const forceMagnitude = BARBELL_CONFIG.releaseForce;
+        const releaseForceVector = new Ammo.btVector3(
+            forwardVector.x * forceMagnitude,
+            forwardVector.y * forceMagnitude,
+            forwardVector.z * forceMagnitude
+        );
+
+        barbellBody.applyCentralForce(releaseForceVector);
+
+        // Reset barbellLoad since the player is no longer lifting the barbell
+        barbellLoad = 0;
+
+        // Change button text back
+        actionButton.innerText = "Grab Bar";
+
+        // Update event listener
+        actionButton.removeEventListener('touchstart', onReleaseButtonPress);
+        actionButton.addEventListener('touchstart', onActionButtonPress, {
+            passive: false,
+        });
     }
-
-    // Reset barbell mass to make it dynamic again
-    setBarbellMass(
-        BARBELL_CONFIG.centralBar.mass + 2 * BARBELL_CONFIG.plate.mass
-    );
-
-    // Ensure the barbell is affected by gravity
-    barbellBody.setGravity(new Ammo.btVector3(0, -19.6, 0));
-
-    // Activate the barbell to ensure physics are applied
-    barbellBody.activate(true);
-
-    // Apply force to the barbell to push it off the player's top
-
-    // Calculate the player's forward direction
-    const forwardVector = new THREE.Vector3(0, 0.5, -1);
-    forwardVector.applyQuaternion(player.quaternion);
-    forwardVector.normalize();
-
-    // Multiply by the release force
-    const forceMagnitude = BARBELL_CONFIG.releaseForce;
-    const releaseForceVector = new Ammo.btVector3(
-        forwardVector.x * forceMagnitude,
-        forwardVector.y * forceMagnitude,
-        forwardVector.z * forceMagnitude
-    );
-
-    // Apply the force to the barbell
-    barbellBody.applyCentralForce(releaseForceVector);
-
-    // Reset barbellLoad since the player is no longer lifting the barbell
-    barbellLoad = 0;
-
-    // Change button text back
-    actionButton.innerText = "Grab Bar";
-
-    // Update event listener
-    actionButton.removeEventListener('touchstart', onReleaseButtonPress);
-    actionButton.addEventListener('touchstart', onActionButtonPress, {
-        passive: false,
-    });
 }
 
 
