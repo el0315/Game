@@ -1681,22 +1681,19 @@ function checkProximityToBarbell() {
     const distance = player.position.distanceTo(barbell.position);
 
     if (barbellConstraint) {
-        // Barbell is attached, show buttons based on plate count
-        actionButton.style.display = "block"; // Show "Release" button
+        // Barbell is attached, show "Release" button and hide "Add Plates"
+        actionButton.style.display = "block";
         actionButton.innerText = "Release";
-        if (currentPlatesPerSide < maxPlatesPerSide) {
-            addPlatesButton.style.display = "block"; // Show "Add Plates" button
-        } else {
-            addPlatesButton.style.display = "none"; // Hide "Add Plates" if max plates reached
-        }
+        addPlatesButton.style.display = "none"; // Hide "Add Plates" button
     } else if (distance <= PROXIMITY_THRESHOLD) {
-        // Barbell is nearby, show "Grab Bar" and "Add Plates" buttons if not maxed out
-        actionButton.style.display = "block"; // Show "Grab Bar" button
+        // Barbell is nearby, show "Grab Bar" and optionally "Add Plates"
+        actionButton.style.display = "block";
         actionButton.innerText = "Grab Bar";
+
         if (currentPlatesPerSide < maxPlatesPerSide) {
-            addPlatesButton.style.display = "block"; // Show "Add Plates" button
+            addPlatesButton.style.display = "block"; // Show "Add Plates" button if not maxed out
         } else {
-            addPlatesButton.style.display = "none"; // Hide "Add Plates" if max plates reached
+            addPlatesButton.style.display = "none"; // Hide "Add Plates" button if max plates reached
         }
     } else {
         // Barbell is not nearby or attached, hide both buttons
@@ -1704,6 +1701,7 @@ function checkProximityToBarbell() {
         addPlatesButton.style.display = "none";
     }
 }
+
 
 
 // ==============================
