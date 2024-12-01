@@ -63,31 +63,32 @@ const minPitch = -Math.PI / 6;  // Minimum pitch (~25.7 degrees down)
 // DOM Elements
 const joystickContainerMove = document.getElementById('joystickContainerMove');
 const joystickKnobMove = document.getElementById('joystickKnobMove');
-const lockoutButton = document.getElementById('jumpButton'); // Reusing the same button
-// Hide the lockout button initially
-if (lockoutButton) {
-    lockoutButton.style.display = 'none';
-}
+const lockoutButton = document.getElementById('lockoutButton'); // Reusing the same button
 
+
+// Function to show the Lockout Button with fade-in effect
 function showLockoutButton() {
     if (lockoutButton && barbellConstraint) { // Only show if barbell is attached
-        lockoutButton.style.display = 'block';
+        lockoutButton.classList.add('visible'); // Add the 'visible' class
+        lockoutButton.setAttribute('aria-hidden', 'false'); // Make it accessible
         lockoutButtonVisible = true;
         console.log("Lockout Button Shown");
     }
 }
 
-
+// Function to hide the Lockout Button with fade-out effect
 function hideLockoutButton() {
     if (lockoutButton) {
-        lockoutButton.style.display = 'none';
+        lockoutButton.classList.remove('visible'); // Remove the 'visible' class
+        lockoutButton.setAttribute('aria-hidden', 'true'); // Hide from accessibility
         lockoutButtonVisible = false;
+        console.log("Lockout Button Hidden");
     }
 }
 
 // Add variables for lockout functionality
 let lockoutButtonVisible = false;
-const BARBELL_LOAD_DECREASE_PER_TAP = 5; // Adjust as needed
+const BARBELL_LOAD_DECREASE_PER_TAP = 1; // Adjust as needed
 const MIN_BARBELL_LOAD = 0; // Minimum barbell load
 let originalBarbellLoad = 0; // Will be set when barbell is attached
 
@@ -315,7 +316,7 @@ barbellLoadSlider.addEventListener('input', () => {
 // Update spring strength when slider changes
 springStrengthSlider.addEventListener('input', () => {
     const newStrength = parseInt(springStrengthSlider.value);
-    SPRING_CONFIG.stiffness = newStrength * 3; // Update the stiffness in SPRING_CONFIG
+    SPRING_CONFIG.stiffness = newStrength; // Update the stiffness in SPRING_CONFIG
     springStrengthValueDisplay.textContent = newStrength;
 });
 
@@ -739,7 +740,7 @@ function updateSpring(deltaTime) {
         );
 
         // Check if player has reached maximum height
-        if (currentHeight >= SPRING_CONFIG.maxHeight *0.95) {
+        if (currentHeight >= SPRING_CONFIG.maxHeight * 0.90) {
             hideLockoutButton();
 
             // Reset barbell load to original value after lockout
@@ -807,17 +808,10 @@ function setupLockoutButton() {
             (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                lockoutButton.classList.add('active');
                 performLockoutTap();
             },
             { passive: false }
         );
-
-        lockoutButton.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            lockoutButton.classList.remove('active');
-        });
 
         // Click event for desktop
         lockoutButton.addEventListener('click', (e) => {
@@ -828,11 +822,22 @@ function setupLockoutButton() {
 }
 
 setupLockoutButton();
+// script.js
 
 function performLockoutTap() {
     // Decrease barbell load
     barbellLoad = Math.max(barbellLoad - BARBELL_LOAD_DECREASE_PER_TAP, MIN_BARBELL_LOAD);
     console.log(`Barbell load decreased to: ${barbellLoad}`);
+
+    // Trigger shaking animation
+    if (lockoutButton) {
+        lockoutButton.classList.add('active');
+        
+        // Remove the 'active' class after the animation duration (e.g., 500ms)
+        setTimeout(() => {
+            lockoutButton.classList.remove('active');
+        }, 500);
+    }
 
     // Check if barbellLoad has reached the minimum
     if (barbellLoad <= MIN_BARBELL_LOAD) {
@@ -842,6 +847,7 @@ function performLockoutTap() {
 
     // Optional: Update visuals or mechanics here
 }
+
 
 
 // ==============================
