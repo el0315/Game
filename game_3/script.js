@@ -37,7 +37,7 @@ const BARBELL_CONFIG = {
     releaseForce: 10000  // Force applied to barbell on release (in Newtons)
 };
 
-let PLATE_WEIGHT = 10; // Default value, can be adjusted dynamically
+let PLATE_WEIGHT = 15; // Default value, can be adjusted dynamically
 
 
 
@@ -96,7 +96,7 @@ function hideLockoutButton() {
 
 // Add variables for lockout functionality
 let lockoutButtonVisible = false;
-const BARBELL_LOAD_DECREASE_PER_TAP = 1; // Adjust as needed
+const BARBELL_LOAD_DECREASE_PER_TAP = 2; // Adjust as needed
 const MIN_BARBELL_LOAD = 0; // Minimum barbell load
 let originalBarbellLoad = 0; // Will be set when barbell is attached
 
@@ -921,28 +921,34 @@ if (applyForceButton) {
         appliedForce = 0;
         isApplyForceButtonPressed = false;
     
+        // Add a delay before checking the player's height
+        const delay = 500; // Delay in milliseconds
+        setTimeout(() => {
+            console.log(`Player height after delay: ${currentHeight.toFixed(2)} units`);
+        }, delay);
+    
         if (liftInProgress) {
             if (squatDepthReached) {
                 // Player has reached the minimum squat depth
                 liftStatus = "Lockout Phase";
                 console.log("Lockout Phase Initiated.");
-                
+    
                 // Show the Lockout Button
                 showLockoutButton();
-                
+    
                 // **Do NOT stop the timer here**; keep it running during lockout
             } else {
                 // Player did not reach the minimum squat depth
                 liftStatus = "No Lift";
                 showLiftFeedback("No Lift. Try Again!", false);
                 releaseBarbell(e);
-                
+    
                 // **Stop the timer only if it's a "No Lift"**
                 if (liftTimer) {
                     clearInterval(liftTimer);
                     liftTimer = null;
                 }
-                
+    
                 liftInProgress = false; // Reset the lift progress flag
             }
         }
