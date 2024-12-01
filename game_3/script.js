@@ -37,6 +37,9 @@ const BARBELL_CONFIG = {
     releaseForce: 10000  // Force applied to barbell on release (in Newtons)
 };
 
+let PLATE_WEIGHT = 10; // Default value, can be adjusted dynamically
+
+
 
 
 // ==============================
@@ -288,7 +291,6 @@ document.addEventListener("DOMContentLoaded", () => {
 const settingsButton = document.getElementById('settingsButton');
 const settingsOverlay = document.getElementById('settingsOverlay');
 const closeSettingsButton = document.getElementById('closeSettingsButton');
-const barbellLoadSlider = document.getElementById('barbellLoadSlider');
 const barbellLoadValueDisplay = document.getElementById('barbellLoadValue');
 const springStrengthSlider = document.getElementById('springStrengthSlider');
 const springStrengthValueDisplay = document.getElementById('springStrengthValue');
@@ -323,27 +325,26 @@ closeSettingsButton.addEventListener('click', (e) => {
 });
 
 // Initialize display values
-barbellLoadValueDisplay.textContent = barbellLoadSlider.value;
 springStrengthValueDisplay.textContent = springStrengthSlider.value;
 
-// Update barbell load when slider changes
-barbellLoadSlider.addEventListener('input', () => {
-    const newLoad = parseInt(barbellLoadSlider.value);
-    barbellLoad = newLoad; // Update the global barbellLoad variable
-    barbellLoadValueDisplay.textContent = newLoad;
+
+// Global variable for player strength (default value)
+let PLAYER_STRENGTH = 1.0; // Default strength factor
+
+// Reference to the strength slider and its display
+const strengthSlider = document.getElementById("springStrengthSlider");
+const strengthValueDisplay = document.getElementById("springStrengthValue");
+
+// Initialize display value
+strengthValueDisplay.textContent = strengthSlider.value;
+
+// Update PLAYER_STRENGTH dynamically when the slider changes
+strengthSlider.addEventListener("input", () => {
+    PLAYER_STRENGTH = parseFloat(strengthSlider.value);
+    strengthValueDisplay.textContent = PLAYER_STRENGTH.toFixed(1); // Display updated strength
+    console.log(`Player strength updated to: ${PLAYER_STRENGTH}`);
 });
 
-// Update spring strength when slider changes
-springStrengthSlider.addEventListener('input', () => {
-    const newStrength = parseInt(springStrengthSlider.value);
-    SPRING_CONFIG.stiffness = newStrength; // Update the stiffness in SPRING_CONFIG
-    springStrengthValueDisplay.textContent = newStrength;
-});
-
-// Prevent default touch behavior on sliders
-barbellLoadSlider.addEventListener('touchstart', (e) => {
-    e.stopPropagation();
-}, { passive: false });
 
 springStrengthSlider.addEventListener('touchstart', (e) => {
     e.stopPropagation();
@@ -552,7 +553,7 @@ function createBarbellVisual() {
 // Variables for tracking plate additions and gap width
 let currentPlatesPerSide = 1; // Default: 1 plate per side
 const maxPlatesPerSide = 8; // Maximum additional plates per side
-const plateGap = 0.12; // Adjustable gap width between plates
+const plateGap = 0.02; // Adjustable gap width between plates
 
 // Reference the Add Plates Button
 const addPlatesButton = document.getElementById("addPlatesButton");
@@ -572,12 +573,12 @@ addPlatesButton.addEventListener("touchstart", (e) => {
 
 // Function to add plates symmetrically to the barbell
 function addPlatesToBarbell() {
-    if (!barbell) return;
+    if (!barbell || currentPlatesPerSide >= maxPlatesPerSide) return;
 
-    const baseOffset = BARBELL_CONFIG.centralBar.length / 2 - 0.9; // Offset for initial plate
-    const newPlateOffset = baseOffset + currentPlatesPerSide * plateGap; // Calculate new plate position
+    const baseOffset = BARBELL_CONFIG.centralBar.length / 2 - 0.9; // Initial offset
+    const newPlateOffset = baseOffset + currentPlatesPerSide * (BARBELL_CONFIG.plate.thickness + plateGap); // Adjust position based on total thickness
 
-    // Left Plate
+    // Create Left Plate
     const leftPlateGeometry = new THREE.CylinderGeometry(
         BARBELL_CONFIG.plate.radius,
         BARBELL_CONFIG.plate.radius,
@@ -586,28 +587,31 @@ function addPlatesToBarbell() {
     );
     const leftPlate = new THREE.Mesh(leftPlateGeometry, barMaterial);
     leftPlate.rotation.z = Math.PI / 2;
-    leftPlate.position.set(-newPlateOffset, 0, 0); // Place closer using `plateGap`
+    leftPlate.position.set(-newPlateOffset, 0, 0); // Position on the left
     leftPlate.castShadow = true;
     barbell.add(leftPlate);
 
-    // Right Plate
-    const rightPlateGeometry = new THREE.CylinderGeometry(
-        BARBELL_CONFIG.plate.radius,
-        BARBELL_CONFIG.plate.radius,
-        BARBELL_CONFIG.plate.thickness,
-        BARBELL_CONFIG.plate.segments
-    );
-    const rightPlate = new THREE.Mesh(rightPlateGeometry, barMaterial);
-    rightPlate.rotation.z = Math.PI / 2;
-    rightPlate.position.set(newPlateOffset, 0, 0); // Place closer using `plateGap`
-    rightPlate.castShadow = true;
+    // Create Right Plate
+    const rightPlate = leftPlate.clone();
+    rightPlate.position.set(newPlateOffset, 0, 0); // Position on the right
     barbell.add(rightPlate);
 
-    // Update barbell mass in physics
-    const newPlateMass = 2 * BARBELL_CONFIG.plate.mass; // 2 plates added
-    setBarbellMass(BARBELL_CONFIG.centralBar.mass + newPlateMass + currentPlatesPerSide * newPlateMass);
+    // Update barbell's physics properties (mass)
+    const newPlateMass = 2 * BARBELL_CONFIG.plate.mass; // Plates added symmetrically
+    setBarbellMass(
+        BARBELL_CONFIG.centralBar.mass + newPlateMass + currentPlatesPerSide * newPlateMass
+    );
 
-    console.log(`Added plates. Total plates per side: ${currentPlatesPerSide + 1}`);
+    console.log(`Plates added. Total plates per side: ${currentPlatesPerSide + 1}`);
+}
+
+
+
+function calculateBarbellLoad() {
+    return (
+        BARBELL_CONFIG.centralBar.mass + // Central bar weight
+        2 * currentPlatesPerSide * PLATE_WEIGHT // Plates on both sides
+    );
 }
 
 function createBarbellPhysics() {
@@ -741,6 +745,7 @@ let liftTimer = null; // Tracks the timer for the lift
 let remainingTime = LIFT_TIME_LIMIT; // Countdown timer
 let liftInProgress = false; // Flag to track if a lift is ongoing
 
+
 function updateSpring(deltaTime) {
     if (!player) return;
 
@@ -748,45 +753,43 @@ function updateSpring(deltaTime) {
     if (jumpInProgress) return;
 
     const isDescending = appliedForce > 0; // Check descent state
-    const displacement = originalHeight - currentHeight;
+    const displacement = originalHeight - currentHeight; // Compression from original height
+    let springForce, dampingForce, netForce;
 
     if (Math.abs(displacement) > 0.01 || appliedForce > 0) {
-        let springForce, dampingForce, netForce;
-
         if (isDescending) {
-            // Descent logic
+            // Descent logic: Calculate spring and damping forces during squat
             springForce = DESCENT_SPRING_CONFIG.stiffness * displacement;
             dampingForce = -DESCENT_SPRING_CONFIG.damping * springVelocity;
             netForce = springForce + dampingForce - appliedForce;
 
-            // Update depth meter
+            // Update depth meter to track squat progress
             updateDepthMeter(currentHeight, minSquatDepth, originalHeight);
 
-            // Check squat depth
+            // Check if squat depth is reached
             if (currentHeight <= minSquatDepth && !squatDepthReached) {
-                squatDepthReached = true; // Mark as depth achieved
+                squatDepthReached = true; // Mark depth as achieved
                 console.log("Minimum squat depth reached!");
             }
         } else {
-            // Ascent logic
+            // Ascent logic: Calculate forces to return to the original height
             springForce = SPRING_CONFIG.stiffness * displacement;
             dampingForce = -SPRING_CONFIG.damping * springVelocity;
 
-            // Include barbell load if attached
-            const isBarbellAttached = barbellConstraint !== null;
-            netForce = isBarbellAttached
-                ? springForce + dampingForce - barbellLoad * 10
-                : springForce + dampingForce;
+            // Include barbell load and player strength as gameplay resistance
+            // Higher PLAYER_STRENGTH reduces the effective impact of the load
+            const adjustedLoad = barbellLoad / PLAYER_STRENGTH;
+            netForce = springForce + dampingForce - adjustedLoad * 10;
 
-            // Update depth meter (ascent reduces depth)
+            // Update depth meter for ascent phase
             updateDepthMeter(currentHeight, minSquatDepth, originalHeight);
         }
 
-        // Update velocity and height
+        // Update velocity and height based on net force
         springVelocity += (netForce / PLAYER_CONFIG.mass) * deltaTime;
         currentHeight += springVelocity * deltaTime;
 
-        // Clamp height within limits
+        // Clamp height within valid range
         currentHeight = Math.max(
             SPRING_CONFIG.minHeight,
             Math.min(SPRING_CONFIG.maxHeight, currentHeight)
@@ -806,30 +809,33 @@ function updateSpring(deltaTime) {
     // Check for lift completion conditions
     if (!isApplyForceButtonPressed && squatDepthReached) {
         if (currentHeight >= SPRING_CONFIG.maxHeight * 0.9) {
-            // Depth and lockout achieved
+            // If depth and lockout achieved, mark lift as successful
             if (liftInProgress) {
                 liftInProgress = false;
                 showLiftFeedback("Good Lift!", true);
                 console.log("Good Lift: Depth and lockout achieved!");
-                if (liftTimer) clearInterval(liftTimer); // Stop timer
-                
-                // Reset the barbell
+
+                // Stop the timer
+                if (liftTimer) clearInterval(liftTimer);
+
+                // Reset the barbell position after lift completion
                 resetBarbellPosition();
             }
-        }
-    
-    
         } else if (remainingTime <= 0) {
-            // Timer expired without meeting conditions
+            // If time runs out, mark lift as failed
             if (liftInProgress) {
                 liftInProgress = false;
                 releaseBarbell();
                 showLiftFeedback("No Lift. Try Again!", false);
                 console.log("No Lift: Timer expired.");
-                if (liftTimer) clearInterval(liftTimer); // Stop timer
+
+                // Stop the timer
+                if (liftTimer) clearInterval(liftTimer);
             }
         }
     }
+}
+
 
 
 
@@ -1095,18 +1101,14 @@ function performLockoutTap() {
         return;
     }
 
-    // Decrease barbell load
+    // Decrease barbell load from current value
     barbellLoad = Math.max(barbellLoad - BARBELL_LOAD_DECREASE_PER_TAP, MIN_BARBELL_LOAD);
     console.log(`Barbell load decreased to: ${barbellLoad}`);
 
-    // Trigger shaking animation
+    // Trigger shaking animation (visual feedback)
     if (lockoutButton) {
         lockoutButton.classList.add('active');
-        
-        // Remove the 'active' class after the animation duration (e.g., 500ms)
-        setTimeout(() => {
-            lockoutButton.classList.remove('active');
-        }, 500);
+        setTimeout(() => lockoutButton.classList.remove('active'), 500); // Reset animation
     }
 
     // Check if barbellLoad has reached the minimum
@@ -1118,11 +1120,9 @@ function performLockoutTap() {
     checkLockout();
 }
 
-
 // ==============================
 // Animation Loop Integration
 // ==============================
-
 
 
 // ==============================
@@ -1638,6 +1638,11 @@ function attachBarbellToPlayer() {
     // Set barbell mass to zero to make it kinematic while attached
     setBarbellMass(0);
 
+    // Calculate load dynamically
+    barbellLoad = calculateBarbellLoad();
+    originalBarbellLoad = barbellLoad; // Store for reset
+    console.log(`Barbell attached. Load: ${barbellLoad}`);
+
     // Create a constraint to attach the barbell to the player
     const frameInA = new Ammo.btTransform();
     frameInA.setIdentity();
@@ -1664,17 +1669,8 @@ function attachBarbellToPlayer() {
 
     // Add the constraint to the physics world
     physicsWorld.addConstraint(barbellConstraint, true);
-
-    // Set barbellLoad and originalBarbellLoad
-    barbellLoad = BARBELL_CONFIG.centralBar.mass + 2 * BARBELL_CONFIG.plate.mass;
-    originalBarbellLoad = barbellLoad;
-
-    console.log(`Barbell attached. Load: ${barbellLoad}`);
-
-    // Show the timer now that the barbell is attached
-    timerDisplay.style.visibility = "visible";
-    timerDisplay.style.opacity = "1";
 }
+
 
 
 
