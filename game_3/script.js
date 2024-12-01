@@ -703,7 +703,7 @@ function setBarbellMass(mass) {
 
 // Configurable parameters for the spring system
 const SPRING_CONFIG = {
-    stiffness: 200,        // Spring stiffness (higher = stiffer spring)
+    stiffness: 100,        // Spring stiffness (higher = stiffer spring)
     damping: 50,           // Damping factor (higher = less oscillation)
     minHeight: PLAYER_CONFIG.height * 0.2, // Minimum player height
     maxHeight: PLAYER_CONFIG.height,       // Maximum player height
@@ -913,18 +913,44 @@ if (applyForceButton) {
         },
         { passive: false }
     );
-    
-    
     applyForceButton.addEventListener("touchend", (e) => {
         e.preventDefault();
         e.stopPropagation();
         appliedForce = 0;
         isApplyForceButtonPressed = false;
     
+        // Define the minimum height threshold for a successful lift
+        const minHeightThreshold = 2; // Player must reach at least this height
+    
         // Add a delay before checking the player's height
         const delay = 500; // Delay in milliseconds
         setTimeout(() => {
-            console.log(`Player height after delay: ${currentHeight.toFixed(2)} units`);
+            if (currentHeight < minHeightThreshold) {
+                console.log(
+                    `Lift failed due to insufficient height. Player height: ${currentHeight.toFixed(2)} units, Threshold: ${minHeightThreshold.toFixed(2)} units`
+                );
+    
+                // Trigger "No Lift" logic
+                if (liftInProgress) {
+                    liftInProgress = false;
+                    squatDepthReached = false;
+    
+                    // Release the barbell and show feedback
+                    releaseBarbell(); 
+                    showLiftFeedback("No Lift. Too Weak!", false);
+    
+                    // Stop the lift timer if it's running
+                    if (liftTimer) {
+                        clearInterval(liftTimer);
+                        liftTimer = null;
+                    }
+    
+                    // Reset the timer UI
+                    resetAndHideTimer();
+                }
+            } else {
+                console.log(`Player successfully reached height threshold: ${currentHeight.toFixed(2)} units`);
+            }
         }, delay);
     
         if (liftInProgress) {
@@ -943,7 +969,7 @@ if (applyForceButton) {
                 showLiftFeedback("No Lift. Try Again!", false);
                 releaseBarbell(e);
     
-                // **Stop the timer only if it's a "No Lift"**
+                // Stop the timer if it's a "No Lift"
                 if (liftTimer) {
                     clearInterval(liftTimer);
                     liftTimer = null;
@@ -956,7 +982,6 @@ if (applyForceButton) {
         checkLockout();
     });
 }    
-
 const timerDisplay = document.getElementById("timerDisplay");
 
 function updateTimerDisplay(time) {
