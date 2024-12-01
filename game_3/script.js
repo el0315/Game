@@ -83,8 +83,13 @@ function hideLockoutButton() {
         lockoutButton.setAttribute('aria-hidden', 'true'); // Hide from accessibility
         lockoutButtonVisible = false;
         console.log("Lockout Button Hidden");
+
+        // Remove event listeners to prevent accidental taps
+        lockoutButton.removeEventListener('touchstart', performLockoutTap);
+        lockoutButton.removeEventListener('click', performLockoutTap);
     }
 }
+
 
 // Add variables for lockout functionality
 let lockoutButtonVisible = false;
@@ -738,7 +743,13 @@ function updateSpring(deltaTime) {
                 showLiftFeedback("Good Lift!", true);
                 console.log("Good Lift: Depth and lockout achieved!");
                 if (liftTimer) clearInterval(liftTimer); // Stop timer
+                
+                // Reset the barbell
+                resetBarbellPosition();
             }
+        }
+    
+    
         } else if (remainingTime <= 0) {
             // Timer expired without meeting conditions
             if (liftInProgress) {
@@ -750,7 +761,7 @@ function updateSpring(deltaTime) {
             }
         }
     }
-}
+
 
 
 // ==============================
@@ -898,21 +909,29 @@ function updateDepthMeter(currentHeight, minDepth, maxHeight) {
     }
 }
 
+let liftInterrupted = false; // Flag to track if the lift was interrupted
 
 function checkLockout() {
+    console.log("checkLockout function called.");
+
+    if (!liftInProgress) {
+        console.log("Lift is not in progress. Skipping lockout check.");
+        return;
+    }
+
     if (
         !isApplyForceButtonPressed && // Ensure the button is released
-        barbellConstraint && // Ensure the barbell is attached
+        barbellConstraint &&           // Ensure the barbell is attached
         currentHeight >= SPRING_CONFIG.maxHeight * 0.95 // Check for maximum height
     ) {
         hideLockoutButton(); // Hide the lockout button
         console.log("Lockout completed.");
 
-        // Check if lift conditions are met
-        if (squatDepthReached && remainingTime > 0) {
+        // Check if lift conditions are met and lift was not interrupted
+        if (squatDepthReached && remainingTime > 0 && !liftInterrupted) {
             liftStatus = "Good Lift";
             console.log("Good Lift: Depth and lockout achieved within time limit!");
-            
+
             // Stop the timer
             clearInterval(liftTimer);
             liftInProgress = false; // End the lift
@@ -921,8 +940,12 @@ function checkLockout() {
             timerDisplay.style.visibility = "hidden";
             timerDisplay.style.opacity = "0";
 
-            // **Trigger Feedback**
+            // Trigger Feedback
             showLiftFeedback("Good Lift!", true);
+
+            // Reset the barbell position
+            console.log("Attempting to reset barbell position after Good Lift.");
+            resetBarbellPosition();
         }
     }
 }
@@ -986,6 +1009,11 @@ setupLockoutButton();
 // script.js
 
 function performLockoutTap() {
+    if (!liftInProgress) {
+        console.warn("PerformLockoutTap called, but lift is not in progress. Ignoring tap.");
+        return;
+    }
+
     // Decrease barbell load
     barbellLoad = Math.max(barbellLoad - BARBELL_LOAD_DECREASE_PER_TAP, MIN_BARBELL_LOAD);
     console.log(`Barbell load decreased to: ${barbellLoad}`);
@@ -1005,10 +1033,9 @@ function performLockoutTap() {
         console.log('Lockout load reached minimum. Hiding Lockout Button.');
         hideLockoutButton();
     }
+
     checkLockout();
 }
-
-
 
 
 // ==============================
@@ -1357,6 +1384,66 @@ function moveBarbellToPlayerTop() {
         .start();
 }
 
+function resetBarbellPosition() {
+    console.log("resetBarbellPosition function called.");
+
+    if (!barbell || !barbellBody) {
+        console.error("Barbell or barbellBody is undefined.");
+        return;
+    }
+
+    // Detach the barbell from the player
+    if (barbellConstraint) {
+        physicsWorld.removeConstraint(barbellConstraint);
+        barbellConstraint = null;
+        console.log("Barbell constraint removed. Barbell is now detached from the player.");
+    } else {
+        console.warn("No barbell constraint found to remove.");
+    }
+
+    // Reset the barbell's position above the ground
+    const resetPosition = {
+        x: BARBELL_CONFIG.position.initialPosition.x,
+        y: BARBELL_CONFIG.position.initialPosition.y,
+        z: BARBELL_CONFIG.position.initialPosition.z,
+    };
+
+    // Update the barbell's physics body
+    const transform = new Ammo.btTransform();
+    transform.setIdentity();
+    transform.setOrigin(new Ammo.btVector3(resetPosition.x, resetPosition.y, resetPosition.z));
+    transform.setRotation(new Ammo.btQuaternion(0, 0, 0, 1));
+
+    barbellBody.setWorldTransform(transform);
+    barbellBody.getMotionState().setWorldTransform(transform);
+    console.log(`Barbell physics body reset to position (${resetPosition.x}, ${resetPosition.y}, ${resetPosition.z}).`);
+
+    // Restore the barbell's mass and gravity
+    setBarbellMass(BARBELL_CONFIG.centralBar.mass + 2 * BARBELL_CONFIG.plate.mass);
+    barbellBody.setGravity(new Ammo.btVector3(0, -19.6, 0));
+    barbellBody.activate(true);
+
+    // Update the visual barbell mesh
+    barbell.position.set(resetPosition.x, resetPosition.y, resetPosition.z);
+    barbell.quaternion.set(0, 0, 0, 1);
+    console.log("Barbell mesh position and rotation reset.");
+
+    // Reset UI and state
+    hideLockoutButton();
+    squatDepthReached = false;
+    liftInProgress = false;
+    liftInterrupted = false;
+    barbellLoad = 0;
+
+    // Reset action button state
+    if (actionButton) {
+        actionButton.style.display = "none";
+        actionButton.innerText = "Grab Bar";
+    }
+    console.log("UI and state reset. Player must grab the barbell again.");
+}
+
+
 function releaseBarbell(e = null) {
     if (e) {
         e.preventDefault();
@@ -1408,8 +1495,24 @@ function releaseBarbell(e = null) {
             passive: false,
         });
 
-        // **Hide the Lockout Button when releasing the barbell**
+        // **Set the lift as interrupted**
+        liftInterrupted = true;
+
+        // **Hide the Lockout Button**
         hideLockoutButton();
+
+        // **Trigger "No Lift" Feedback**
+        showLiftFeedback("No Lift. Try Again!", false);
+
+        // **Stop the timer if it's running**
+        if (liftTimer) {
+            clearInterval(liftTimer);
+            liftTimer = null;
+        }
+
+        // **Reset lift-related flags**
+        liftInProgress = false;
+        squatDepthReached = false;
     }
 }
 
@@ -1465,8 +1568,13 @@ function onActionButtonPress(e) {
     e.preventDefault();
     e.stopPropagation();
     console.log('Barbell action triggered!');
+
+    // **Reset lift interruption flag**
+    liftInterrupted = false;
+
     moveBarbellToPlayerTop();
 }
+
 
 function onReleaseButtonPress(e) {
     e.preventDefault();
