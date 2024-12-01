@@ -68,7 +68,7 @@ const lockoutButton = document.getElementById('lockoutButton'); // Reusing the s
 
 // Function to show the Lockout Button with fade-in effect
 function showLockoutButton() {
-    if (lockoutButton && barbellConstraint) { // Only show if barbell is attached
+    if (lockoutButton && barbellConstraint && squatDepthReached) { // Only show if barbell is attached and depth was reached
         lockoutButton.classList.add('visible'); // Add the 'visible' class
         lockoutButton.setAttribute('aria-hidden', 'false'); // Make it accessible
         lockoutButtonVisible = true;
@@ -241,32 +241,41 @@ function initializeScene() {
 let isThirdPerson = false; // Flag to toggle between third-person and first-person
 
 document.addEventListener("DOMContentLoaded", () => {
+    // Toggle Camera Button Setup
     const toggleCameraButton = document.getElementById("toggleCameraButton");
 
     if (toggleCameraButton) {
         toggleCameraButton.addEventListener("touchstart", (e) => {
-            e.preventDefault(); // Prevent unintended behavior like scrolling
-            e.stopPropagation(); // Prevent touch event from bubbling up
+            e.preventDefault();
+            e.stopPropagation();
             isThirdPerson = !isThirdPerson;
 
             if (isThirdPerson) {
-                // Reset to standard FOV for third-person
-                camera.fov = 75; // Default FOV for third-person view
+                camera.fov = 75;
             } else {
-                // Increase FOV for first-person mode
-                camera.fov = 100; // Wider FOV for first-person view
+                camera.fov = 100;
             }
 
-            camera.updateProjectionMatrix(); // Important: Apply the FOV change
+            camera.updateProjectionMatrix();
         });
     } else {
         console.error("Toggle Camera Button not found in the DOM.");
     }
-});
 
-document.addEventListener("DOMContentLoaded", () => {
-    timerDisplay.style.visibility = "hidden";
-    timerDisplay.style.opacity = "0";
+    // Initialize Timer Display
+    const timerDisplay = document.getElementById("timerDisplay");
+    if (timerDisplay) {
+        timerDisplay.style.visibility = "hidden";
+        timerDisplay.style.opacity = "0";
+    } else {
+        console.error("Timer Display element not found in the DOM.");
+    }
+
+    // Initialize Lift Feedback (if needed)
+    const liftFeedback = document.getElementById("liftFeedback");
+    if (!liftFeedback) {
+        console.error("liftFeedback element not found in the DOM.");
+    }
 });
 
 
@@ -652,18 +661,17 @@ const requiredDecreaseFrames = 1; // Adjust as needed
 
 const minSquatDepth = PLAYER_CONFIG.height * 0.4; // Minimum height for a valid squat
 let squatDepthReached = false; // Tracks whether the depth was reached
-let squatInProgress = false; // Tracks whether a squat is actively in progress
 let liftStatus = null; // Tracks the status of the lift: "Good Lift" or "No Lift"
 const LIFT_TIME_LIMIT = 30; // Time limit in seconds to complete the lift
 let liftTimer = null; // Tracks the timer for the lift
 let remainingTime = LIFT_TIME_LIMIT; // Countdown timer
 let liftInProgress = false; // Flag to track if a lift is ongoing
 
-
 function updateSpring(deltaTime) {
     if (!player) return;
 
-    if (jumpInProgress) return; // Skip spring logic while jumping
+    // Skip spring logic while jumping
+    if (jumpInProgress) return;
 
     const isDescending = appliedForce > 0; // Check descent state
     const displacement = originalHeight - currentHeight;
@@ -677,8 +685,11 @@ function updateSpring(deltaTime) {
             dampingForce = -DESCENT_SPRING_CONFIG.damping * springVelocity;
             netForce = springForce + dampingForce - appliedForce;
 
+            // Update depth meter
+            updateDepthMeter(currentHeight, minSquatDepth, originalHeight);
+
             // Check squat depth
-            if (currentHeight <= minSquatDepth) {
+            if (currentHeight <= minSquatDepth && !squatDepthReached) {
                 squatDepthReached = true; // Mark as depth achieved
                 console.log("Minimum squat depth reached!");
             }
@@ -692,6 +703,9 @@ function updateSpring(deltaTime) {
             netForce = isBarbellAttached
                 ? springForce + dampingForce - barbellLoad * 10
                 : springForce + dampingForce;
+
+            // Update depth meter (ascent reduces depth)
+            updateDepthMeter(currentHeight, minSquatDepth, originalHeight);
         }
 
         // Update velocity and height
@@ -712,6 +726,27 @@ function updateSpring(deltaTime) {
         ) {
             springVelocity = 0;
             currentHeight = originalHeight;
+        }
+    }
+
+    // Check for lift completion conditions
+    if (!isApplyForceButtonPressed && squatDepthReached) {
+        if (currentHeight >= SPRING_CONFIG.maxHeight * 0.9) {
+            // Depth and lockout achieved
+            if (liftInProgress) {
+                liftInProgress = false;
+                showLiftFeedback("Good Lift!", true);
+                console.log("Good Lift: Depth and lockout achieved!");
+                if (liftTimer) clearInterval(liftTimer); // Stop timer
+            }
+        } else if (remainingTime <= 0) {
+            // Timer expired without meeting conditions
+            if (liftInProgress) {
+                liftInProgress = false;
+                showLiftFeedback("No Lift. Try Again!", false);
+                console.log("No Lift: Timer expired.");
+                if (liftTimer) clearInterval(liftTimer); // Stop timer
+            }
         }
     }
 }
@@ -788,28 +823,42 @@ if (applyForceButton) {
     );
     
     
-    
-    
     applyForceButton.addEventListener("touchend", (e) => {
         e.preventDefault();
         e.stopPropagation();
         appliedForce = 0;
         isApplyForceButtonPressed = false;
     
-        if (squatInProgress) {
+        if (liftInProgress) {
             if (squatDepthReached && currentHeight >= SPRING_CONFIG.maxHeight * 0.95) {
                 liftStatus = "Good Lift";
                 console.log("Good Lift: Depth and lockout achieved within time limit!");
                 clearInterval(liftTimer); // Stop the timer
                 liftInProgress = false; // End the lift
-            } else if (!liftInProgress) {
+    
+                // Trigger Good Lift Feedback
+                showLiftFeedback("Good Lift!", true);
+            } else {
                 liftStatus = "No Lift";
                 console.log("No Lift: Conditions not met within time limit.");
+    
+                // **Trigger No Lift Feedback**
+                showLiftFeedback("No Lift. Try Again!", false);
+                liftInProgress = false; // End the lift
+    
+                // Hide the timer
+                timerDisplay.style.visibility = "hidden";
+                timerDisplay.style.opacity = "0";
             }
         }
     
-        squatInProgress = false; // Squat ends
-        showLockoutButton(); // Maintain lockout behavior
+        // **Conditionally Show Lockout Button Only If Depth Was Reached**
+        if (squatDepthReached) {
+            showLockoutButton();
+        } else {
+            hideLockoutButton(); // Ensure it's hidden if depth wasn't reached
+        }
+    
         checkLockout();
     });
 }    
@@ -820,6 +869,32 @@ function updateTimerDisplay(time) {
     timerDisplay.textContent = `Time Left: ${time}s`;
 }
 
+// References to depth meter and feedback elements
+const depthMeterBar = document.getElementById("depthMeterBar");
+const liftFeedback = document.getElementById("liftFeedback");
+
+// Function to update the depth meter
+function updateDepthMeter(currentHeight, minDepth, maxHeight) {
+    const depthMeterFill = document.getElementById("depthMeterFill");
+    if (!depthMeterFill) return;
+
+    // Calculate the fill percentage (0% at max height, 100% at minDepth)
+    const fillPercent = Math.min(100, ((maxHeight - currentHeight) / (maxHeight - minDepth)) * 100);
+
+    // Set the height of the fill (top stays fixed)
+    depthMeterFill.style.height = `${fillPercent}%`;
+
+    // Transition color from red to green as depth is reached
+    if (currentHeight <= minDepth) {
+        depthMeterFill.style.backgroundColor = "green";
+    } else {
+        // Linear interpolation for red to yellow gradient
+        const colorFactor = Math.min(1, fillPercent / 100); // 0 to 1 for the gradient
+        const red = Math.round(255 * (1 - colorFactor));
+        const green = Math.round(255 * colorFactor);
+        depthMeterFill.style.backgroundColor = `rgb(${red}, ${green}, 0)`;
+    }
+}
 
 function checkLockout() {
     if (
@@ -837,14 +912,44 @@ function checkLockout() {
             
             // Stop the timer
             clearInterval(liftTimer);
-            liftInProgress = false;
+            liftInProgress = false; // End the lift
 
             // Hide the timer
             timerDisplay.style.visibility = "hidden";
             timerDisplay.style.opacity = "0";
+
+            // **Trigger Feedback**
+            showLiftFeedback("Good Lift!", true);
         }
     }
 }
+
+
+function showLiftFeedback(message, isGoodLift) {
+    const liftFeedback = document.getElementById("liftFeedback");
+    if (!liftFeedback) {
+        console.error("liftFeedback element not found in the DOM.");
+        return;
+    }
+
+    liftFeedback.textContent = message;
+
+    if (isGoodLift) {
+        liftFeedback.style.backgroundColor = "rgba(0, 128, 0, 0.7)"; // Green for good lift
+    } else {
+        liftFeedback.style.backgroundColor = "rgba(128, 0, 0, 0.7)"; // Red for no lift
+    }
+
+    liftFeedback.classList.remove("hidden");
+    liftFeedback.classList.add("show");
+
+    // Hide the feedback after 3 seconds
+    setTimeout(() => {
+        liftFeedback.classList.remove("show");
+        liftFeedback.classList.add("hidden");
+    }, 3000);
+}
+
 
 
 
@@ -873,6 +978,11 @@ setupLockoutButton();
 // script.js
 
 function performLockoutTap() {
+    if (!squatDepthReached) {
+        console.log("Cannot perform lockout: Minimum squat depth not reached.");
+        return;
+    }
+
     // Decrease barbell load
     barbellLoad = Math.max(barbellLoad - BARBELL_LOAD_DECREASE_PER_TAP, MIN_BARBELL_LOAD);
     console.log(`Barbell load decreased to: ${barbellLoad}`);
@@ -891,12 +1001,12 @@ function performLockoutTap() {
     if (barbellLoad <= MIN_BARBELL_LOAD) {
         console.log('Lockout load reached minimum. Hiding Lockout Button.');
         hideLockoutButton();
+
+        // **Optional: Trigger Feedback if needed**
+        showLiftFeedback("Lockout Achieved!", true); // Or any other appropriate message
     }
     checkLockout();
-
 }
-
-
 
 // ==============================
 // Animation Loop Integration
