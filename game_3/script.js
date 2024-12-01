@@ -63,7 +63,33 @@ const minPitch = -Math.PI / 6;  // Minimum pitch (~25.7 degrees down)
 // DOM Elements
 const joystickContainerMove = document.getElementById('joystickContainerMove');
 const joystickKnobMove = document.getElementById('joystickKnobMove');
-const jumpButton = document.getElementById('jumpButton');
+const lockoutButton = document.getElementById('jumpButton'); // Reusing the same button
+// Hide the lockout button initially
+if (lockoutButton) {
+    lockoutButton.style.display = 'none';
+}
+
+function showLockoutButton() {
+    if (lockoutButton && barbellConstraint) { // Only show if barbell is attached
+        lockoutButton.style.display = 'block';
+        lockoutButtonVisible = true;
+        console.log("Lockout Button Shown");
+    }
+}
+
+
+function hideLockoutButton() {
+    if (lockoutButton) {
+        lockoutButton.style.display = 'none';
+        lockoutButtonVisible = false;
+    }
+}
+
+// Add variables for lockout functionality
+let lockoutButtonVisible = false;
+const BARBELL_LOAD_DECREASE_PER_TAP = 5; // Adjust as needed
+const MIN_BARBELL_LOAD = 0; // Minimum barbell load
+let originalBarbellLoad = 0; // Will be set when barbell is attached
 
 // ==============================
 // Initialize the Game
@@ -203,8 +229,6 @@ function initializeScene() {
     window.addEventListener('resize', onWindowResize, false);
     window.addEventListener('orientationchange', onWindowResize, false);
 
-    // Setup jump button functionality
-    setupJumpButton();
 }
 
 
@@ -714,6 +738,16 @@ function updateSpring(deltaTime) {
             Math.min(SPRING_CONFIG.maxHeight, currentHeight)
         );
 
+        // Check if player has reached maximum height
+        if (currentHeight >= SPRING_CONFIG.maxHeight *0.95) {
+            hideLockoutButton();
+
+            // Reset barbell load to original value after lockout
+            barbellLoad = originalBarbellLoad;
+            console.log('Lockout completed. Barbell load reset to original value.');
+            console.log (barbellLoad)
+        }
+
         // Reset velocity if spring is at equilibrium
         if (
             Math.abs(displacement) <= 0.01 &&
@@ -725,6 +759,7 @@ function updateSpring(deltaTime) {
         }
     }
 }
+
 
 
 // ==============================
@@ -756,6 +791,7 @@ if (applyForceButton) {
             e.preventDefault();
             e.stopPropagation(); // Prevent touch event from bubbling up
             appliedForce = 0;
+            showLockoutButton();
         },
         { passive: false }
     );
@@ -763,6 +799,49 @@ if (applyForceButton) {
     console.warn("Apply Force Button not found in the DOM.");
 }
 
+function setupLockoutButton() {
+    if (lockoutButton) {
+        // Touch events for mobile
+        lockoutButton.addEventListener(
+            'touchstart',
+            (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                lockoutButton.classList.add('active');
+                performLockoutTap();
+            },
+            { passive: false }
+        );
+
+        lockoutButton.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            lockoutButton.classList.remove('active');
+        });
+
+        // Click event for desktop
+        lockoutButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            performLockoutTap();
+        });
+    }
+}
+
+setupLockoutButton();
+
+function performLockoutTap() {
+    // Decrease barbell load
+    barbellLoad = Math.max(barbellLoad - BARBELL_LOAD_DECREASE_PER_TAP, MIN_BARBELL_LOAD);
+    console.log(`Barbell load decreased to: ${barbellLoad}`);
+
+    // Check if barbellLoad has reached the minimum
+    if (barbellLoad <= MIN_BARBELL_LOAD) {
+        console.log('Lockout load reached minimum. Hiding Lockout Button.');
+        hideLockoutButton();
+    }
+
+    // Optional: Update visuals or mechanics here
+}
 
 
 // ==============================
@@ -898,58 +977,6 @@ function onWindowResize() {
     // Update renderer size
     renderer.setSize(width, height);
 }
-
-// ==============================
-// Jump Functionality
-// ==============================
-
-function setupJumpButton() {
-    if (jumpButton) {
-        // Touch events for mobile
-        jumpButton.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            e.stopPropagation(); // Prevent touch event from bubbling up
-            jumpButton.classList.add('active');
-            jump();
-        }, { passive: false });
-        
-        jumpButton.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            e.stopPropagation(); // Prevent touch event from bubbling up
-            jumpButton.classList.remove('active');
-        });        
-
-        // Click event for compatibility
-        jumpButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            jump();
-        });
-    }
-}
-function jump() {
-    if (!playerBody) {
-        console.warn("playerBody is undefined.");
-        return;
-    }
-
-    const velocity = playerBody.getLinearVelocity();
-
-    if (velocity.y() < 0.1 && !jumpInProgress) { // Ensure grounded and not already jumping
-        jumpInProgress = true; // Set jump flag
-        const jumpForce = new Ammo.btVector3(0, 100, 0); // Adjust jump strength
-        playerBody.applyCentralImpulse(jumpForce);
-
-        // Reset jumpInProgress after the jump is complete
-        const checkLandingInterval = setInterval(() => {
-            const newVelocity = playerBody.getLinearVelocity();
-            if (Math.abs(newVelocity.y()) < 0.1) { // Adjust threshold as needed
-                jumpInProgress = false; // Allow spring logic to resume
-                clearInterval(checkLandingInterval);
-            }
-        }, 100); // Check every 100 ms
-    }
-}
-
 
 
 // ==============================
@@ -1201,6 +1228,8 @@ function releaseBarbell(e) {
         // Reset barbellLoad since the player is no longer lifting the barbell
         barbellLoad = 0;
 
+        console.log('Barbell released. Load set to 0.');
+
         // Change button text back
         actionButton.innerText = "Grab Bar";
 
@@ -1251,6 +1280,12 @@ function attachBarbellToPlayer() {
 
     // Add the constraint to the physics world
     physicsWorld.addConstraint(barbellConstraint, true);
+
+    // Set barbellLoad and originalBarbellLoad
+    barbellLoad = BARBELL_CONFIG.centralBar.mass + 2 * BARBELL_CONFIG.plate.mass;
+    originalBarbellLoad = barbellLoad;
+
+    console.log(`Barbell attached. Load: ${barbellLoad}`);
 }
 
 
