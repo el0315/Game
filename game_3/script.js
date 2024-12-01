@@ -662,7 +662,7 @@ const requiredDecreaseFrames = 1; // Adjust as needed
 const minSquatDepth = PLAYER_CONFIG.height * 0.4; // Minimum height for a valid squat
 let squatDepthReached = false; // Tracks whether the depth was reached
 let liftStatus = null; // Tracks the status of the lift: "Good Lift" or "No Lift"
-const LIFT_TIME_LIMIT = 30; // Time limit in seconds to complete the lift
+const LIFT_TIME_LIMIT = 20; // Time limit in seconds to complete the lift
 let liftTimer = null; // Tracks the timer for the lift
 let remainingTime = LIFT_TIME_LIMIT; // Countdown timer
 let liftInProgress = false; // Flag to track if a lift is ongoing
@@ -802,20 +802,24 @@ if (applyForceButton) {
                     liftTimer = setInterval(() => {
                         remainingTime -= 1;
                         updateTimerDisplay(remainingTime);
-    
+                    
                         if (remainingTime <= 0) {
                             clearInterval(liftTimer); // Stop the timer
+                            liftTimer = null;
                             liftInProgress = false; // End the lift
                             timerDisplay.textContent = "Time's Up!";
-                            liftStatus = squatDepthReached ? "No Lift" : "Failed Lift";
+                            liftStatus = "No Lift"; // Timer expired without completing lockout
                             console.log(`Lift failed: ${liftStatus}`);
-                            releaseBarbell(e);
-    
+                            releaseBarbell(); // No event object here
                             // Hide the timer
                             timerDisplay.style.visibility = "hidden";
                             timerDisplay.style.opacity = "0";
+                    
+                            // Provide feedback
+                            showLiftFeedback("No Lift. Try Again!", false);
                         }
                     }, 1000); // Update every second
+                    
                 }
             } else {
                 console.log("Timer not started: Barbell is not attached.");
@@ -840,21 +844,21 @@ if (applyForceButton) {
                 // Show the Lockout Button
                 showLockoutButton();
                 
-        
+                // **Do NOT stop the timer here**; keep it running during lockout
             } else {
                 // Player did not reach the minimum squat depth
                 liftStatus = "No Lift";
                 showLiftFeedback("No Lift. Try Again!", false);
                 releaseBarbell(e);
+                
+                // **Stop the timer only if it's a "No Lift"**
+                if (liftTimer) {
+                    clearInterval(liftTimer);
+                    liftTimer = null;
+                }
+                
+                liftInProgress = false; // Reset the lift progress flag
             }
-    
-            // Stop the timer as the player has released the button
-            if (liftTimer) {
-                clearInterval(liftTimer);
-                liftTimer = null;
-            }
-    
-            liftInProgress = false; // Reset the lift progress flag
         }
     
         checkLockout();
@@ -1401,7 +1405,6 @@ function releaseBarbell(e = null) {
         });
     }
 }
-
 
 let barbellConstraint = null; // Initialize to null
 
