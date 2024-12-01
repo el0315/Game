@@ -264,6 +264,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
+document.addEventListener("DOMContentLoaded", () => {
+    timerDisplay.style.visibility = "hidden";
+    timerDisplay.style.opacity = "0";
+});
+
+
 // Settings Elements
 const settingsButton = document.getElementById('settingsButton');
 const settingsOverlay = document.getElementById('settingsOverlay');
@@ -644,53 +650,48 @@ const velocityDecreaseThreshold = 1.5; // Adjust as needed based on testing
 let originalAscentDamping = SPRING_CONFIG.damping; // Store the original ascent damping
 const requiredDecreaseFrames = 1; // Adjust as needed
 
-// Modify the updateSpring logic
+const minSquatDepth = PLAYER_CONFIG.height * 0.4; // Minimum height for a valid squat
+let squatDepthReached = false; // Tracks whether the depth was reached
+let squatInProgress = false; // Tracks whether a squat is actively in progress
+let liftStatus = null; // Tracks the status of the lift: "Good Lift" or "No Lift"
+const LIFT_TIME_LIMIT = 30; // Time limit in seconds to complete the lift
+let liftTimer = null; // Tracks the timer for the lift
+let remainingTime = LIFT_TIME_LIMIT; // Countdown timer
+let liftInProgress = false; // Flag to track if a lift is ongoing
+
+
 function updateSpring(deltaTime) {
     if (!player) return;
 
-    // Skip spring logic while jumping
-    if (jumpInProgress) return;
+    if (jumpInProgress) return; // Skip spring logic while jumping
 
-    // Determine if the apply force button is being touched (descent phase)
-    const isDescending = appliedForce > 0;
-
-    // Calculate displacement
+    const isDescending = appliedForce > 0; // Check descent state
     const displacement = originalHeight - currentHeight;
 
-    // Proceed only if there's displacement or external force
     if (Math.abs(displacement) > 0.01 || appliedForce > 0) {
         let springForce, dampingForce, netForce;
 
         if (isDescending) {
-            // **Descent Phase Logic**
-
-            // Use fixed spring parameters
+            // Descent logic
             springForce = DESCENT_SPRING_CONFIG.stiffness * displacement;
             dampingForce = -DESCENT_SPRING_CONFIG.damping * springVelocity;
-
-            // Include applied force
             netForce = springForce + dampingForce - appliedForce;
 
-            // Reset ascent completion status and maxSpringVelocity
-            ascentCompleted = false;
-            maxSpringVelocity = 0;
+            // Check squat depth
+            if (currentHeight <= minSquatDepth) {
+                squatDepthReached = true; // Mark as depth achieved
+                console.log("Minimum squat depth reached!");
+            }
         } else {
-            // **Ascent Phase Logic**
-
+            // Ascent logic
             springForce = SPRING_CONFIG.stiffness * displacement;
             dampingForce = -SPRING_CONFIG.damping * springVelocity;
 
-            // Check if the barbell is attached
+            // Include barbell load if attached
             const isBarbellAttached = barbellConstraint !== null;
-
-            if (isBarbellAttached) {
-                // Barbell is attached: Include barbell load
-                const loadEffect = barbellLoad * 10; // Scale the load effect as needed
-                netForce = springForce + dampingForce - loadEffect;
-            } else {
-                // Barbell is not attached: Only player's strength
-                netForce = springForce + dampingForce;
-            }
+            netForce = isBarbellAttached
+                ? springForce + dampingForce - barbellLoad * 10
+                : springForce + dampingForce;
         }
 
         // Update velocity and height
@@ -703,19 +704,14 @@ function updateSpring(deltaTime) {
             Math.min(SPRING_CONFIG.maxHeight, currentHeight)
         );
 
-        // Check if lockout conditions are met
-        if (!isApplyForceButtonPressed && barbellConstraint) {
-            checkLockout();
-        }
-
-        // Reset velocity if spring is at equilibrium
+        // Reset velocity at equilibrium
         if (
             Math.abs(displacement) <= 0.01 &&
             Math.abs(springVelocity) <= 0.01 &&
             appliedForce === 0
         ) {
             springVelocity = 0;
-            currentHeight = originalHeight; // Ensure exact original height
+            currentHeight = originalHeight;
         }
     }
 }
@@ -746,41 +742,110 @@ if (applyForceButton) {
             e.stopPropagation();
             appliedForce = SPRING_CONFIG.additionalForce;
             isApplyForceButtonPressed = true; // Mark as pressed
-
+    
             if (barbellConstraint) {
                 // Reset barbell load if attached
                 barbellLoad = originalBarbellLoad;
                 console.log("Barbell load reset on apply force button press.");
+    
+                // Timer functionality
+                if (!liftInProgress) {
+                    liftInProgress = true; // Start the lift
+                    remainingTime = LIFT_TIME_LIMIT; // Reset the timer
+                    squatDepthReached = false; // Reset depth flag
+                    liftStatus = null; // Reset lift status
+    
+                    // Show the timer
+                    timerDisplay.style.visibility = "visible";
+                    timerDisplay.style.opacity = "1";
+    
+                    console.log("Lift started! Timer initiated.");
+    
+                    // Start the timer
+                    if (liftTimer) clearInterval(liftTimer); // Clear any previous timer
+                    liftTimer = setInterval(() => {
+                        remainingTime -= 1;
+                        updateTimerDisplay(remainingTime);
+    
+                        if (remainingTime <= 0) {
+                            clearInterval(liftTimer); // Stop the timer
+                            liftInProgress = false; // End the lift
+                            timerDisplay.textContent = "Time's Up!";
+                            liftStatus = squatDepthReached ? "No Lift" : "Failed Lift";
+                            console.log(`Lift failed: ${liftStatus}`);
+    
+                            // Hide the timer
+                            timerDisplay.style.visibility = "hidden";
+                            timerDisplay.style.opacity = "0";
+                        }
+                    }, 1000); // Update every second
+                }
+            } else {
+                console.log("Timer not started: Barbell is not attached.");
             }
         },
         { passive: false }
     );
+    
+    
+    
+    
+    applyForceButton.addEventListener("touchend", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        appliedForce = 0;
+        isApplyForceButtonPressed = false;
+    
+        if (squatInProgress) {
+            if (squatDepthReached && currentHeight >= SPRING_CONFIG.maxHeight * 0.95) {
+                liftStatus = "Good Lift";
+                console.log("Good Lift: Depth and lockout achieved within time limit!");
+                clearInterval(liftTimer); // Stop the timer
+                liftInProgress = false; // End the lift
+            } else if (!liftInProgress) {
+                liftStatus = "No Lift";
+                console.log("No Lift: Conditions not met within time limit.");
+            }
+        }
+    
+        squatInProgress = false; // Squat ends
+        showLockoutButton(); // Maintain lockout behavior
+        checkLockout();
+    });
+}    
 
-    applyForceButton.addEventListener(
-        "touchend",
-        (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            appliedForce = 0;
-            isApplyForceButtonPressed = false; // Mark as released
-            showLockoutButton();
-            checkLockout(); // Check lockout after button release
-        },
-        { passive: false }
-    );
+const timerDisplay = document.getElementById("timerDisplay");
+
+function updateTimerDisplay(time) {
+    timerDisplay.textContent = `Time Left: ${time}s`;
 }
 
-// Function to check for lockout
+
 function checkLockout() {
     if (
         !isApplyForceButtonPressed && // Ensure the button is released
         barbellConstraint && // Ensure the barbell is attached
-        currentHeight >= SPRING_CONFIG.maxHeight * 0.90 // Check for maximum height
+        currentHeight >= SPRING_CONFIG.maxHeight * 0.95 // Check for maximum height
     ) {
         hideLockoutButton(); // Hide the lockout button
         console.log("Lockout completed.");
+
+        // Check if lift conditions are met
+        if (squatDepthReached && remainingTime > 0) {
+            liftStatus = "Good Lift";
+            console.log("Good Lift: Depth and lockout achieved within time limit!");
+            
+            // Stop the timer
+            clearInterval(liftTimer);
+            liftInProgress = false;
+
+            // Hide the timer
+            timerDisplay.style.visibility = "hidden";
+            timerDisplay.style.opacity = "0";
+        }
     }
 }
+
 
 
 function setupLockoutButton() {
@@ -827,8 +892,8 @@ function performLockoutTap() {
         console.log('Lockout load reached minimum. Hiding Lockout Button.');
         hideLockoutButton();
     }
+    checkLockout();
 
-    // Optional: Update visuals or mechanics here
 }
 
 
