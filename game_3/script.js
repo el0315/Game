@@ -947,12 +947,16 @@ function showLiftFeedback(message, isGoodLift) {
     liftFeedback.classList.remove("hidden");
     liftFeedback.classList.add("show");
 
+    // Hide the Lockout Button when lift feedback is shown
+    hideLockoutButton();
+
     // Hide the feedback after 3 seconds
     setTimeout(() => {
         liftFeedback.classList.remove("show");
         liftFeedback.classList.add("hidden");
     }, 3000);
 }
+
 
 
 
@@ -1403,8 +1407,12 @@ function releaseBarbell(e = null) {
         actionButton.addEventListener('touchstart', onActionButtonPress, {
             passive: false,
         });
+
+        // **Hide the Lockout Button when releasing the barbell**
+        hideLockoutButton();
     }
 }
+
 
 let barbellConstraint = null; // Initialize to null
 
