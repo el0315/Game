@@ -1418,10 +1418,11 @@ function resetBarbellPosition() {
     barbellBody.getMotionState().setWorldTransform(transform);
     console.log(`Barbell physics body reset to position (${resetPosition.x}, ${resetPosition.y}, ${resetPosition.z}).`);
 
-    // Restore the barbell's mass and gravity
-    setBarbellMass(BARBELL_CONFIG.centralBar.mass + 2 * BARBELL_CONFIG.plate.mass);
-    barbellBody.setGravity(new Ammo.btVector3(0, -19.6, 0));
-    barbellBody.activate(true);
+    // Make the barbell kinematic (no gravity and immovable)
+    setBarbellMass(0); // Set mass to 0 for kinematic behavior
+    barbellBody.setGravity(new Ammo.btVector3(0, 0, 0)); // Remove gravity
+    barbellBody.setLinearVelocity(new Ammo.btVector3(0, 0, 0)); // Stop all movement
+    barbellBody.setAngularVelocity(new Ammo.btVector3(0, 0, 0)); // Stop all rotation
 
     // Update the visual barbell mesh
     barbell.position.set(resetPosition.x, resetPosition.y, resetPosition.z);
@@ -1445,9 +1446,8 @@ function resetBarbellPosition() {
         actionButton.removeEventListener('touchstart', onActionButtonPress);
         actionButton.addEventListener('touchstart', onActionButtonPress, { passive: false });
     }
-    console.log("UI and state reset. Player must grab the barbell again.");
+    console.log("Barbell reset to initial floating state. Ready to be grabbed.");
 }
-
 
 
 function releaseBarbell(e = null) {
