@@ -290,7 +290,7 @@ barbellLoadSlider.addEventListener('input', () => {
 // Update spring strength when slider changes
 springStrengthSlider.addEventListener('input', () => {
     const newStrength = parseInt(springStrengthSlider.value);
-    SPRING_CONFIG.stiffness = newStrength; // Update the stiffness in SPRING_CONFIG
+    SPRING_CONFIG.stiffness = newStrength * 6; // Update the stiffness in SPRING_CONFIG
     springStrengthValueDisplay.textContent = newStrength;
 });
 
@@ -585,10 +585,16 @@ function setBarbellMass(mass) {
 // Configurable parameters for the spring system
 const SPRING_CONFIG = {
     stiffness: 200,        // Spring stiffness (higher = stiffer spring)
-    damping: 50,           // Damping factor (higher = less oscillation)
+    damping: 500,           // Damping factor (higher = less oscillation)
     minHeight: PLAYER_CONFIG.height * 0.5, // Minimum player height
     maxHeight: PLAYER_CONFIG.height,       // Maximum player height
     additionalForce: 1000, // Additional force applied when pressing the button
+};
+
+// Fixed spring parameters for descent phase
+const DESCENT_SPRING_CONFIG = {
+    stiffness: 300, // Fixed stiffness during descent
+    damping: 50,    // Fixed damping during descent
 };
 
 // Variables to track spring force and height
@@ -605,26 +611,50 @@ const applyForceButton = document.getElementById("applyForceButton");
 // ==============================
 
 let jumpInProgress = false; // Track if a jump is in progress
-
 function updateSpring(deltaTime) {
     if (!player) return;
 
     // Skip spring logic while jumping
     if (jumpInProgress) return;
 
-    // Calculate displacement and forces only if needed
+    // Determine if the apply force button is being touched (descent phase)
+    const isDescending = appliedForce > 0;
+
+    // Calculate displacement
     const displacement = originalHeight - currentHeight;
 
+    // Proceed only if there's displacement or external force
     if (Math.abs(displacement) > 0.01 || appliedForce > 0) {
-        // Spring force proportional to displacement
-        const springForce = SPRING_CONFIG.stiffness * displacement;
+        let springForce, dampingForce, netForce;
 
-        // Damping force proportional to velocity
-        const dampingForce = -SPRING_CONFIG.damping * springVelocity;
+        if (isDescending) {
+            // **Descent Phase Logic**
 
-        // Adjust net force based on barbellLoad
-        const loadEffect = barbellLoad * 2; // Scale the load effect as needed
-        const netForce = springForce + dampingForce - appliedForce - loadEffect;
+            // Use fixed spring parameters
+            springForce = DESCENT_SPRING_CONFIG.stiffness * displacement;
+            dampingForce = -DESCENT_SPRING_CONFIG.damping * springVelocity;
+
+            // Net force includes applied force
+            netForce = springForce + dampingForce - appliedForce;
+        } else {
+            // **Ascent Phase Logic**
+
+            // Use player's strength
+            springForce = SPRING_CONFIG.stiffness * displacement;
+            dampingForce = -SPRING_CONFIG.damping * springVelocity;
+
+            // Determine if the barbell is attached
+            const isBarbellAttached = barbellConstraint !== null;
+
+            if (isBarbellAttached) {
+                // **Barbell is attached: Include barbell load**
+                const loadEffect = barbellLoad * 10; // Scale as needed
+                netForce = springForce + dampingForce - loadEffect;
+            } else {
+                // **Barbell is not attached: Only player's strength**
+                netForce = springForce + dampingForce;
+            }
+        }
 
         // Update velocity and height
         springVelocity += (netForce / PLAYER_CONFIG.mass) * deltaTime;
@@ -1138,7 +1168,8 @@ function releaseBarbell(e) {
 }
 
 
-let barbellConstraint; // Declare globally to remove later if needed
+let barbellConstraint = null; // Initialize to null
+
 
 // Global variable to represent the load the player is lifting
 let barbellLoad = 0;
