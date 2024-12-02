@@ -564,56 +564,61 @@ let currentPlatesPerSide = 1; // Default: 1 plate per side
 const maxPlatesPerSide = 8; // Maximum additional plates per side
 const plateGap = 0.02; // Adjustable gap width between plates
 
-// Reference the Add Plates Button
-const addPlatesButton = document.getElementById("addPlatesButton");
-addPlatesButton.style.display = "none"; // Initially hidden
+// Reference the Plate Slider
+const plateSlider = document.getElementById("plateSlider");
+const plateSliderValueDisplay = document.getElementById("plateSliderValue");
 
-// Add Plates Button Touch Event Handler
-addPlatesButton.addEventListener("touchstart", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (currentPlatesPerSide < maxPlatesPerSide) {
-        addPlatesToBarbell();
-        currentPlatesPerSide++;
-    } else {
-        console.log("Maximum plates reached.");
+// Initialize the slider with the current number of plates per side
+plateSlider.value = currentPlatesPerSide;
+plateSliderValueDisplay.textContent = currentPlatesPerSide;
+
+// Event listener for slider input
+plateSlider.addEventListener("input", (e) => {
+    const newPlateCount = parseInt(e.target.value, 10);
+    if (newPlateCount !== currentPlatesPerSide) {
+        adjustPlatesToBarbell(newPlateCount);
+        currentPlatesPerSide = newPlateCount;
+        plateSliderValueDisplay.textContent = newPlateCount;
     }
 });
 
-// Function to add plates symmetrically to the barbell
-function addPlatesToBarbell() {
-    if (!barbell || currentPlatesPerSide >= maxPlatesPerSide) return;
-
+// Adjust plates dynamically
+function adjustPlatesToBarbell(newPlateCount) {
     const baseOffset = BARBELL_CONFIG.centralBar.length / 2 - 0.9; // Initial offset
-    const newPlateOffset = baseOffset + currentPlatesPerSide * (BARBELL_CONFIG.plate.thickness + plateGap); // Adjust position based on total thickness
 
-    // Create Left Plate
-    const leftPlateGeometry = new THREE.CylinderGeometry(
-        BARBELL_CONFIG.plate.radius,
-        BARBELL_CONFIG.plate.radius,
-        BARBELL_CONFIG.plate.thickness,
-        BARBELL_CONFIG.plate.segments
-    );
-    const leftPlate = new THREE.Mesh(leftPlateGeometry, barMaterial);
-    leftPlate.rotation.z = Math.PI / 2;
-    leftPlate.position.set(-newPlateOffset, 0, 0); // Position on the left
-    leftPlate.castShadow = true;
-    barbell.add(leftPlate);
+    // Remove all current plates
+    barbell.children = barbell.children.filter(child => !child.isPlate);
 
-    // Create Right Plate
-    const rightPlate = leftPlate.clone();
-    rightPlate.position.set(newPlateOffset, 0, 0); // Position on the right
-    barbell.add(rightPlate);
+    // Add new plates
+    for (let i = 0; i < newPlateCount; i++) {
+        const plateOffset = baseOffset + i * (BARBELL_CONFIG.plate.thickness + plateGap);
 
-    // Update barbell's physics properties (mass)
-    const newPlateMass = 2 * BARBELL_CONFIG.plate.mass; // Plates added symmetrically
-    setBarbellMass(
-        BARBELL_CONFIG.centralBar.mass + newPlateMass + currentPlatesPerSide * newPlateMass
-    );
+        // Left Plate
+        const leftPlateGeometry = new THREE.CylinderGeometry(
+            BARBELL_CONFIG.plate.radius,
+            BARBELL_CONFIG.plate.radius,
+            BARBELL_CONFIG.plate.thickness,
+            BARBELL_CONFIG.plate.segments
+        );
+        const leftPlate = new THREE.Mesh(leftPlateGeometry, barMaterial);
+        leftPlate.rotation.z = Math.PI / 2;
+        leftPlate.position.set(-plateOffset, 0, 0);
+        leftPlate.isPlate = true; // Mark as a plate for easy filtering
+        leftPlate.castShadow = true;
+        barbell.add(leftPlate);
 
-    console.log(`Plates added. Total plates per side: ${currentPlatesPerSide + 1}`);
+        // Right Plate
+        const rightPlate = leftPlate.clone();
+        rightPlate.position.set(plateOffset, 0, 0);
+        rightPlate.isPlate = true; // Mark as a plate for easy filtering
+        barbell.add(rightPlate);
+    }
+
+    // Update barbell's physics properties
+    const newPlateMass = newPlateCount * 2 * BARBELL_CONFIG.plate.mass; // Total mass of new plates
+    setBarbellMass(BARBELL_CONFIG.centralBar.mass + newPlateMass);
+    console.log(`Plates adjusted. Total plates per side: ${newPlateCount}`);
 }
-
 
 
 function calculateBarbellLoad() {
@@ -1890,21 +1895,21 @@ function checkProximityToBarbell() {
         // Barbell is attached, show "Release" button and hide "Add Plates"
         actionButton.style.display = "block";
         actionButton.innerText = "Release";
-        addPlatesButton.style.display = "none"; // Hide "Add Plates" button
+        plateSlider.style.display = "none"; // Hide "Add Plates" button
     } else if (distance <= PROXIMITY_THRESHOLD) {
         // Barbell is nearby, show "Grab Bar" and optionally "Add Plates"
         actionButton.style.display = "block";
         actionButton.innerText = "Grab Bar";
 
-        if (currentPlatesPerSide < maxPlatesPerSide) {
-            addPlatesButton.style.display = "block"; // Show "Add Plates" button if not maxed out
+        if (currentPlatesPerSide < maxPlatesPerSide + 1) {
+            plateSlider.style.display = "block"; // Show "Add Plates" button if not maxed out
         } else {
-            addPlatesButton.style.display = "none"; // Hide "Add Plates" button if max plates reached
+            plateSlider.style.display = "none"; // Hide "Add Plates" button if max plates reached
         }
     } else {
         // Barbell is not nearby or attached, hide both buttons
         actionButton.style.display = "none";
-        addPlatesButton.style.display = "none";
+        plateSlider.style.display = "none";
     }
 }
 
