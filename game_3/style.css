@@ -619,3 +619,20 @@ html, body {
     font-weight: 500;
 }
 
+/* =========================
+   Cooldown Button Styling
+   ========================= */
+
+/* Cooldown state: Dimmed and not clickable */
+button.cooldown,
+#actionButton.cooldown,
+#applyForceButton.cooldown,
+#plateSlider.cooldown {
+    opacity: 0.6; /* Dim the element */
+    cursor: not-allowed; /* Change cursor to indicate disabled state */
+    pointer-events: none; /* Prevent any mouse or touch events */
+    transition: opacity 0.3s ease;
+}
+
+
+
