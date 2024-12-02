@@ -342,7 +342,7 @@ settingsButton.addEventListener('touchstart', (e) => {
     e.preventDefault();
     e.stopPropagation(); // Prevent touch event from bubbling up
     settingsOverlay.style.display = 'flex';
-    releaseBarbell(e)
+    resetBarbellPosition();
 }, { passive: false });
 
 // Optional: Event listener for click event (desktop compatibility)
