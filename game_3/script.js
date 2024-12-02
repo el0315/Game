@@ -37,10 +37,7 @@ const BARBELL_CONFIG = {
     releaseForce: 10000  // Force applied to barbell on release (in Newtons)
 };
 
-let PLATE_WEIGHT = 15; // Default value, can be adjusted dynamically
-
-
-
+let PLATE_WEIGHT = 10; // Default value, can be adjusted dynamically
 
 // ==============================
 // Declare Global Variables
@@ -697,10 +694,6 @@ function setBarbellMass(mass) {
 // Global Variables for Spring Force
 // ==============================
 
-// ==============================
-// Global Variables for Spring Force
-// ==============================
-
 // Configurable parameters for the spring system
 const SPRING_CONFIG = {
     stiffness: 100,        // Spring stiffness (higher = stiffer spring)
@@ -766,6 +759,11 @@ function updateSpring(deltaTime) {
             // Update depth meter to track squat progress
             updateDepthMeter(currentHeight, minSquatDepth, originalHeight);
 
+            // Start stability mechanic during descent
+            if (!isStabilityActive) {
+                startStabilityMechanic();
+            }
+
             // Check if squat depth is reached
             if (currentHeight <= minSquatDepth && !squatDepthReached) {
                 squatDepthReached = true; // Mark depth as achieved
@@ -777,12 +775,16 @@ function updateSpring(deltaTime) {
             dampingForce = -SPRING_CONFIG.damping * springVelocity;
 
             // Include barbell load and player strength as gameplay resistance
-            // Higher PLAYER_STRENGTH reduces the effective impact of the load
             const adjustedLoad = barbellLoad / PLAYER_STRENGTH;
             netForce = springForce + dampingForce - adjustedLoad * 10;
 
             // Update depth meter for ascent phase
             updateDepthMeter(currentHeight, minSquatDepth, originalHeight);
+
+            // End stability mechanic when ascent begins
+            if (isStabilityActive) {
+                endStabilityMechanic();
+            }
         }
 
         // Update velocity and height based on net force
@@ -834,6 +836,135 @@ function updateSpring(deltaTime) {
             }
         }
     }
+
+    // Update stability mechanic during descent
+    if (isStabilityActive) {
+        updateStabilityMechanic(deltaTime);
+    }
+}
+
+
+// ==============================
+// Stability Mechanic Setup
+// ==============================
+
+// Stability Mechanic Configuration
+const STABILITY_CONFIG = {
+    targetRadius: 40,  // Size of the target circle in pixels
+    crosshairRadius: 20, // Size of the crosshair in pixels
+    sensitivity: 0.3,    // Joystick sensitivity for crosshair movement
+    targetSpeed: 15,      // Speed at which the target moves downward (pixels per frame)
+};
+// Stability Mechanic State
+let isStabilityActive = false; // Tracks whether the stability mechanic is active
+
+
+
+function setupStabilityVisuals() {
+    const overlay = document.getElementById('stabilityOverlay');
+    const target = document.getElementById('targetCircle');
+    const crosshair = document.getElementById('crosshair');
+
+    if (!overlay || !target || !crosshair) {
+        console.error("Stability overlay elements not found!");
+        return;
+    }
+
+    // Position the target relative to the left side
+    target.style.top = '20%'; // Adjust for vertical alignment
+    target.style.left = '10%'; // Move target to the left side
+
+    // Start the crosshair centered within the target
+    crosshair.style.top = target.style.top; // Align vertically
+    crosshair.style.left = target.style.left; // Align horizontally
+}
+
+// Function to show stability visuals
+function showStabilityVisuals() {
+    const overlay = document.getElementById('stabilityOverlay');
+    const target = document.getElementById('targetCircle');
+    const crosshair = document.getElementById('crosshair');
+
+    if (overlay && target && crosshair) {
+        overlay.style.display = 'block';
+        target.style.display = 'block';
+        crosshair.style.display = 'block';
+        console.log("Stability visuals shown.");
+    }
+}
+
+// Function to hide stability visuals
+function hideStabilityVisuals() {
+    const overlay = document.getElementById('stabilityOverlay');
+    const target = document.getElementById('targetCircle');
+    const crosshair = document.getElementById('crosshair');
+
+    if (overlay && target && crosshair) {
+        overlay.style.display = 'none';
+        target.style.display = 'none';
+        crosshair.style.display = 'none';
+        console.log("Stability visuals hidden.");
+    }
+}
+
+
+function startStabilityMechanic() {
+    if (!barbellConstraint) {
+        console.warn("Stability mechanic cannot start: Barbell is not attached.");
+        return;
+    }
+
+    if (!isStabilityActive) {
+        console.log("Stability mechanic started.");
+        isStabilityActive = true;
+        showStabilityVisuals(); // Ensure visuals are shown
+        setupStabilityVisuals(); // Set up the crosshair and target
+    }
+}
+
+function endStabilityMechanic() {
+    if (isStabilityActive) {
+        console.log("Stability mechanic ended.");
+        isStabilityActive = false;
+        hideStabilityVisuals(); // Ensure visuals are hidden
+    }
+}
+
+function updateStabilityMechanic(deltaTime) {
+    if (!isStabilityActive || !barbellConstraint) {
+        endStabilityMechanic(); // End stability mechanic if conditions are not met
+        return;
+    }
+
+    const target = document.getElementById('targetCircle');
+    const crosshair = document.getElementById('crosshair');
+    if (!target || !crosshair) return;
+
+    // Move the target downward
+    const targetRect = target.getBoundingClientRect();
+    const newTop = targetRect.top + STABILITY_CONFIG.targetSpeed * deltaTime;
+    target.style.top = `${newTop}px`;
+
+    // Update crosshair based on joystick input
+    if (joystickMoveAngle !== null) {
+        const crosshairRect = crosshair.getBoundingClientRect();
+        const movementX = Math.cos(joystickMoveAngle) * STABILITY_CONFIG.sensitivity * deltaTime * 100;
+        const movementY = Math.sin(joystickMoveAngle) * STABILITY_CONFIG.sensitivity * deltaTime * 100;
+
+        const newLeft = crosshairRect.left + movementX;
+        const newTop = crosshairRect.top + movementY;
+
+        crosshair.style.left = `${newLeft}px`;
+        crosshair.style.top = `${newTop}px`;
+    }
+
+    // Calculate the distance between the target and crosshair
+    const distance = Math.sqrt(
+        Math.pow(targetRect.left - crosshair.getBoundingClientRect().left, 2) +
+        Math.pow(targetRect.top - crosshair.getBoundingClientRect().top, 2)
+    );
+
+    console.log(`Distance between target and crosshair: ${distance.toFixed(2)} units`);
 }
 
 
@@ -862,126 +993,137 @@ if (applyForceButton) {
         (e) => {
             e.preventDefault();
             e.stopPropagation();
+    
+            // Apply additional force when the button is pressed
             appliedForce = SPRING_CONFIG.additionalForce;
-            isApplyForceButtonPressed = true; // Mark as pressed
+            isApplyForceButtonPressed = true;
     
             if (barbellConstraint) {
-                // Reset barbell load if attached
-                barbellLoad = originalBarbellLoad;
-                console.log("Barbell load reset on apply force button press.");
+                // Barbell is attached, start the stability mechanic
+                console.log("Apply Force Button pressed. Barbell is attached.");
+                startStabilityMechanic();
     
-                // Timer functionality
+                // Reset barbell load to its original value if needed
+                barbellLoad = originalBarbellLoad;
+                console.log("Barbell load reset on button press.");
+    
+                // Timer-related logic
                 if (!liftInProgress) {
-                    liftInProgress = true; // Start the lift
-                    remainingTime = LIFT_TIME_LIMIT; // Reset the timer
-                    squatDepthReached = false; // Reset depth flag
+                    liftInProgress = true; // Mark the lift as in progress
+                    remainingTime = LIFT_TIME_LIMIT; // Reset timer
+                    squatDepthReached = false; // Reset squat depth flag
                     liftStatus = null; // Reset lift status
     
                     // Show the timer
                     timerDisplay.style.visibility = "visible";
                     timerDisplay.style.opacity = "1";
+                    console.log("Lift started. Timer initiated.");
     
-                    console.log("Lift started! Timer initiated.");
-    
-                    // Start the timer
-                    if (liftTimer) clearInterval(liftTimer); // Clear any previous timer
+                    // Start the lift timer
+                    if (liftTimer) clearInterval(liftTimer); // Clear any existing timer
                     liftTimer = setInterval(() => {
                         remainingTime -= 1;
                         updateTimerDisplay(remainingTime);
-                    
+    
                         if (remainingTime <= 0) {
                             clearInterval(liftTimer); // Stop the timer
                             liftTimer = null;
                             liftInProgress = false; // End the lift
                             timerDisplay.textContent = "Time's Up!";
-                            liftStatus = "No Lift"; // Timer expired without completing lockout
-                            console.log(`Lift failed: ${liftStatus}`);
-                            releaseBarbell(); // No event object here
-                            // Hide the timer
-                            timerDisplay.style.visibility = "hidden";
-                            timerDisplay.style.opacity = "0";
-                    
-                            // Provide feedback
-                            showLiftFeedback("No Lift. Try Again!", false);
+                            liftStatus = "No Lift"; // Timer expired
+                            console.log("Lift failed: Timer expired.");
+                            releaseBarbell(); // Release the barbell
+                            hideStabilityVisuals(); // Stop stability visuals
+                            resetAndHideTimer(); // Reset timer display
+                            showLiftFeedback("No Lift. Try Again!", false); // Show failure feedback
                         }
                     }, 1000); // Update every second
-                    
                 }
             } else {
-                console.log("Timer not started: Barbell is not attached.");
+                // Barbell is not attached, skip stability mechanic and timer
+                console.log("Barbell not attached. Stability mechanic and timer not started.");
             }
         },
         { passive: false }
     );
-    applyForceButton.addEventListener("touchend", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        appliedForce = 0;
-        isApplyForceButtonPressed = false;
     
-        // Define the minimum height threshold for a successful lift
-        const minHeightThreshold = 2; // Player must reach at least this height
+
+    applyForceButton.addEventListener(
+        "touchend",
+        (e) => {
+            e.preventDefault();
+            e.stopPropagation();
     
-        // Add a delay before checking the player's height
-        const delay = 500; // Delay in milliseconds
-        setTimeout(() => {
-            if (currentHeight < minHeightThreshold) {
-                console.log(
-                    `Lift failed due to insufficient height. Player height: ${currentHeight.toFixed(2)} units, Threshold: ${minHeightThreshold.toFixed(2)} units`
-                );
+            // Stop applying additional force
+            appliedForce = 0;
+            isApplyForceButtonPressed = false;
     
-                // Trigger "No Lift" logic
-                if (liftInProgress) {
-                    liftInProgress = false;
-                    squatDepthReached = false;
-    
-                    // Release the barbell and show feedback
-                    releaseBarbell(); 
-                    showLiftFeedback("No Lift. Too Weak!", false);
-    
-                    // Stop the lift timer if it's running
+            // Stop stability mechanic visuals
+            hideStabilityVisuals();
+            // Define the minimum height threshold for a successful lift
+            const minHeightThreshold = 2; // Player must reach at least this height
+                
+            // Add a delay before checking the player's height
+            const delay = 500; // Delay in milliseconds
+            setTimeout(() => {
+                if (currentHeight < minHeightThreshold) {
+                    console.log(
+                        `Lift failed due to insufficient height. Player height: ${currentHeight.toFixed(2)} units, Threshold: ${minHeightThreshold.toFixed(2)} units`
+                    );
+
+                    // Trigger "No Lift" logic
+                    if (liftInProgress) {
+                        liftInProgress = false;
+                        squatDepthReached = false;
+
+                        // Release the barbell and show feedback
+                        releaseBarbell(); 
+                        showLiftFeedback("No Lift. Too Weak!", false);
+
+                        // Stop the lift timer if it's running
+                        if (liftTimer) {
+                            clearInterval(liftTimer);
+                            liftTimer = null;
+                        }
+
+                        // Reset the timer UI
+                        resetAndHideTimer();
+                    }
+                } else {
+                    console.log(`Player successfully reached height threshold: ${currentHeight.toFixed(2)} units`);
+                }
+            }, delay);
+
+            if (liftInProgress) {
+                if (squatDepthReached) {
+                    // Player has reached the minimum squat depth
+                    liftStatus = "Lockout Phase";
+                    console.log("Lockout Phase Initiated.");
+
+                    // Show the Lockout Button
+                    showLockoutButton();
+
+                    // **Do NOT stop the timer here**; keep it running during lockout
+                } else {
+                    // Player did not reach the minimum squat depth
+                    liftStatus = "No Lift";
+                    showLiftFeedback("No Lift. Try Again!", false);
+                    releaseBarbell(e);
+
+                    // Stop the timer if it's a "No Lift"
                     if (liftTimer) {
                         clearInterval(liftTimer);
                         liftTimer = null;
                     }
-    
-                    // Reset the timer UI
-                    resetAndHideTimer();
+
+                    liftInProgress = false; // Reset the lift progress flag
                 }
-            } else {
-                console.log(`Player successfully reached height threshold: ${currentHeight.toFixed(2)} units`);
             }
-        }, delay);
-    
-        if (liftInProgress) {
-            if (squatDepthReached) {
-                // Player has reached the minimum squat depth
-                liftStatus = "Lockout Phase";
-                console.log("Lockout Phase Initiated.");
-    
-                // Show the Lockout Button
-                showLockoutButton();
-    
-                // **Do NOT stop the timer here**; keep it running during lockout
-            } else {
-                // Player did not reach the minimum squat depth
-                liftStatus = "No Lift";
-                showLiftFeedback("No Lift. Try Again!", false);
-                releaseBarbell(e);
-    
-                // Stop the timer if it's a "No Lift"
-                if (liftTimer) {
-                    clearInterval(liftTimer);
-                    liftTimer = null;
-                }
-    
-                liftInProgress = false; // Reset the lift progress flag
-            }
-        }
-    
-        checkLockout();
-    });
-}    
+
+            checkLockout();
+            });
+            } 
+
 const timerDisplay = document.getElementById("timerDisplay");
 
 function updateTimerDisplay(time) {
@@ -1379,7 +1521,6 @@ function updatePlayerPosition() {
         camera.quaternion.copy(quaternion);
     }
 }
-
 
 
 // Function to update the barbell's mesh based on its physics body
@@ -1950,6 +2091,14 @@ function animate() {
     // Check collisions and proximity
     checkCollisions();
     checkProximityToBarbell();
+    // Update Stability Mechanic
+    // Update Stability Mechanic only if barbell is attached
+    if (barbellConstraint) {
+        updateStabilityMechanic(deltaTime);
+    } else {
+        endStabilityMechanic();
+    }
+
     // Update Tween animations
     TWEEN.update();
 
