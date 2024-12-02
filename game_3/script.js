@@ -66,6 +66,38 @@ const joystickKnobMove = document.getElementById('joystickKnobMove');
 const lockoutButton = document.getElementById('lockoutButton'); // Reusing the same button
 
 
+/**
+ * Applies a cooldown to a specified button.
+ * @param {HTMLElement} button - The button element to apply cooldown to.
+ * @param {number} cooldownTime - Cooldown duration in milliseconds.
+ */
+function applyCooldown(button, cooldownTime) {
+    if (!button) return;
+
+    // Disable the button
+    button.disabled = true;
+    button.classList.add('cooldown');
+
+    // Initialize cooldown countdown
+    let remainingTime = Math.ceil(cooldownTime / 1000); // Convert to seconds
+    button.setAttribute('data-cooldown', `${remainingTime}s`);
+
+    // Update the cooldown every second
+    const interval = setInterval(() => {
+        remainingTime -= 1;
+        if (remainingTime > 0) {
+            button.setAttribute('data-cooldown', `${remainingTime}s`);
+        } else {
+            // Re-enable the button
+            clearInterval(interval);
+            button.disabled = false;
+            button.classList.remove('cooldown');
+            button.removeAttribute('data-cooldown');
+        }
+    }, 1000);
+}
+
+
 // Function to show the Lockout Button with fade-in effect
 function showLockoutButton() {
     if (lockoutButton && barbellConstraint) { // Only show if barbell is attached
@@ -1010,7 +1042,9 @@ if (applyForceButton) {
         (e) => {
             e.preventDefault();
             e.stopPropagation();
-    
+            // Apply cooldown to applyForceButton
+            
+
             // Apply additional force when the button is pressed
             appliedForce = SPRING_CONFIG.additionalForce;
             isApplyForceButtonPressed = true;
@@ -1861,24 +1895,32 @@ function attachBarbellToPlayer() {
 }
 
 
-
+// Define cooldown duration (e.g., 3 seconds for actionButton)
+const ACTION_COOLDOWN_TIME = 1000; // in milliseconds
 
 function onActionButtonPress(e) {
     e.preventDefault();
     e.stopPropagation();
     console.log('Barbell action triggered!');
-
+    // Apply cooldown to actionButton
+    applyCooldown(actionButton, ACTION_COOLDOWN_TIME);
+    applyCooldown(applyForceButton, ACTION_COOLDOWN_TIME);
+    applyCooldown(plateSlider,ACTION_COOLDOWN_TIME)
     // **Reset lift interruption flag**
     liftInterrupted = false;
 
     moveBarbellToPlayerTop();
 }
 
-
 function onReleaseButtonPress(e) {
     e.preventDefault();
     e.stopPropagation();
     console.log('Barbell release triggered!');
+    // Apply cooldown to actionButton
+    applyCooldown(actionButton, ACTION_COOLDOWN_TIME);
+    applyCooldown(applyForceButton, ACTION_COOLDOWN_TIME);
+    applyCooldown(plateSlider,ACTION_COOLDOWN_TIME)
+
     releaseBarbell(e);
 }
 
