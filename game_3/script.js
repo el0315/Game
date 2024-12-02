@@ -37,7 +37,7 @@ const BARBELL_CONFIG = {
     releaseForce: 10000  // Force applied to barbell on release (in Newtons)
 };
 
-let PLATE_WEIGHT = 10; // Default value, can be adjusted dynamically
+let PLATE_WEIGHT = 15; // Default value, can be adjusted dynamically
 
 // ==============================
 // Declare Global Variables
@@ -98,6 +98,17 @@ const MIN_BARBELL_LOAD = 0; // Minimum barbell load
 let originalBarbellLoad = 0; // Will be set when barbell is attached
 
 // ==============================
+// Player Strength Initialization
+// ==============================
+
+function initializePlayerStrength() {
+    PLAYER_STRENGTH = parseFloat(strengthSlider.value); // Use slider's initial value
+    strengthValueDisplay.textContent = PLAYER_STRENGTH.toFixed(1); // Update display
+    console.log(`Initial Player Strength set to: ${PLAYER_STRENGTH}`);
+}
+
+
+// ==============================
 // Initialize the Game
 // ==============================
 
@@ -106,6 +117,7 @@ function loadAmmoAndStartGame() {
         console.log("Ammo.js loaded successfully.");
         initializePhysics();
         initializeScene();
+        initializePlayerStrength();
         setupEventListeners();
         animate();
     }).catch((error) => {
