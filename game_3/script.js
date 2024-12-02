@@ -914,7 +914,7 @@ let distanceMeasurements = 0;  // Number of measurements taken
 let averageDistance = 0;       // Calculated average distance
 
 // Define maximum distance for scoring
-const MAX_DISTANCE = 5; // in pixels
+const MAX_DISTANCE = 30; // in pixels
 // Initialize power score
 let powerScore = 50; // Start at mid-point; adjust as needed
 
@@ -1021,6 +1021,7 @@ function endStabilityMechanic() {
         // Additional end-of-mechanic logic as needed
     }
 }
+
 function updateStabilityMechanic(deltaTime) {
     if (!isStabilityActive || !barbellConstraint) {
         endStabilityMechanic(); // End stability mechanic if conditions are not met
@@ -1091,7 +1092,8 @@ function updateStabilityMechanic(deltaTime) {
     // Closer average distance => Higher score; Farther average distance => Lower score
     const calculatedScore = 100 - (averageDistance / MAX_DISTANCE) * 100;
     // Clamp the score between 0 and 100, then round to the nearest integer
-    powerScore = Math.round(Math.max(0, Math.min(100, calculatedScore)));
+    
+    powerScore = Math.round(Math.max(0, Math.min(100, 100 * (1 - averageDistance / MAX_DISTANCE))));
 
     // Update power score display
     updatePowerScoreDisplay(powerScore);
@@ -2170,8 +2172,6 @@ function onRotationTouchEnd(e) {
         }
     }
 }
-
-
 
 
 // ==============================
