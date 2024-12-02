@@ -177,34 +177,82 @@ html, body {
     visibility: hidden;
     transform: translate(-50%, -60%) scale(0.8);
 }
-
-#addPlatesButton {
+/* Plate Slider Container */
+#plateSliderContainer {
     position: absolute;
-    bottom: 120px; /* Place above the Apply Force button */
-    left: 50%; /* Center horizontally */
+    bottom: 140px; /* Maintain position above squat and action buttons */
+    left: 70%; /* Ensure the horizontal alignment */
     transform: translateX(-50%);
-    padding: 15px 30px;
-    font-size: 16px;
-    font-weight: bold;
-    background-color: rgba(0, 0, 0, 0.4); /* Sleek black background */
-    color: white;
-    border: none;
-    border-radius: 50px; /* Rounded edges */
+    text-align: center;
+    z-index: 10; /* Ensure it stays on top */
+}
+
+/* Plate Slider Label */
+#plateSliderContainer label {
+    display: block;
+    font-family: 'Poppins', 'Roboto', sans-serif; /* Match game fonts */
+    font-size: 20px; /* Slightly larger for better readability */
+    font-weight: 700; /* Make the label bold */
+    color: white; /* White for good contrast */
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8); /* Subtle shadow for clarity */
+    margin-bottom: 12px; /* Adjust spacing from the slider */
+}
+
+/* Plate Count Highlight */
+#plateSliderContainer label span {
+    font-size: 24px; /* Larger size for emphasis */
+    color: white; /* Match the label text color */
+    font-weight: bold; /* Ensure bold weight */
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8); /* Subtle shadow for clarity */
+}
+
+/* Plate Slider */
+#plateSlider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 200px; /* Slightly wider for easier adjustment */
+    height: 8px; /* Slightly thicker for better usability */
+    background: #555; /* Neutral slider background */
+    border-radius: 5px; /* Smooth edges */
+    outline: none;
+    margin: 0 auto;
+    display: block;
+    transition: background 0.3s ease;
+}
+
+/* Plate Slider Thumb */
+#plateSlider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #ff5722; /* Bright thumb color */
     cursor: pointer;
-    display: block; /* Initially visible */
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-    z-index: 10;
-    transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+    box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.6); /* Shadow for better visibility */
+    transition: background 0.2s ease, transform 0.1s ease;
 }
 
-#addPlatesButton:hover {
-    background-color: rgba(50, 50, 50, 0.9); /* Slightly darker black on hover */
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5); /* Stronger shadow for hover effect */
+#plateSlider::-webkit-slider-thumb:hover {
+    background: #ff784e; /* Lighter shade on hover */
+    transform: scale(1.1); /* Subtle enlargement on hover */
 }
 
-#addPlatesButton:active {
-    transform: scale(0.95); /* Slightly shrink on touch for feedback */
+#plateSlider::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #ff5722;
+    cursor: pointer;
+    box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.6);
+    transition: background 0.2s ease, transform 0.1s ease;
 }
+
+#plateSlider::-moz-range-thumb:hover {
+    background: #ff784e;
+    transform: scale(1.1);
+}
+
 
 #stabilityOverlay {
     display: none; /* Hidden by default */
@@ -369,7 +417,7 @@ html, body {
    #actionButton {
     position: absolute;
     bottom: 50px; /* Above the joystick and jump button */
-    left: 50%; /* Centered horizontally */
+    left: 48%; /* Centered horizontally */
     transform: translateX(-35%);
     padding: 15px 30px;
     font-size: 16px;
@@ -397,7 +445,7 @@ html, body {
 /* Apply Force Button Styling */
 #applyForceButton {
     position: absolute;
-    bottom: 120px; /* Place above the Jump button */
+    bottom: 50px; /* Place above the Jump button */
     right: 20px;   /* Align to the right side, same as Jump button */
     padding: 15px 30px;
     font-size: 16px;
