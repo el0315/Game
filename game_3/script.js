@@ -648,9 +648,9 @@ function adjustPlatesToBarbell(newPlateCount) {
     }
 
     // Update barbell's physics properties
-    const newPlateMass = newPlateCount * 2 * BARBELL_CONFIG.plate.mass; // Total mass of new plates
-    setBarbellMass(BARBELL_CONFIG.centralBar.mass + newPlateMass);
-    console.log(`Plates adjusted. Total plates per side: ${newPlateCount}`);
+    //const newPlateMass = newPlateCount * 2 * BARBELL_CONFIG.plate.mass; // Total mass of new plates
+    //setBarbellMass(BARBELL_CONFIG.centralBar.mass + newPlateMass);
+    //console.log(`Plates adjusted. Total plates per side: ${newPlateCount}`);
 }
 
 
