@@ -1140,6 +1140,8 @@ if (applyForceButton) {
             // Apply additional force when the button is pressed
             appliedForce = SPRING_CONFIG.additionalForce;
             isApplyForceButtonPressed = true;
+            updateActionButtonVisibility();
+            
             
             if (barbellConstraint) {
                 // Barbell is attached, start the stability mechanic
@@ -1201,7 +1203,8 @@ if (applyForceButton) {
             // Stop applying additional force
             appliedForce = 0;
             isApplyForceButtonPressed = false;
-    
+            updateActionButtonVisibility();
+
             // Stop stability mechanic visuals
             hideStabilityVisuals();
             // Define the minimum height threshold for a successful lift
@@ -1262,6 +1265,7 @@ if (applyForceButton) {
 
                     liftInProgress = false; // Reset the lift progress flag
                 }
+                
             }
 
             checkLockout();
@@ -1711,8 +1715,11 @@ const actionButton = document.getElementById('actionButton');
 // Attach the initial event listener for picking up the barbell
 actionButton.addEventListener('touchstart', onActionButtonPress, { passive: false });
 
-// Define the force value (you can adjust this as needed)
-const forceValue = 0; // Set your desired force in Newtons (e.g., 100 N)
+function updateActionButtonVisibility() {
+    if (isApplyForceButtonPressed) {
+        actionButton.style.display = "none";
+    }
+}
 
 // Function to apply force on the barbell
 function applyForceOnBarbell(force) {
@@ -1862,6 +1869,7 @@ function resetBarbellPosition() {
 
     // Hide the timer now that the barbell is reset
     resetAndHideTimer();
+    updateActionButtonVisibility();
 
     console.log("Barbell reset initiated. Tween animation in progress.");
 }
@@ -2004,6 +2012,17 @@ function onActionButtonPress(e) {
     liftInterrupted = false;
 
     moveBarbellToPlayerTop();
+    function onActionButtonPress(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    console.log('Barbell action triggered!');
+
+    // Perform barbell-related logic...
+
+    // Update visibility after performing action
+    updateActionButtonVisibility();
+}
 }
 
 function onReleaseButtonPress(e) {
@@ -2016,6 +2035,8 @@ function onReleaseButtonPress(e) {
     applyCooldown(plateSlider,ACTION_COOLDOWN_TIME);
     applyCooldown(settingsButton,ACTION_COOLDOWN_TIME);
     releaseBarbell(e);
+    updateActionButtonVisibility();
+    
 }
 
 const PROXIMITY_THRESHOLD = 10; // Distance to trigger action
@@ -2045,6 +2066,7 @@ function checkProximityToBarbell() {
         actionButton.style.display = "none";
         plateSlider.style.display = "none";
     }
+    updateActionButtonVisibility()
 }
 
 
@@ -2108,7 +2130,10 @@ function setupEventListeners() {
     rotationOverlay.addEventListener("touchstart", onRotationTouchStart, { passive: false });
     rotationOverlay.addEventListener("touchmove", onRotationTouchMove, { passive: false });
     rotationOverlay.addEventListener("touchend", onRotationTouchEnd, { passive: false });
+    updateActionButtonVisibility();
 }
+
+
 function onMovementTouchStart(e) {
     e.preventDefault();
     if (movementTouchId === null) {
@@ -2236,6 +2261,7 @@ function animate() {
 
     // Update camera position
     updateCameraPosition();
+    updateActionButtonVisibility();
 
     // Check collisions and proximity
     checkCollisions();
