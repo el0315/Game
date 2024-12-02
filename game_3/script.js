@@ -64,6 +64,7 @@ const minPitch = -Math.PI / 6;  // Minimum pitch (~25.7 degrees down)
 const joystickContainerMove = document.getElementById('joystickContainerMove');
 const joystickKnobMove = document.getElementById('joystickKnobMove');
 const lockoutButton = document.getElementById('lockoutButton'); // Reusing the same button
+const powerScoreDisplay = document.getElementById("powerScoreDisplay");
 
 
 /**
@@ -817,6 +818,8 @@ function updateSpring(deltaTime) {
             if (currentHeight <= minSquatDepth && !squatDepthReached) {
                 squatDepthReached = true; // Mark depth as achieved
                 console.log("Minimum squat depth reached!");
+                // End the stability mechanic
+                endStabilityMechanic();
             }
         } else {
             // Ascent logic: Calculate forces to return to the original height
@@ -901,12 +904,22 @@ function updateSpring(deltaTime) {
 const STABILITY_CONFIG = {
     targetRadius: 40,  // Size of the target circle in pixels
     crosshairRadius: 20, // Size of the crosshair in pixels
-    sensitivity: 0.3,    // Joystick sensitivity for crosshair movement
-    targetSpeed: 15,      // Speed at which the target moves downward (pixels per frame)
+    sensitivity: 0.4,    // Joystick sensitivity for crosshair movement
+    targetSpeed: 25,      // Speed at which the target moves downward (pixels per frame)
 };
+
+// Tracking variables for average distance calculation
+let cumulativeDistance = 0;    // Sum of all distance measurements
+let distanceMeasurements = 0;  // Number of measurements taken
+let averageDistance = 0;       // Calculated average distance
+
+// Define maximum distance for scoring
+const MAX_DISTANCE = 5; // in pixels
+// Initialize power score
+let powerScore = 50; // Start at mid-point; adjust as needed
+
 // Stability Mechanic State
 let isStabilityActive = false; // Tracks whether the stability mechanic is active
-
 
 
 function setupStabilityVisuals() {
@@ -919,43 +932,58 @@ function setupStabilityVisuals() {
         return;
     }
 
-    // Position the target relative to the left side
-    target.style.top = '20%'; // Adjust for vertical alignment
-    target.style.left = '10%'; // Move target to the left side
+    // Position the target using pixels
+    target.style.top = '200px';  // Adjust as needed
+    target.style.left = '100px';  // Adjust as needed
 
-    // Start the crosshair centered within the target
-    crosshair.style.top = target.style.top; // Align vertically
-    crosshair.style.left = target.style.left; // Align horizontally
+    // Center the crosshair within the target
+    crosshair.style.top = '210px';   // Same as target's top
+    crosshair.style.left = '110px';   // Same as target's left
 }
 
-// Function to show stability visuals
+// Function to show stability visuals and power score
 function showStabilityVisuals() {
     const overlay = document.getElementById('stabilityOverlay');
     const target = document.getElementById('targetCircle');
     const crosshair = document.getElementById('crosshair');
+    const powerScoreDisplay = document.getElementById("powerScoreDisplay");
 
-    if (overlay && target && crosshair) {
-        overlay.style.display = 'block';
+    if (overlay && target && crosshair && powerScoreDisplay) {
+        overlay.style.display = 'flex';
         target.style.display = 'block';
         crosshair.style.display = 'block';
-        console.log("Stability visuals shown.");
+        powerScoreDisplay.classList.remove('hidden');
+        powerScoreDisplay.classList.add('show');
+        powerScoreDisplay.textContent = `Power: ${powerScore.toFixed(2)}`;
+        console.log("Stability visuals and Power Score shown.");
     }
 }
 
-// Function to hide stability visuals
+// Function to hide stability visuals and power score
 function hideStabilityVisuals() {
     const overlay = document.getElementById('stabilityOverlay');
     const target = document.getElementById('targetCircle');
     const crosshair = document.getElementById('crosshair');
+    const powerScoreDisplay = document.getElementById("powerScoreDisplay");
 
-    if (overlay && target && crosshair) {
+    if (overlay && target && crosshair && powerScoreDisplay) {
         overlay.style.display = 'none';
         target.style.display = 'none';
         crosshair.style.display = 'none';
-        console.log("Stability visuals hidden.");
+        powerScoreDisplay.classList.remove('show');
+        powerScoreDisplay.classList.add('hidden');
+        powerScoreDisplay.textContent = `Power: 0`; // Reset or set to default
+        console.log("Stability visuals and Power Score hidden.");
     }
 }
 
+// Function to update the power score display
+function updatePowerScoreDisplay(score) {
+    const powerScoreDisplay = document.getElementById("powerScoreDisplay");
+    if (powerScoreDisplay) {
+        powerScoreDisplay.textContent = `Power: ${score}`; // Display as integer
+    }
+}
 
 function startStabilityMechanic() {
     if (!barbellConstraint) {
@@ -968,17 +996,31 @@ function startStabilityMechanic() {
         isStabilityActive = true;
         showStabilityVisuals(); // Ensure visuals are shown
         setupStabilityVisuals(); // Set up the crosshair and target
+
+        // Reset tracking variables at the start of the mechanic
+        cumulativeDistance = 0;
+        distanceMeasurements = 0;
+        averageDistance = 0;
+
+        console.log("Tracking variables reset for new stability mechanic session.");
     }
 }
+
 
 function endStabilityMechanic() {
     if (isStabilityActive) {
         console.log("Stability mechanic ended.");
         isStabilityActive = false;
         hideStabilityVisuals(); // Ensure visuals are hidden
+
+        // Use the final average distance to determine the outcome
+        console.log(`Final Average Distance: ${averageDistance.toFixed(2)}px`);
+        console.log(`Final Power Score: ${powerScore}`);
+
+
+        // Additional end-of-mechanic logic as needed
     }
 }
-
 function updateStabilityMechanic(deltaTime) {
     if (!isStabilityActive || !barbellConstraint) {
         endStabilityMechanic(); // End stability mechanic if conditions are not met
@@ -987,24 +1029,46 @@ function updateStabilityMechanic(deltaTime) {
 
     const target = document.getElementById('targetCircle');
     const crosshair = document.getElementById('crosshair');
-    if (!target || !crosshair) return;
+    const overlay = document.getElementById('stabilityOverlay');
+
+    if (!target || !crosshair || !overlay) {
+        console.error("One or more stability overlay elements not found.");
+        return;
+    }
+
+    // Define overlayRect here to ensure it's available throughout the function
+    const overlayRect = overlay.getBoundingClientRect();
+
+    // Debugging: Confirm function is called
+    console.log("updateStabilityMechanic called.");
 
     // Move the target downward
     const targetRect = target.getBoundingClientRect();
     const newTop = targetRect.top + STABILITY_CONFIG.targetSpeed * deltaTime;
     target.style.top = `${newTop}px`;
 
+    // Debugging: Log new top value
+    console.log(`Target moved to top: ${newTop}px`);
+
     // Update crosshair based on joystick input
     if (joystickMoveAngle !== null) {
-        const crosshairRect = crosshair.getBoundingClientRect();
         const movementX = Math.cos(joystickMoveAngle) * STABILITY_CONFIG.sensitivity * deltaTime * 100;
         const movementY = Math.sin(joystickMoveAngle) * STABILITY_CONFIG.sensitivity * deltaTime * 100;
 
-        const newLeft = crosshairRect.left + movementX;
-        const newTop = crosshairRect.top + movementY;
+        // Current crosshair position relative to the overlay
+        let currentLeft = parseFloat(crosshair.style.left) || (overlayRect.width / 2 - crosshair.offsetWidth / 2);
+        let currentTop = parseFloat(crosshair.style.top) || (overlayRect.height / 2 - crosshair.offsetHeight / 2);
 
+        // Calculate new positions
+        let newLeft = currentLeft + movementX;
+        let newTopCross = currentTop + movementY;
+
+        // Set the new positions without constraining within overlay bounds
         crosshair.style.left = `${newLeft}px`;
-        crosshair.style.top = `${newTop}px`;
+        crosshair.style.top = `${newTopCross}px`;
+
+        // Debugging: Log crosshair movement
+        console.log(`Crosshair moved to (${newLeft}px, ${newTopCross}px)`);
     }
 
     // Calculate the distance between the target and crosshair
@@ -1013,10 +1077,35 @@ function updateStabilityMechanic(deltaTime) {
         Math.pow(targetRect.top - crosshair.getBoundingClientRect().top, 2)
     );
 
-    console.log(`Distance between target and crosshair: ${distance.toFixed(2)} units`);
+    // Debugging: Log distance
+    console.log(`Distance between target and crosshair: ${distance}px`);
+
+    // Accumulate distance and count for average calculation
+    cumulativeDistance += distance;
+    distanceMeasurements += 1;
+
+    // Calculate average distance
+    averageDistance = cumulativeDistance / distanceMeasurements;
+    console.log(`Average Distance so far: ${averageDistance.toFixed(2)}px`);
+
+    // Closer average distance => Higher score; Farther average distance => Lower score
+    const calculatedScore = 100 - (averageDistance / MAX_DISTANCE) * 100;
+    // Clamp the score between 0 and 100, then round to the nearest integer
+    powerScore = Math.round(Math.max(0, Math.min(100, calculatedScore)));
+
+    // Update power score display
+    updatePowerScoreDisplay(powerScore);
+
+    // Console log the power score
+    console.log(`Power Score (Average): ${powerScore}`);
+
+    // Optional: Reset target position if it moves beyond the overlay
+    const maxTop = overlayRect.top + overlayRect.height - targetRect.height;
+    if (newTop > maxTop) {
+        target.style.top = `${overlayRect.top}px`; // Reset to top
+        console.log("Target reset to top after reaching maximum position.");
+    }
 }
-
-
 
 
 // ==============================
