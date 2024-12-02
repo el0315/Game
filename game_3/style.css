@@ -253,7 +253,7 @@ html, body {
     transform: scale(1.1);
 }
 
-
+/* Stability Overlay Container */
 #stabilityOverlay {
     display: none; /* Hidden by default */
     position: absolute;
@@ -263,10 +263,44 @@ html, body {
     height: 100%;
     z-index: 1000;
     pointer-events: none; /* Prevent blocking UI interactions */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start; /* Align items to the top */
+    padding-top: 100px; /* Space from the top */
 }
 
+/* Power Score Display */
+#powerScoreDisplay {
+    margin-bottom: 30px; /* Space below the power score */
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 20px;
+    font-weight: bold;
+    font-family: 'Poppins', sans-serif; /* Match the font family */
+    box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.3);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    /* Initially hidden */
+    opacity: 0;
+    visibility: hidden;
+}
+
+/* Show State */
+#powerScoreDisplay.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Hidden State */
+#powerScoreDisplay.hidden {
+    opacity: 0;
+    visibility: hidden;
+}
+
+/* Adjusted Target Circle */
 #targetCircle {
-    position: absolute;
+    position: absolute; /* Added position */
     width: 40px;
     height: 40px;
     background-color: rgba(255, 0, 0, 0.8);
@@ -274,10 +308,14 @@ html, body {
     z-index: 1001;
     display: none; /* Hidden by default */
     pointer-events: none;
+    top: 200px; /* Moved lower by increasing from 100px to 130px */
+    left: 100px;
+    /* Removed margin-bottom as positioning is absolute */
 }
 
+/* Adjusted Crosshair */
 #crosshair {
-    position: absolute;
+    position: absolute; /* Added position */
     width: 20px;
     height: 20px;
     background-color: rgba(0, 255, 0, 0.8);
@@ -285,8 +323,9 @@ html, body {
     z-index: 1002;
     display: none; /* Hidden by default */
     pointer-events: none;
+    top: 210px; /* Moved lower by increasing from 100px to 130px */
+    left: 110px;
 }
-
 
 /* styles.css */
 /* =========================
@@ -633,6 +672,4 @@ button.cooldown,
     pointer-events: none; /* Prevent any mouse or touch events */
     transition: opacity 0.3s ease;
 }
-
-
 
