@@ -991,7 +991,7 @@ function startStabilityMechanic() {
         return;
     }
 
-    if (!isStabilityActive) {
+    if (!isStabilityActive && !squatDepthReached) {
         console.log("Stability mechanic started.");
         isStabilityActive = true;
         showStabilityVisuals(); // Ensure visuals are shown
