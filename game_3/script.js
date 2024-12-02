@@ -1255,7 +1255,7 @@ if (applyForceButton) {
                 } else {
                     // Player did not reach the minimum squat depth
                     liftStatus = "No Lift";
-                    showLiftFeedback("No Lift. Try Again!", false);
+                    showLiftFeedback("No Lift. Insufficient Depth!", false);
                     releaseBarbell(e);
 
                     // Stop the timer if it's a "No Lift"
