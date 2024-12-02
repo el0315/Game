@@ -994,6 +994,7 @@ function startStabilityMechanic() {
     if (!isStabilityActive && !squatDepthReached) {
         console.log("Stability mechanic started.");
         isStabilityActive = true;
+        
         showStabilityVisuals(); // Ensure visuals are shown
         setupStabilityVisuals(); // Set up the crosshair and target
 
@@ -1139,7 +1140,7 @@ if (applyForceButton) {
             // Apply additional force when the button is pressed
             appliedForce = SPRING_CONFIG.additionalForce;
             isApplyForceButtonPressed = true;
-    
+            
             if (barbellConstraint) {
                 // Barbell is attached, start the stability mechanic
                 console.log("Apply Force Button pressed. Barbell is attached.");
@@ -1148,13 +1149,14 @@ if (applyForceButton) {
                 // Reset barbell load to its original value if needed
                 barbellLoad = originalBarbellLoad;
                 console.log("Barbell load reset on button press.");
-    
+                
                 // Timer-related logic
                 if (!liftInProgress) {
                     liftInProgress = true; // Mark the lift as in progress
                     remainingTime = LIFT_TIME_LIMIT; // Reset timer
                     squatDepthReached = false; // Reset squat depth flag
                     liftStatus = null; // Reset lift status
+                    
     
                     // Show the timer
                     timerDisplay.style.visibility = "visible";
@@ -1861,11 +1863,8 @@ function resetBarbellPosition() {
     // Hide the timer now that the barbell is reset
     resetAndHideTimer();
 
-
     console.log("Barbell reset initiated. Tween animation in progress.");
 }
-
-
 
 function releaseBarbell(e = null) {
     if (e) {
@@ -1921,8 +1920,10 @@ function releaseBarbell(e = null) {
         // Hide the Lockout Button
         hideLockoutButton();
 
+        if (squatDepthReached) {
         // Trigger "No Lift" Feedback
-        showLiftFeedback("No Lift. Try Again!", false);
+            showLiftFeedback("No Lift. Try Again!", false);
+        }
 
         // Stop the timer if it's running
         if (liftTimer) {
@@ -1996,7 +1997,9 @@ function onActionButtonPress(e) {
     // Apply cooldown to actionButton
     applyCooldown(actionButton, ACTION_COOLDOWN_TIME);
     applyCooldown(applyForceButton, ACTION_COOLDOWN_TIME);
-    applyCooldown(plateSlider,ACTION_COOLDOWN_TIME)
+    applyCooldown(plateSlider,ACTION_COOLDOWN_TIME);
+    applyCooldown(settingsButton,ACTION_COOLDOWN_TIME);
+
     // **Reset lift interruption flag**
     liftInterrupted = false;
 
@@ -2010,14 +2013,12 @@ function onReleaseButtonPress(e) {
     // Apply cooldown to actionButton
     applyCooldown(actionButton, ACTION_COOLDOWN_TIME);
     applyCooldown(applyForceButton, ACTION_COOLDOWN_TIME);
-    applyCooldown(plateSlider,ACTION_COOLDOWN_TIME)
-
+    applyCooldown(plateSlider,ACTION_COOLDOWN_TIME);
+    applyCooldown(settingsButton,ACTION_COOLDOWN_TIME);
     releaseBarbell(e);
 }
 
-
 const PROXIMITY_THRESHOLD = 10; // Distance to trigger action
-const ACTION_TEXT = "Squat";    // Text for the action button
 
 function checkProximityToBarbell() {
     if (!player || !barbell) return;
