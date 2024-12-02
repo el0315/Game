@@ -1204,6 +1204,7 @@ if (applyForceButton) {
             appliedForce = 0;
             isApplyForceButtonPressed = false;
             updateActionButtonVisibility();
+            applyCooldown(actionButton, ACTION_COOLDOWN_TIME);
 
             // Stop stability mechanic visuals
             hideStabilityVisuals();
