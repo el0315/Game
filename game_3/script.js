@@ -52,6 +52,32 @@ const playerRadius = 0.5;
 const playerSpeed = 10; // Constant speed for player movement
 const rotationSpeed = 0.005;
 
+// ==============================
+// Stability Mechanic Setup
+// ==============================
+
+// Stability Mechanic Configuration
+const STABILITY_CONFIG = {
+    targetRadius: 40,  // Size of the target circle in pixels
+    crosshairRadius: 20, // Size of the crosshair in pixels
+    sensitivity: 0.42,    // Joystick sensitivity for crosshair movement
+    targetSpeed: 40,      // Speed at which the target moves downward (pixels per frame)
+};
+
+// Tracking variables for average distance calculation
+let cumulativeDistance = 0;    // Sum of all distance measurements
+let distanceMeasurements = 0;  // Number of measurements taken
+let averageDistance = 0;       // Calculated average distance
+
+// Define maximum distance for scoring
+const MAX_DISTANCE = 100; // in pixels
+// Initialize power score
+let powerScore = 50; // Start at mid-point; adjust as needed
+
+// Stability Mechanic State
+let isStabilityActive = false; // Tracks whether the stability mechanic is active
+
+
 // Removed plateRadius and plateThickness as they are now part of BARBELL_CONFIG
 
 let moveDirection = new THREE.Vector3();
@@ -896,30 +922,6 @@ function updateSpring(deltaTime) {
 }
 
 
-// ==============================
-// Stability Mechanic Setup
-// ==============================
-
-// Stability Mechanic Configuration
-const STABILITY_CONFIG = {
-    targetRadius: 40,  // Size of the target circle in pixels
-    crosshairRadius: 20, // Size of the crosshair in pixels
-    sensitivity: 0.4,    // Joystick sensitivity for crosshair movement
-    targetSpeed: 25,      // Speed at which the target moves downward (pixels per frame)
-};
-
-// Tracking variables for average distance calculation
-let cumulativeDistance = 0;    // Sum of all distance measurements
-let distanceMeasurements = 0;  // Number of measurements taken
-let averageDistance = 0;       // Calculated average distance
-
-// Define maximum distance for scoring
-const MAX_DISTANCE = 30; // in pixels
-// Initialize power score
-let powerScore = 50; // Start at mid-point; adjust as needed
-
-// Stability Mechanic State
-let isStabilityActive = false; // Tracks whether the stability mechanic is active
 
 
 function setupStabilityVisuals() {
@@ -954,7 +956,7 @@ function showStabilityVisuals() {
         crosshair.style.display = 'block';
         powerScoreDisplay.classList.remove('hidden');
         powerScoreDisplay.classList.add('show');
-        powerScoreDisplay.textContent = `Power: ${powerScore.toFixed(2)}`;
+        powerScoreDisplay.textContent = `Stability Bonus: ${powerScore.toFixed(2)}`;
         console.log("Stability visuals and Power Score shown.");
     }
 }
@@ -972,7 +974,7 @@ function hideStabilityVisuals() {
         crosshair.style.display = 'none';
         powerScoreDisplay.classList.remove('show');
         powerScoreDisplay.classList.add('hidden');
-        powerScoreDisplay.textContent = `Power: 0`; // Reset or set to default
+        powerScoreDisplay.textContent = `Stability Bonus: 0`; // Reset or set to default
         console.log("Stability visuals and Power Score hidden.");
     }
 }
@@ -981,7 +983,7 @@ function hideStabilityVisuals() {
 function updatePowerScoreDisplay(score) {
     const powerScoreDisplay = document.getElementById("powerScoreDisplay");
     if (powerScoreDisplay) {
-        powerScoreDisplay.textContent = `Power: ${score}`; // Display as integer
+        powerScoreDisplay.textContent = `Stability Bonus: ${score}`; // Display as integer
     }
 }
 
@@ -1016,11 +1018,16 @@ function endStabilityMechanic() {
 
         // Use the final average distance to determine the outcome
         console.log(`Final Average Distance: ${averageDistance.toFixed(2)}px`);
-        console.log(`Final Power Score: ${powerScore}`);
+        console.log(`Final Stability Bonus: ${powerScore}`);
 
-
+        finalizePowerScore();
         // Additional end-of-mechanic logic as needed
     }
+}
+
+function finalizePowerScore() {
+    SPRING_CONFIG.stiffness = 100 + powerScore;
+    console.log(`Final spring stiffness set to: ${SPRING_CONFIG.stiffness}`);
 }
 
 function updateStabilityMechanic(deltaTime) {
