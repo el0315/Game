@@ -270,7 +270,6 @@ html, body {
     padding-top: 100px; /* Space from the top */
 }
 
-/* Power Score Display */
 #powerScoreDisplay {
     margin-bottom: 30px; /* Space below the power score */
     color: #fff;
@@ -278,19 +277,34 @@ html, body {
     border-radius: 8px;
     font-size: 20px;
     font-weight: bold;
-    font-family: 'Poppins', sans-serif; /* Match the font family */
+    font-family: 'Poppins', sans-serif;
     box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.3);
     transition: opacity 0.5s ease, transform 0.5s ease;
-    /* Initially hidden */
-    opacity: 0;
-    visibility: hidden;
+
+    /* Center and fix display */
+    width: 200px; /* Fixed width for consistency */
+    text-align: center; /* Center-align the text */
+    white-space: nowrap; /* Prevent text wrapping */
+    overflow: hidden; /* Prevent overflow issues */
+    box-sizing: border-box; /* Include padding in width calculation */
+    display: flex; /* Flex layout for centering */
+    justify-content: center; /* Horizontal centering */
+    align-items: center; /* Vertical centering */
+
+    /* Position adjustments */
+    position: absolute; /* Ensure it can be moved */
+    left: 50%; /* Start centering from the middle */
+    transform: translateX(-10%); /* Adjust to shift right */
 }
+
 
 /* Show State */
 #powerScoreDisplay.show {
     opacity: 1;
     visibility: visible;
 }
+
+ 
 
 /* Hidden State */
 #powerScoreDisplay.hidden {
@@ -301,8 +315,8 @@ html, body {
 /* Adjusted Target Circle */
 #targetCircle {
     position: absolute; /* Added position */
-    width: 40px;
-    height: 40px;
+    width: 30px;
+    height: 30px;
     background-color: rgba(255, 0, 0, 0.8);
     border-radius: 50%;
     z-index: 1001;
@@ -316,8 +330,8 @@ html, body {
 /* Adjusted Crosshair */
 #crosshair {
     position: absolute; /* Added position */
-    width: 20px;
-    height: 20px;
+    width: 15px;
+    height: 15px;
     background-color: rgba(0, 255, 0, 0.8);
     border-radius: 50%;
     z-index: 1002;
