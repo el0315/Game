@@ -73,7 +73,7 @@ let distanceMeasurements = 0;  // Number of measurements taken
 let averageDistance = 0;       // Calculated average distance
 
 // Define maximum distance for scoring
-const MAX_DISTANCE = 100; // in pixels
+const MAX_DISTANCE = 1000; // in pixels
 // Initialize power score
 let powerScore = 50; // Start at mid-point; adjust as needed
 
