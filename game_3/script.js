@@ -1652,9 +1652,11 @@ function updatePlayerPosition() {
     // Ensure the player body is always active
     playerBody.activate(true);
 
-    // Handle joystick movement
-    if (joystickMoveAngle !== null) {
-        // Calculate the movement direction based on joystick angle
+    // Skip joystick-based movement if the barbell is attached
+    if (barbellConstraint) {
+        console.log("Barbell is attached. Player movement disabled.");
+    } else if (joystickMoveAngle !== null) {
+        // Joystick is active, calculate movement direction
         moveDirection.set(Math.cos(joystickMoveAngle), 0, Math.sin(joystickMoveAngle));
 
         // Apply player rotation to movement direction
@@ -1690,15 +1692,16 @@ function updatePlayerPosition() {
     playerBody.getMotionState().getWorldTransform(transform);
     const origin = transform.getOrigin();
 
-    // **Override rotation to keep player upright**
+    // Override rotation to keep player upright
     player.position.set(origin.x(), origin.y(), origin.z());
     player.rotation.set(0, yaw, 0); // Keep the player upright and allow only yaw rotation
 
-    // **Always apply spring compression**
+    // Apply spring compression
     const heightReduction = originalHeight - currentHeight;
     player.scale.set(1, currentHeight / originalHeight, 1); // Adjust Y-scale for compression
     player.position.y = origin.y() - heightReduction / 2;   // Adjust vertical position
 }
+
 
 
 
