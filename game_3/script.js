@@ -514,7 +514,7 @@ function createPlayer() {
         opacity: 0.4, // Adjust opacity for slight transparency
     });
 
-    // Create the cylinder mesh
+    // Create the cylinder mesh for the player's body
     const playerGeometry = new THREE.CylinderGeometry(radius, radius, height, 32);
     player = new THREE.Mesh(playerGeometry, playerMaterial);
     player.castShadow = true;
@@ -523,10 +523,50 @@ function createPlayer() {
     // Position the player visually to match the physics body
     player.position.set(initialPosition.x, initialPosition.y, initialPosition.z);
 
+    // Create the material for the arms
+    const blueMaterial = new THREE.MeshStandardMaterial({
+        color: 0x4682B4, // Blue for the first arm
+    });
+
+    const greenMaterial = new THREE.MeshStandardMaterial({
+        color: 0x00ff00, // Green for the second arm
+    });
+
+    const armRadius = 0.2; // Smaller radius than the player body
+    const armLength = 2;   // Length of the arm
+    const armGeometry = new THREE.CylinderGeometry(armRadius, armRadius, armLength, 16);
+
+    // First arm (Blue)
+    const arm1 = new THREE.Mesh(armGeometry, blueMaterial);
+    arm1.castShadow = true;
+    arm1.receiveShadow = true;
+
+    // Rotate the first arm to horizontal
+    arm1.rotation.z = Math.PI / 2;
+
+    // Position the first arm's base to touch the player's surface
+    arm1.position.set(radius + armRadius, height / 4, 0); // Adjust X and Y for proper placement
+
+    // Attach the first arm to the player
+    player.add(arm1);
+
+    // Second arm (Green)
+    const arm2 = new THREE.Mesh(armGeometry, greenMaterial);
+    arm2.castShadow = true;
+    arm2.receiveShadow = true;
+
+    // Rotate the second arm to be at a 90-degree angle to the first arm
+    arm2.rotation.x = Math.PI / 2;
+
+    // Position the second arm's base to touch the player's surface
+    arm2.position.set(0, height / 4, radius + armRadius); // Adjust Z for proper placement
+
+    // Attach the second arm to the player
+    player.add(arm2);
+
     // Add the player to the scene
     scene.add(player);
 }
-
 
 
 function createPlayerPhysics() {
@@ -551,7 +591,7 @@ function createPlayerPhysics() {
     playerBody = new Ammo.btRigidBody(rbInfo);
 
     // Freeze rotation along the X and Z axes to keep the cylinder upright
-    playerBody.setAngularFactor(new Ammo.btVector3(0, 1, 0));
+    playerBody.setAngularFactor(new Ammo.btVector3(0, 1, 0)); // Allow rotation only on Y-axis
 
     // Add friction and damping for stability
     playerBody.setFriction(0.8);
@@ -1652,18 +1692,15 @@ function updatePlayerPosition() {
     const transform = new Ammo.btTransform();
     playerBody.getMotionState().getWorldTransform(transform);
     const origin = transform.getOrigin();
-    const rotation = transform.getRotation();
 
-    // Update the player mesh's position and rotation to match the physics body
+    // **Override rotation to keep player upright**
     player.position.set(origin.x(), origin.y(), origin.z());
-    player.quaternion.set(rotation.x(), rotation.y(), rotation.z(), rotation.w());
+    player.rotation.set(0, yaw, 0); // Keep the player upright and allow only yaw rotation
 
     // **Always apply spring compression**
     const heightReduction = originalHeight - currentHeight;
     player.scale.set(1, currentHeight / originalHeight, 1); // Adjust Y-scale for compression
     player.position.y = origin.y() - heightReduction / 2;   // Adjust vertical position
-
-    // **Removed camera update logic to centralize it in updateCameraPosition()**
 }
 
 
@@ -1867,7 +1904,7 @@ function resetBarbellPosition() {
     // Hide the timer now that the barbell is reset
     resetAndHideTimer();
     updateActionButtonVisibility();
-
+    unlockCamera();
     console.log("Barbell reset initiated. Tween animation in progress.");
 }
 
@@ -2248,40 +2285,53 @@ function updateCameraPosition() {
     }
 }
 
-
 function lockCamera() {
     if (isCameraLocked) return; // Prevent multiple locks
     isCameraLocked = true;
 
-    // Define the fixed frontal position relative to the player
-    const fixedOffset = new THREE.Vector3(0, CAMERA_LOCK_CONFIG.heightOffset, CAMERA_LOCK_CONFIG.distance);
+    const cameraZoomOffset = 8; // Distance from the green arm (adjust this as needed)
 
-    // Calculate the locked position by adding the offset to the player's position
-    const lockedPosition = player.position.clone().add(fixedOffset);
+    // Green arm's local offset relative to the player
+    const armRadius = 0.2; // Radius of the green arm cylinder
+    const playerHeight = PLAYER_CONFIG.height;
 
-    // Define the target point the camera should look at (player's position)
-    const targetLookAt = player.position.clone();
+    // Calculate the green arm's local offset in player space
+    const armOffset = new THREE.Vector3(0, playerHeight / 4, PLAYER_CONFIG.radius + armRadius);
 
-    // Use Tween.js for smooth transition of the camera's position
+    // Convert to world space to get the green arm's position
+    const greenArmWorldPosition = player.localToWorld(armOffset.clone());
+
+    // Flat face direction: Local +Z axis of the green arm
+    const flatFaceDirection = new THREE.Vector3(0, 0, 1);
+    const worldFlatFaceDirection = flatFaceDirection.clone().applyQuaternion(player.quaternion).normalize();
+
+    console.log("Green Arm World Position:", greenArmWorldPosition);
+    console.log("World Flat Face Direction:", worldFlatFaceDirection);
+
+    // Place the camera at a fixed distance along the flat face direction with zoom offset
+    const cameraPosition = greenArmWorldPosition.clone().add(worldFlatFaceDirection.multiplyScalar(cameraZoomOffset));
+
+    console.log("Calculated Camera Position with Zoom Offset:", cameraPosition);
+
+    // Smoothly move the camera to the calculated position
     new TWEEN.Tween(camera.position)
         .to({
-            x: lockedPosition.x,
-            y: lockedPosition.y,
-            z: lockedPosition.z
+            x: cameraPosition.x,
+            y: cameraPosition.y,
+            z: cameraPosition.z
         }, CAMERA_LOCK_CONFIG.transitionDuration)
         .easing(TWEEN.Easing.Quadratic.Out)
         .onUpdate(() => {
-            camera.lookAt(targetLookAt);
+            camera.lookAt(greenArmWorldPosition); // Ensure the camera looks at the arm's center
         })
         .onComplete(() => {
-            // Disable rotation controls by ignoring touch events
-            // Alternatively, you can remove the event listeners temporarily
-            // For this example, we'll rely on the guard clauses in touch handlers
+            console.log("Camera locked to flat face of the green arm with zoom offset.");
         })
         .start();
-
-    console.log("Camera locked to frontal view.");
 }
+
+
+
 function unlockCamera() {
     if (!isCameraLocked) return; // Prevent unlocking if not locked
     isCameraLocked = false;
