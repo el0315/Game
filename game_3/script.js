@@ -63,13 +63,9 @@ const rotationSpeed = 0.005;
 // Stability Mechanic Setup
 // ==============================
 
-// Stability Mechanic Configuration
-const STABILITY_CONFIG = {
-    targetRadius: 40,  // Size of the target circle in pixels
-    crosshairRadius: 20, // Size of the crosshair in pixels
-    sensitivity: 0.42,    // Joystick sensitivity for crosshair movement
-    targetSpeed: 40,      // Speed at which the target moves downward (pixels per frame)
-};
+const TARGET_1_POSITION = { x: 100, y: 300 }; // Left target position
+const TARGET_2_POSITION = { x: window.innerWidth - 100, y: 300 }; // Right target position
+
 
 // Tracking variables for average distance calculation
 let cumulativeDistance = 0;    // Sum of all distance measurements
@@ -978,26 +974,51 @@ function updateSpring(deltaTime) {
 }
 
 
-
-
 function setupStabilityVisuals() {
     const overlay = document.getElementById('stabilityOverlay');
-    const target = document.getElementById('targetCircle');
+    const target1 = document.createElement('div');
+    const target2 = document.createElement('div');
     const crosshair = document.getElementById('crosshair');
 
-    if (!overlay || !target || !crosshair) {
+    if (!overlay || !crosshair) {
         console.error("Stability overlay elements not found!");
         return;
     }
 
-    // Position the target using pixels
-    target.style.top = '200px';  // Adjust as needed
-    target.style.left = '100px';  // Adjust as needed
+    // Configure target 1 (left target)
+    target1.id = "target1";
+    target1.style.position = "absolute";
+    target1.style.width = "30px";
+    target1.style.height = "30px";
+    target1.style.backgroundColor = "rgba(255, 0, 0, 0.8)";
+    target1.style.borderRadius = "50%";
+    target1.style.top = `${TARGET_1_POSITION.y}px`;
+    target1.style.left = `${TARGET_1_POSITION.x}px`;
 
-    // Center the crosshair within the target
-    crosshair.style.top = '210px';   // Same as target's top
-    crosshair.style.left = '110px';   // Same as target's left
+    // Configure target 2 (right target)
+    target2.id = "target2";
+    target2.style.position = "absolute";
+    target2.style.width = "30px";
+    target2.style.height = "30px";
+    target2.style.backgroundColor = "rgba(0, 0, 255, 0.8)";
+    target2.style.borderRadius = "50%";
+    target2.style.top = `${TARGET_2_POSITION.y}px`;
+    target2.style.left = `${TARGET_2_POSITION.x}px`;
+
+    // Add targets to the overlay
+    overlay.appendChild(target1);
+    overlay.appendChild(target2);
+
+    // Center the crosshair between the two targets
+    crosshair.style.position = "absolute";
+    crosshair.style.width = "15px";
+    crosshair.style.height = "15px";
+    crosshair.style.backgroundColor = "rgba(0, 255, 0, 0.8)";
+    crosshair.style.borderRadius = "50%";
+    crosshair.style.top = `${(TARGET_1_POSITION.y + TARGET_2_POSITION.y) / 2}px`;
+    crosshair.style.left = `${(TARGET_1_POSITION.x + TARGET_2_POSITION.x) / 2}px`;
 }
+
 
 // Function to show stability visuals and power score
 function showStabilityVisuals() {
@@ -1088,90 +1109,52 @@ function finalizePowerScore() {
 
 function updateStabilityMechanic(deltaTime) {
     if (!isStabilityActive || !barbellConstraint) {
-        endStabilityMechanic(); // End stability mechanic if conditions are not met
+        endStabilityMechanic(); // End mechanic if conditions are not met
         return;
     }
 
-    const target = document.getElementById('targetCircle');
     const crosshair = document.getElementById('crosshair');
     const overlay = document.getElementById('stabilityOverlay');
 
-    if (!target || !crosshair || !overlay) {
-        console.error("One or more stability overlay elements not found.");
+    if (!crosshair || !overlay) {
+        console.error("Stability mechanic elements not found.");
         return;
     }
 
-    // Define overlayRect here to ensure it's available throughout the function
-    const overlayRect = overlay.getBoundingClientRect();
-
-    // Debugging: Confirm function is called
-    console.log("updateStabilityMechanic called.");
-
-    // Move the target downward
-    const targetRect = target.getBoundingClientRect();
-    const newTop = targetRect.top + STABILITY_CONFIG.targetSpeed * deltaTime;
-    target.style.top = `${newTop}px`;
-
-    // Debugging: Log new top value
-    console.log(`Target moved to top: ${newTop}px`);
+    // Current crosshair position
+    let currentLeft = parseFloat(crosshair.style.left) || 0;
+    let currentTop = parseFloat(crosshair.style.top) || 0;
 
     // Update crosshair based on joystick input
     if (joystickMoveAngle !== null) {
         const movementX = Math.cos(joystickMoveAngle) * STABILITY_CONFIG.sensitivity * deltaTime * 100;
         const movementY = Math.sin(joystickMoveAngle) * STABILITY_CONFIG.sensitivity * deltaTime * 100;
 
-        // Current crosshair position relative to the overlay
-        let currentLeft = parseFloat(crosshair.style.left) || (overlayRect.width / 2 - crosshair.offsetWidth / 2);
-        let currentTop = parseFloat(crosshair.style.top) || (overlayRect.height / 2 - crosshair.offsetHeight / 2);
+        currentLeft = Math.max(0, Math.min(window.innerWidth, currentLeft + movementX));
+        currentTop = Math.max(0, Math.min(window.innerHeight, currentTop + movementY));
 
-        // Calculate new positions
-        let newLeft = currentLeft + movementX;
-        let newTopCross = currentTop + movementY;
-
-        // Set the new positions without constraining within overlay bounds
-        crosshair.style.left = `${newLeft}px`;
-        crosshair.style.top = `${newTopCross}px`;
-
-        // Debugging: Log crosshair movement
-        console.log(`Crosshair moved to (${newLeft}px, ${newTopCross}px)`);
+        crosshair.style.left = `${currentLeft}px`;
+        crosshair.style.top = `${currentTop}px`;
     }
 
-    // Calculate the distance between the target and crosshair
-    const distance = Math.sqrt(
-        Math.pow(targetRect.left - crosshair.getBoundingClientRect().left, 2) +
-        Math.pow(targetRect.top - crosshair.getBoundingClientRect().top, 2)
+    // Calculate distances to both targets
+    const distanceToTarget1 = Math.sqrt(
+        Math.pow(currentLeft - TARGET_1_POSITION.x, 2) + Math.pow(currentTop - TARGET_1_POSITION.y, 2)
+    );
+    const distanceToTarget2 = Math.sqrt(
+        Math.pow(currentLeft - TARGET_2_POSITION.x, 2) + Math.pow(currentTop - TARGET_2_POSITION.y, 2)
     );
 
-    // Debugging: Log distance
-    console.log(`Distance between target and crosshair: ${distance}px`);
+    // Determine the average distance
+    const averageDistance = (distanceToTarget1 + distanceToTarget2) / 2;
 
-    // Accumulate distance and count for average calculation
-    cumulativeDistance += distance;
-    distanceMeasurements += 1;
-
-    // Calculate average distance
-    averageDistance = cumulativeDistance / distanceMeasurements;
-    console.log(`Average Distance so far: ${averageDistance.toFixed(2)}px`);
-
-    // Closer average distance => Higher score; Farther average distance => Lower score
-    const calculatedScore = 100 - (averageDistance / MAX_DISTANCE) * 100;
-    // Clamp the score between 0 and 100, then round to the nearest integer
-    
+    // Update the power score
     powerScore = Math.round(Math.max(0, Math.min(100, 100 * (1 - averageDistance / MAX_DISTANCE))));
 
-    // Update power score display
+    // Update the power score display
     updatePowerScoreDisplay(powerScore);
-
-    // Console log the power score
-    console.log(`Power Score (Average): ${powerScore}`);
-
-    // Optional: Reset target position if it moves beyond the overlay
-    const maxTop = overlayRect.top + overlayRect.height - targetRect.height;
-    if (newTop > maxTop) {
-        target.style.top = `${overlayRect.top}px`; // Reset to top
-        console.log("Target reset to top after reaching maximum position.");
-    }
 }
+
 
 
 // ==============================
@@ -1701,8 +1684,6 @@ function updatePlayerPosition() {
     player.scale.set(1, currentHeight / originalHeight, 1); // Adjust Y-scale for compression
     player.position.y = origin.y() - heightReduction / 2;   // Adjust vertical position
 }
-
-
 
 
 // Function to update the barbell's mesh based on its physics body
