@@ -43,6 +43,13 @@ let PLATE_WEIGHT = 15; // Default value, can be adjusted dynamically
 // Declare Global Variables
 // ==============================
 
+let isCameraLocked = false;
+const CAMERA_LOCK_CONFIG = {
+    distance: 10,       // Distance in front of the player
+    heightOffset: 2,    // Height above the player's position
+    transitionDuration: 500, // Duration of camera movement in milliseconds
+};
+
 let scene, camera, renderer;
 let player, ground, barbell;
 let physicsWorld, playerBody, groundBody, barbellBody;
@@ -148,6 +155,18 @@ function hideLockoutButton() {
         lockoutButton.removeEventListener('click', performLockoutTap);
     }
 }
+
+// script.js
+
+let lastTouchEnd = 0;
+
+document.addEventListener('touchend', function(event) {
+    const now = (new Date()).getTime();
+    if (now - lastTouchEnd <= 300) {
+        event.preventDefault(); // Prevent double-tap
+    }
+    lastTouchEnd = now;
+}, false);
 
 
 // Add variables for lockout functionality
@@ -1644,39 +1663,9 @@ function updatePlayerPosition() {
     player.scale.set(1, currentHeight / originalHeight, 1); // Adjust Y-scale for compression
     player.position.y = origin.y() - heightReduction / 2;   // Adjust vertical position
 
-    // Update camera position to follow the player
-    if (isThirdPerson) {
-        // Third-person camera logic
-        const cameraDistance = 10; // Distance behind the player
-        const elevation = 5 + (currentHeight - originalHeight) / 2; // Adjust elevation for spring compression
-
-        const offsetX = cameraDistance * Math.cos(pitch) * Math.sin(yaw);
-        const offsetY = elevation + cameraDistance * Math.sin(pitch);
-        const offsetZ = cameraDistance * Math.cos(pitch) * Math.cos(yaw);
-
-        camera.position.set(
-            player.position.x + offsetX,
-            player.position.y + offsetY,
-            player.position.z + offsetZ
-        );
-        camera.lookAt(player.position);
-    } else {
-        // First-person camera logic
-        const eyeLevelOffset = currentHeight / 2 - 0.2; // Eye level at half the current player height
-        const cameraYOffset = player.position.y + eyeLevelOffset;
-
-        camera.position.set(
-            player.position.x,
-            cameraYOffset,
-            player.position.z
-        );
-
-        // Apply pitch and yaw for first-person perspective
-        const quaternion = new THREE.Quaternion();
-        quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, "YXZ")); // YXZ ensures FPS-like orientation
-        camera.quaternion.copy(quaternion);
-    }
+    // **Removed camera update logic to centralize it in updateCameraPosition()**
 }
+
 
 
 // Function to update the barbell's mesh based on its physics body
@@ -1937,7 +1926,7 @@ function releaseBarbell(e = null) {
         hideLockoutButton();
 
         if (squatDepthReached) {
-        // Trigger "No Lift" Feedback
+            // Trigger "No Lift" Feedback
             showLiftFeedback("No Lift. Try Again!", false);
         }
 
@@ -1953,9 +1942,10 @@ function releaseBarbell(e = null) {
 
         resetAndHideTimer();
 
+        // **Unlock the camera to resume third-person view**
+        unlockCamera();
     }
 }
-
 
 let barbellConstraint = null; // Initialize to null
 
@@ -2000,7 +1990,13 @@ function attachBarbellToPlayer() {
 
     // Add the constraint to the physics world
     physicsWorld.addConstraint(barbellConstraint, true);
+
+    // **Lock the camera to a frontal view**
+    lockCamera();
 }
+
+
+
 
 
 // Define cooldown duration (e.g., 3 seconds for actionButton)
@@ -2173,6 +2169,7 @@ function onMovementTouchEnd(e) {
 }
 
 function onRotationTouchStart(e) {
+    if (isCameraLocked) return; // Prevent rotation when camera is locked
     e.preventDefault();
     if (rotationTouchId === null) {
         const touch = e.changedTouches[0];
@@ -2183,6 +2180,7 @@ function onRotationTouchStart(e) {
 }
 
 function onRotationTouchMove(e) {
+    if (isCameraLocked) return; // Prevent rotation when camera is locked
     e.preventDefault();
     for (const touch of e.changedTouches) {
         if (touch.identifier === rotationTouchId) {
@@ -2198,6 +2196,7 @@ function onRotationTouchMove(e) {
 }
 
 function onRotationTouchEnd(e) {
+    if (isCameraLocked) return; // Prevent rotation when camera is locked
     e.preventDefault();
     for (const touch of e.changedTouches) {
         if (touch.identifier === rotationTouchId) {
@@ -2208,15 +2207,18 @@ function onRotationTouchEnd(e) {
 }
 
 
+
 // ==============================
 // Camera Update
 // ==============================
 
 function updateCameraPosition() {
+    if (isCameraLocked) return; // Prevent camera updates when locked
+
     if (isThirdPerson) {
         // Third-person camera logic
         const cameraDistance = 10; // Distance behind the player
-        const elevation = 5;      // Height above the player
+        const elevation = 5 + (currentHeight - originalHeight) / 2; // Adjust elevation for spring compression
 
         const offsetX = cameraDistance * Math.cos(pitch) * Math.sin(yaw);
         const offsetY = elevation + cameraDistance * Math.sin(pitch);
@@ -2247,6 +2249,79 @@ function updateCameraPosition() {
 }
 
 
+function lockCamera() {
+    if (isCameraLocked) return; // Prevent multiple locks
+    isCameraLocked = true;
+
+    // Define the fixed frontal position relative to the player
+    const fixedOffset = new THREE.Vector3(0, CAMERA_LOCK_CONFIG.heightOffset, CAMERA_LOCK_CONFIG.distance);
+
+    // Calculate the locked position by adding the offset to the player's position
+    const lockedPosition = player.position.clone().add(fixedOffset);
+
+    // Define the target point the camera should look at (player's position)
+    const targetLookAt = player.position.clone();
+
+    // Use Tween.js for smooth transition of the camera's position
+    new TWEEN.Tween(camera.position)
+        .to({
+            x: lockedPosition.x,
+            y: lockedPosition.y,
+            z: lockedPosition.z
+        }, CAMERA_LOCK_CONFIG.transitionDuration)
+        .easing(TWEEN.Easing.Quadratic.Out)
+        .onUpdate(() => {
+            camera.lookAt(targetLookAt);
+        })
+        .onComplete(() => {
+            // Disable rotation controls by ignoring touch events
+            // Alternatively, you can remove the event listeners temporarily
+            // For this example, we'll rely on the guard clauses in touch handlers
+        })
+        .start();
+
+    console.log("Camera locked to frontal view.");
+}
+function unlockCamera() {
+    if (!isCameraLocked) return; // Prevent unlocking if not locked
+    isCameraLocked = false;
+
+    // Recalculate the desired third-person camera position based on current yaw and pitch
+    const cameraDistance = 10; // Adjust as needed
+    const elevation = 5 + (currentHeight - originalHeight) / 2; // Adjust elevation based on player's compression
+
+    const offsetX = cameraDistance * Math.cos(pitch) * Math.sin(yaw);
+    const offsetY = elevation + cameraDistance * Math.sin(pitch);
+    const offsetZ = cameraDistance * Math.cos(pitch) * Math.cos(yaw);
+
+    const desiredPosition = new THREE.Vector3(
+        player.position.x + offsetX,
+        player.position.y + offsetY,
+        player.position.z + offsetZ
+    );
+
+    // Use Tween.js to animate the camera's return to third-person position
+    new TWEEN.Tween(camera.position)
+        .to({
+            x: desiredPosition.x,
+            y: desiredPosition.y,
+            z: desiredPosition.z
+        }, CAMERA_LOCK_CONFIG.transitionDuration)
+        .easing(TWEEN.Easing.Quadratic.Out)
+        .onUpdate(() => {
+            camera.lookAt(player.position);
+        })
+        .onComplete(() => {
+            // Re-enable rotation controls by allowing touch events
+            // Again, rely on guard clauses in touch handlers
+        })
+        .start();
+
+    console.log("Camera unlocked and returned to third-person view.");
+}
+
+
+
 // ==============================
 // Animation Loop
 // ==============================
@@ -2263,6 +2338,7 @@ function animate() {
     // Update spring system
     updateSpring(deltaTime);
 
+    
     // Update player and barbell positions
     updatePlayerPosition();
     updateBarbellPosition();
