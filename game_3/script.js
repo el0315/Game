@@ -1127,8 +1127,8 @@ function updateStabilityMechanic(deltaTime) {
 
     // Update crosshair based on joystick input
     if (joystickMoveAngle !== null) {
-        const movementX = Math.cos(joystickMoveAngle) * STABILITY_CONFIG.sensitivity * deltaTime * 100;
-        const movementY = Math.sin(joystickMoveAngle) * STABILITY_CONFIG.sensitivity * deltaTime * 100;
+        const movementX = Math.cos(joystickMoveAngle) * 200 * deltaTime; // Adjust sensitivity
+        const movementY = Math.sin(joystickMoveAngle) * 200 * deltaTime;
 
         currentLeft = Math.max(0, Math.min(window.innerWidth, currentLeft + movementX));
         currentTop = Math.max(0, Math.min(window.innerHeight, currentTop + movementY));
@@ -1154,7 +1154,6 @@ function updateStabilityMechanic(deltaTime) {
     // Update the power score display
     updatePowerScoreDisplay(powerScore);
 }
-
 
 
 // ==============================
@@ -1653,37 +1652,37 @@ function updatePlayerPosition() {
         // Set player's horizontal velocity to constant speed in the desired direction
         const desiredVelocity = new Ammo.btVector3(
             moveDirection.x * playerSpeed,
-            playerBody.getLinearVelocity().y(), // Preserve vertical velocity (gravity)
+            playerBody.getLinearVelocity().y(), // Preserve vertical velocity (compression)
             moveDirection.z * playerSpeed
         );
         playerBody.setLinearVelocity(desiredVelocity);
     } else {
-        // Joystick is inactive, ensure the player stops
+        // Joystick is inactive, ensure the player stops horizontally
         const currentVelocity = playerBody.getLinearVelocity();
         if (currentVelocity.length() > 0.1) {
             // Stop movement only if the player is still moving
             playerBody.setLinearVelocity(new Ammo.btVector3(
                 0, // Stop movement on X-axis
-                currentVelocity.y(), // Preserve vertical velocity (gravity)
+                currentVelocity.y(), // Preserve vertical velocity (compression)
                 0  // Stop movement on Z-axis
             ));
         }
     }
 
-    // Get the player's transform from Ammo.js
+    // Update player's position based on physics simulation
     const transform = new Ammo.btTransform();
     playerBody.getMotionState().getWorldTransform(transform);
     const origin = transform.getOrigin();
 
-    // Override rotation to keep player upright
+    // Update player mesh position
     player.position.set(origin.x(), origin.y(), origin.z());
-    player.rotation.set(0, yaw, 0); // Keep the player upright and allow only yaw rotation
 
     // Apply spring compression
     const heightReduction = originalHeight - currentHeight;
     player.scale.set(1, currentHeight / originalHeight, 1); // Adjust Y-scale for compression
     player.position.y = origin.y() - heightReduction / 2;   // Adjust vertical position
 }
+
 
 
 // Function to update the barbell's mesh based on its physics body
