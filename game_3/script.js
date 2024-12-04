@@ -39,6 +39,9 @@ const BARBELL_CONFIG = {
 
 let PLATE_WEIGHT = 15; // Default value, can be adjusted dynamically
 
+let currentLeft = 0; // Initial crosshair position
+let currentTop = 0;  // Initial crosshair position
+
 // ==============================
 // Declare Global Variables
 // ==============================
@@ -73,7 +76,7 @@ let distanceMeasurements = 0;  // Number of measurements taken
 let averageDistance = 0;       // Calculated average distance
 
 // Define maximum distance for scoring
-const MAX_DISTANCE = 1000; // in pixels
+const MAX_DISTANCE = 500; // in pixels
 // Initialize power score
 let powerScore = 50; // Start at mid-point; adjust as needed
 
@@ -1107,7 +1110,33 @@ function finalizePowerScore() {
     console.log(`Final spring stiffness set to: ${SPRING_CONFIG.stiffness}`);
 }
 
+function calculateBarbellTiltAngle() {
+    const distanceToTarget1 = Math.sqrt(
+        Math.pow(currentLeft - TARGET_1_POSITION.x, 2) +
+        Math.pow(currentTop - TARGET_1_POSITION.y, 2)
+    );
+    const distanceToTarget2 = Math.sqrt(
+        Math.pow(currentLeft - TARGET_2_POSITION.x, 2) +
+        Math.pow(currentTop - TARGET_2_POSITION.y, 2)
+    );
+
+    // Calculate proximity difference
+    const proximityDifference = distanceToTarget2 - distanceToTarget1;
+
+    // Map proximity difference to a rotation angle (-15° to +15°)
+    const maxTiltAngle = 15; // Maximum tilt in degrees
+    const tiltAngle = THREE.MathUtils.clamp(
+        (proximityDifference / MAX_DISTANCE) * maxTiltAngle,
+        -maxTiltAngle,
+        maxTiltAngle
+    );
+
+    console.log(`Calculated Tilt Angle: ${tiltAngle}`);
+    return tiltAngle;
+}
+
 function updateStabilityMechanic(deltaTime) {
+    // Check if stability mechanic is active and barbell is attached
     if (!isStabilityActive || !barbellConstraint) {
         endStabilityMechanic(); // End mechanic if conditions are not met
         return;
@@ -1121,15 +1150,12 @@ function updateStabilityMechanic(deltaTime) {
         return;
     }
 
-    // Current crosshair position
-    let currentLeft = parseFloat(crosshair.style.left) || 0;
-    let currentTop = parseFloat(crosshair.style.top) || 0;
-
-    // Update crosshair based on joystick input
+    // Update global variables for crosshair position
     if (joystickMoveAngle !== null) {
         const movementX = Math.cos(joystickMoveAngle) * 75 * deltaTime; // Adjust sensitivity
         const movementY = Math.sin(joystickMoveAngle) * 75 * deltaTime;
 
+        // Ensure crosshair stays within screen boundaries
         currentLeft = Math.max(0, Math.min(window.innerWidth, currentLeft + movementX));
         currentTop = Math.max(0, Math.min(window.innerHeight, currentTop + movementY));
 
@@ -1139,21 +1165,35 @@ function updateStabilityMechanic(deltaTime) {
 
     // Calculate distances to both targets
     const distanceToTarget1 = Math.sqrt(
-        Math.pow(currentLeft - TARGET_1_POSITION.x, 2) + Math.pow(currentTop - TARGET_1_POSITION.y, 2)
+        Math.pow(currentLeft - TARGET_1_POSITION.x, 2) +
+        Math.pow(currentTop - TARGET_1_POSITION.y, 2)
     );
     const distanceToTarget2 = Math.sqrt(
-        Math.pow(currentLeft - TARGET_2_POSITION.x, 2) + Math.pow(currentTop - TARGET_2_POSITION.y, 2)
+        Math.pow(currentLeft - TARGET_2_POSITION.x, 2) +
+        Math.pow(currentTop - TARGET_2_POSITION.y, 2)
     );
 
-    // Determine the average distance
+    // Determine the average distance and update the power score
     const averageDistance = (distanceToTarget1 + distanceToTarget2) / 2;
-
-    // Update the power score
-    powerScore = Math.round(Math.max(0, Math.min(100, 100 * (1 - averageDistance / MAX_DISTANCE))));
+    powerScore = Math.round(
+        Math.max(0, Math.min(100, 100 * (1 - averageDistance / MAX_DISTANCE)))
+    );
 
     // Update the power score display
     updatePowerScoreDisplay(powerScore);
+
+    // Update barbell tilt angle based on crosshair proximity to targets
+    const tiltAngle = calculateBarbellTiltAngle();
+    if (barbell) {
+        barbell.rotation.z = THREE.MathUtils.degToRad(tiltAngle);
+    }
+
+    // Log debug information for stability mechanic
+    console.log(`Crosshair Position: (${currentLeft}, ${currentTop})`);
+    console.log(`Distances - Target 1: ${distanceToTarget1.toFixed(2)}, Target 2: ${distanceToTarget2.toFixed(2)}`);
+    console.log(`Average Distance: ${averageDistance.toFixed(2)}, Power Score: ${powerScore}`);
 }
+
 
 
 // ==============================
@@ -1684,8 +1724,6 @@ function updatePlayerPosition() {
 }
 
 
-
-// Function to update the barbell's mesh based on its physics body
 function updateBarbellPosition() {
     if (!barbellBody) {
         console.warn("barbellBody is undefined in updateBarbellPosition.");
@@ -1696,9 +1734,12 @@ function updateBarbellPosition() {
         // Barbell is attached to the player
         const playerTopY = player.position.y + (currentHeight / 2) + (BARBELL_CONFIG.centralBar.radius);
         barbell.position.set(player.position.x, playerTopY, player.position.z);
-        barbell.quaternion.copy(player.quaternion);
 
-        // Update the physics body position
+        // Calculate tilt angle and apply to the barbell
+        const tiltAngle = calculateBarbellTiltAngle();
+        barbell.rotation.z = THREE.MathUtils.degToRad(tiltAngle); // Apply tilt
+
+        // Update physics body
         const transform = new Ammo.btTransform();
         transform.setIdentity();
         transform.setOrigin(new Ammo.btVector3(barbell.position.x, barbell.position.y, barbell.position.z));
@@ -1721,6 +1762,7 @@ function updateBarbellPosition() {
         barbell.quaternion.set(rotation.x(), rotation.y(), rotation.z(), rotation.w());
     }
 }
+
 
 
 // Reference the action button
