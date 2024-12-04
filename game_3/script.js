@@ -1127,8 +1127,8 @@ function updateStabilityMechanic(deltaTime) {
 
     // Update crosshair based on joystick input
     if (joystickMoveAngle !== null) {
-        const movementX = Math.cos(joystickMoveAngle) * 20 * deltaTime; // Adjust sensitivity
-        const movementY = Math.sin(joystickMoveAngle) * 20 * deltaTime;
+        const movementX = Math.cos(joystickMoveAngle) * 50 * deltaTime; // Adjust sensitivity
+        const movementY = Math.sin(joystickMoveAngle) * 50 * deltaTime;
 
         currentLeft = Math.max(0, Math.min(window.innerWidth, currentLeft + movementX));
         currentTop = Math.max(0, Math.min(window.innerHeight, currentTop + movementY));
