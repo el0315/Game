@@ -298,6 +298,25 @@ html, body {
     padding-top: 100px; /* Space from the top */
 }
 
+#stabilityOverlay #target1,
+#stabilityOverlay #target2 {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    z-index: 1001;
+}
+
+#stabilityOverlay #crosshair {
+    position: absolute;
+    width: 15px;
+    height: 15px;
+    background-color: rgba(0, 255, 0, 0.8);
+    border-radius: 50%;
+    z-index: 1002;
+}
+
+
 #powerScoreDisplay {
     margin-bottom: 30px; /* Space below the power score */
     color: #fff;
@@ -340,20 +359,6 @@ html, body {
     visibility: hidden;
 }
 
-/* Adjusted Target Circle */
-#targetCircle {
-    position: absolute; /* Added position */
-    width: 30px;
-    height: 30px;
-    background-color: rgba(255, 0, 0, 0.8);
-    border-radius: 50%;
-    z-index: 1001;
-    display: none; /* Hidden by default */
-    pointer-events: none;
-    top: 200px; /* Moved lower by increasing from 100px to 130px */
-    left: 100px;
-    /* Removed margin-bottom as positioning is absolute */
-}
 
 /* Adjusted Crosshair */
 #crosshair {
