@@ -388,6 +388,7 @@ settingsButton.addEventListener('touchstart', (e) => {
     e.stopPropagation(); // Prevent touch event from bubbling up
     settingsOverlay.style.display = 'flex';
     resetBarbellPosition();
+    unlockCamera();
 }, { passive: false });
 
 // Optional: Event listener for click event (desktop compatibility)
@@ -436,10 +437,6 @@ strengthSlider.addEventListener("input", () => {
 springStrengthSlider.addEventListener('touchstart', (e) => {
     e.stopPropagation();
 }, { passive: false });
-
-
-
-
 
 
 // ==============================
