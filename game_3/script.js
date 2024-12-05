@@ -606,24 +606,18 @@ function createPlayerPhysics() {
 // Global Material for the Barbell and Plates
 let barMaterial;
 
+// Create Barbell Visual
 function createBarbellVisual() {
     barbell = new THREE.Group();
 
-    // Barbell material (dark silver)
-    const barMaterial = new THREE.MeshStandardMaterial({
-        color: 0x555555, // Dark silver for the barbell
-        metalness: 0.8,
-        roughness: 0.4,
+    // Define the material globally so it can be reused
+    barMaterial = new THREE.MeshStandardMaterial({
+        color: 0xC0C0C0, // Silver color for the barbell
+        metalness: 0.9,
+        roughness: 0.3,
     });
 
-    // Plate material (slightly darker than the barbell)
-    const plateMaterial = new THREE.MeshStandardMaterial({
-        color: 0x444444, // Darker gray for the plates
-        metalness: 0.7,
-        roughness: 0.5,
-    });
-
-    // Create the central bar (shaft)
+    // Create the central bar (shaft + implied sleeves)
     const barGeometry = new THREE.CylinderGeometry(
         BARBELL_CONFIG.centralBar.radius,
         BARBELL_CONFIG.centralBar.radius,
@@ -636,8 +630,36 @@ function createBarbellVisual() {
     bar.receiveShadow = true;
     barbell.add(bar);
 
-    // Add plates to the barbell
-    adjustPlatesToBarbell(1, plateMaterial); // Start with one plate on each side, pass plateMaterial
+    // Define the inward position for plates
+    const sleeveLength = 0.9; // Adjust this for how much "sleeve" you want visible
+
+    // Left plate
+    const leftPlateGeometry = new THREE.CylinderGeometry(
+        BARBELL_CONFIG.plate.radius,
+        BARBELL_CONFIG.plate.radius,
+        BARBELL_CONFIG.plate.thickness,
+        BARBELL_CONFIG.plate.segments
+    );
+    const leftPlate = new THREE.Mesh(leftPlateGeometry, barMaterial);
+    leftPlate.rotation.z = Math.PI / 2;
+    leftPlate.position.set(-BARBELL_CONFIG.centralBar.length / 2 + sleeveLength, 0, 0);
+    leftPlate.castShadow = true;
+    leftPlate.receiveShadow = true;
+    barbell.add(leftPlate);
+
+    // Right plate
+    const rightPlateGeometry = new THREE.CylinderGeometry(
+        BARBELL_CONFIG.plate.radius,
+        BARBELL_CONFIG.plate.radius,
+        BARBELL_CONFIG.plate.thickness,
+        BARBELL_CONFIG.plate.segments
+    );
+    const rightPlate = new THREE.Mesh(rightPlateGeometry, barMaterial);
+    rightPlate.rotation.z = Math.PI / 2;
+    rightPlate.position.set(BARBELL_CONFIG.centralBar.length / 2 - sleeveLength, 0, 0);
+    rightPlate.castShadow = true;
+    rightPlate.receiveShadow = true;
+    barbell.add(rightPlate);
 
     // Set initial position of the barbell
     barbell.position.set(
@@ -646,6 +668,7 @@ function createBarbellVisual() {
         BARBELL_CONFIG.position.initialPosition.z
     );
 
+    // Add the barbell to the scene
     scene.add(barbell);
 }
 
@@ -673,7 +696,8 @@ plateSlider.addEventListener("input", (e) => {
     }
 });
 
-function adjustPlatesToBarbell(newPlateCount, plateMaterial) {
+// Adjust plates dynamically
+function adjustPlatesToBarbell(newPlateCount) {
     const baseOffset = BARBELL_CONFIG.centralBar.length / 2 - 0.9; // Initial offset
 
     // Remove all current plates
@@ -690,7 +714,7 @@ function adjustPlatesToBarbell(newPlateCount, plateMaterial) {
             BARBELL_CONFIG.plate.thickness,
             BARBELL_CONFIG.plate.segments
         );
-        const leftPlate = new THREE.Mesh(leftPlateGeometry, plateMaterial);
+        const leftPlate = new THREE.Mesh(leftPlateGeometry, barMaterial);
         leftPlate.rotation.z = Math.PI / 2;
         leftPlate.position.set(-plateOffset, 0, 0);
         leftPlate.isPlate = true; // Mark as a plate for easy filtering
@@ -703,8 +727,12 @@ function adjustPlatesToBarbell(newPlateCount, plateMaterial) {
         rightPlate.isPlate = true; // Mark as a plate for easy filtering
         barbell.add(rightPlate);
     }
-}
 
+    // Update barbell's physics properties
+    //const newPlateMass = newPlateCount * 2 * BARBELL_CONFIG.plate.mass; // Total mass of new plates
+    //setBarbellMass(BARBELL_CONFIG.centralBar.mass + newPlateMass);
+    //console.log(`Plates adjusted. Total plates per side: ${newPlateCount}`);
+}
 
 
 function calculateBarbellLoad() {
@@ -948,52 +976,62 @@ function updateSpring(deltaTime) {
     }
 }
 
-// Center crosshair between targets
+let crosshairX = (TARGET_1_POSITION.x + TARGET_2_POSITION.x) / 2; // Start centered between targets
+let crosshairY = (TARGET_1_POSITION.y + TARGET_2_POSITION.y) / 2;
+
 function setupStabilityVisuals() {
     const overlay = document.getElementById('stabilityOverlay');
-    const target1 = document.createElement('div');
-    const target2 = document.createElement('div');
     const crosshair = document.getElementById('crosshair');
 
     if (!overlay || !crosshair) {
-        console.error("Stability overlay elements not found!");
+        console.error("Stability overlay or crosshair elements not found!");
         return;
     }
 
-    // Configure target 1 (left target)
+    // Remove existing targets and reset crosshair position
+    document.getElementById('target1')?.remove();
+    document.getElementById('target2')?.remove();
+
+    // Create and configure target 1 (left target)
+    const target1 = document.createElement('div');
     target1.id = "target1";
     target1.style.position = "absolute";
     target1.style.width = "30px";
     target1.style.height = "30px";
     target1.style.backgroundColor = "rgba(255, 0, 0, 0.8)";
     target1.style.borderRadius = "50%";
+    target1.style.zIndex = "2";
     target1.style.top = `${TARGET_1_POSITION.y}px`;
     target1.style.left = `${TARGET_1_POSITION.x}px`;
+    target1.style.display = "block";
 
-    // Configure target 2 (right target)
+    // Create and configure target 2 (right target)
+    const target2 = document.createElement('div');
     target2.id = "target2";
     target2.style.position = "absolute";
     target2.style.width = "30px";
     target2.style.height = "30px";
     target2.style.backgroundColor = "rgba(0, 0, 255, 0.8)";
     target2.style.borderRadius = "50%";
+    target2.style.zIndex = "2";
     target2.style.top = `${TARGET_2_POSITION.y}px`;
     target2.style.left = `${TARGET_2_POSITION.x}px`;
+    target2.style.display = "block";
 
     // Add targets to the overlay
     overlay.appendChild(target1);
     overlay.appendChild(target2);
 
-    // Center the crosshair between the two targets
+    // Set crosshair initial position between targets
     crosshair.style.position = "absolute";
     crosshair.style.width = "15px";
     crosshair.style.height = "15px";
     crosshair.style.backgroundColor = "rgba(0, 255, 0, 0.8)";
     crosshair.style.borderRadius = "50%";
-    crosshair.style.top = `${(TARGET_1_POSITION.y + TARGET_2_POSITION.y) / 2}px`;
-    crosshair.style.left = `${(TARGET_1_POSITION.x + TARGET_2_POSITION.x) / 2}px`;
-
-    console.log("Stability visuals initialized.");
+    crosshair.style.zIndex = "3";
+    crosshair.style.top = `${crosshairY}px`; // Use global variables
+    crosshair.style.left = `${crosshairX}px`;
+    crosshair.style.display = "block"; // Ensure visible
 }
 
 
@@ -1085,14 +1123,6 @@ function finalizePowerScore() {
 }
 
 function calculateBarbellTiltAngle() {
-    if (!player || !barbell) return;
-
-    // Get the current crosshair position
-    const crosshair = document.getElementById('crosshair');
-    const currentLeft = parseFloat(crosshair.style.left) || 0;
-    const currentTop = parseFloat(crosshair.style.top) || 0;
-
-    // Calculate distances to both targets
     const distanceToTarget1 = Math.sqrt(
         Math.pow(currentLeft - TARGET_1_POSITION.x, 2) +
         Math.pow(currentTop - TARGET_1_POSITION.y, 2)
@@ -1102,90 +1132,59 @@ function calculateBarbellTiltAngle() {
         Math.pow(currentTop - TARGET_2_POSITION.y, 2)
     );
 
-    // Calculate tilt angle based on proximity to targets
+    // Calculate proximity difference
     const proximityDifference = distanceToTarget2 - distanceToTarget1;
-    const maxTiltAngle = Math.PI / 12; // Maximum tilt in radians (15 degrees)
+
+    // Map proximity difference to a rotation angle (-15° to +15°)
+    const maxTiltAngle = 15; // Maximum tilt in degrees
     const tiltAngle = THREE.MathUtils.clamp(
         (proximityDifference / MAX_DISTANCE) * maxTiltAngle,
         -maxTiltAngle,
         maxTiltAngle
     );
 
-    // Align tilt with player's local X-axis (side-to-side axis)
-    const tiltAxis = new THREE.Vector3(1, 0, 0); // Local X-axis of the player
-    tiltAxis.applyQuaternion(player.quaternion); // Rotate tilt axis based on player's orientation
-
-    // Apply tilt to the barbell
-    const tiltQuaternion = new THREE.Quaternion();
-    tiltQuaternion.setFromAxisAngle(tiltAxis, tiltAngle);
-    barbell.quaternion.copy(tiltQuaternion);
-
-    console.log(
-        `Calculated tilt: ${THREE.MathUtils.radToDeg(tiltAngle)}°, ` +
-        `Proximity Difference: ${proximityDifference.toFixed(2)}, ` +
-        `Distances - Target1: ${distanceToTarget1.toFixed(2)}, Target2: ${distanceToTarget2.toFixed(2)}`
-    );
+    console.log(`Calculated Tilt Angle: ${tiltAngle}`);
+    return tiltAngle;
 }
 
-
-
 function updateStabilityMechanic(deltaTime) {
-    // Check if stability mechanic is active and barbell is attached
-    if (!isStabilityActive || !barbellConstraint) {
-        endStabilityMechanic(); // End mechanic if conditions are not met
-        return;
-    }
+    if (!isStabilityActive) return;
 
     const crosshair = document.getElementById('crosshair');
-    const overlay = document.getElementById('stabilityOverlay');
-
-    if (!crosshair || !overlay) {
-        console.error("Stability mechanic elements not found.");
+    if (!crosshair) {
+        console.error("Crosshair element not found.");
         return;
     }
 
-    // Update global variables for crosshair position
+    // Update crosshair position based on joystick input
     if (joystickMoveAngle !== null) {
         const movementX = Math.cos(joystickMoveAngle) * 75 * deltaTime; // Adjust sensitivity
         const movementY = Math.sin(joystickMoveAngle) * 75 * deltaTime;
 
-        // Ensure crosshair stays within screen boundaries
-        currentLeft = Math.max(0, Math.min(window.innerWidth, currentLeft + movementX));
-        currentTop = Math.max(0, Math.min(window.innerHeight, currentTop + movementY));
+        crosshairX = Math.max(0, Math.min(window.innerWidth, crosshairX + movementX));
+        crosshairY = Math.max(0, Math.min(window.innerHeight, crosshairY + movementY));
 
-        crosshair.style.left = `${currentLeft}px`;
-        crosshair.style.top = `${currentTop}px`;
+        crosshair.style.left = `${crosshairX}px`;
+        crosshair.style.top = `${crosshairY}px`;
     }
 
     // Calculate distances to both targets
     const distanceToTarget1 = Math.sqrt(
-        Math.pow(currentLeft - TARGET_1_POSITION.x, 2) +
-        Math.pow(currentTop - TARGET_1_POSITION.y, 2)
+        Math.pow(crosshairX - TARGET_1_POSITION.x, 2) +
+        Math.pow(crosshairY - TARGET_1_POSITION.y, 2)
     );
     const distanceToTarget2 = Math.sqrt(
-        Math.pow(currentLeft - TARGET_2_POSITION.x, 2) +
-        Math.pow(currentTop - TARGET_2_POSITION.y, 2)
+        Math.pow(crosshairX - TARGET_2_POSITION.x, 2) +
+        Math.pow(crosshairY - TARGET_2_POSITION.y, 2)
     );
 
-    // Determine the average distance and update the power score
-    const averageDistance = (distanceToTarget1 + distanceToTarget2) / 2;
+    // Update power score
+    averageDistance = (distanceToTarget1 + distanceToTarget2) / 2;
     powerScore = Math.round(
         Math.max(0, Math.min(100, 100 * (1 - averageDistance / MAX_DISTANCE)))
     );
 
-    // Update the power score display
     updatePowerScoreDisplay(powerScore);
-
-    // Update barbell tilt angle based on crosshair proximity to targets
-    const tiltAngle = calculateBarbellTiltAngle();
-    if (barbell) {
-        barbell.rotation.z = THREE.MathUtils.degToRad(tiltAngle);
-    }
-
-    // Log debug information for stability mechanic
-    console.log(`Crosshair Position: (${currentLeft}, ${currentTop})`);
-    console.log(`Distances - Target 1: ${distanceToTarget1.toFixed(2)}, Target 2: ${distanceToTarget2.toFixed(2)}`);
-    console.log(`Average Distance: ${averageDistance.toFixed(2)}, Power Score: ${powerScore}`);
 }
 
 
@@ -1717,6 +1716,7 @@ function updatePlayerPosition() {
     player.position.y = origin.y() - heightReduction / 2;   // Adjust vertical position
 }
 
+
 function updateBarbellPosition() {
     if (!barbellBody) {
         console.warn("barbellBody is undefined in updateBarbellPosition.");
@@ -1729,7 +1729,8 @@ function updateBarbellPosition() {
         barbell.position.set(player.position.x, playerTopY, player.position.z);
 
         // Calculate tilt angle and apply to the barbell
-        calculateBarbellTiltAngle();
+        const tiltAngle = calculateBarbellTiltAngle();
+        barbell.rotation.z = THREE.MathUtils.degToRad(tiltAngle); // Apply tilt
 
         // Update physics body
         const transform = new Ammo.btTransform();
@@ -1754,6 +1755,8 @@ function updateBarbellPosition() {
         barbell.quaternion.set(rotation.x(), rotation.y(), rotation.z(), rotation.w());
     }
 }
+
+
 
 // Reference the action button
 const actionButton = document.getElementById('actionButton');
