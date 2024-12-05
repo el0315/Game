@@ -606,18 +606,24 @@ function createPlayerPhysics() {
 // Global Material for the Barbell and Plates
 let barMaterial;
 
-// Create Barbell Visual
 function createBarbellVisual() {
     barbell = new THREE.Group();
 
-    // Define the material globally so it can be reused
+    // Barbell material (dark silver)
     const barMaterial = new THREE.MeshStandardMaterial({
-        color: 0xC0C0C0, // Silver color for the barbell
-        metalness: 0.9,
-        roughness: 0.3,
+        color: 0x555555, // Dark silver for the barbell
+        metalness: 0.8,
+        roughness: 0.4,
     });
 
-    // Create the central bar (shaft + implied sleeves)
+    // Plate material (slightly darker than the barbell)
+    const plateMaterial = new THREE.MeshStandardMaterial({
+        color: 0x444444, // Darker gray for the plates
+        metalness: 0.7,
+        roughness: 0.5,
+    });
+
+    // Create the central bar (shaft)
     const barGeometry = new THREE.CylinderGeometry(
         BARBELL_CONFIG.centralBar.radius,
         BARBELL_CONFIG.centralBar.radius,
@@ -630,37 +636,8 @@ function createBarbellVisual() {
     bar.receiveShadow = true;
     barbell.add(bar);
 
-    // Create the debugging arms
-    const armMaterial = new THREE.MeshStandardMaterial({
-        color: 0xff0000, // Red for debugging visualization
-        transparent: true,
-        opacity: 0.8,
-    });
-
-    const armRadius = 0.1; // Small radius for the arms
-    const armLength = 2;   // Length of the arms
-
-    // Left Arm (perpendicular to the barbell, pointing vertically)
-    const leftArmGeometry = new THREE.CylinderGeometry(armRadius, armRadius, armLength, 16);
-    const leftArm = new THREE.Mesh(leftArmGeometry, armMaterial);
-    leftArm.rotation.x = Math.PI / 2; // Rotate to be perpendicular to the barbell
-    leftArm.position.set(
-        -BARBELL_CONFIG.centralBar.length / 2, // Centered at the left end of the barbell
-        0,
-        0
-    );
-    leftArm.castShadow = true;
-    leftArm.receiveShadow = true;
-    barbell.add(leftArm);
-
-    // Right Arm (perpendicular to the barbell, pointing vertically)
-    const rightArm = leftArm.clone(); // Clone the left arm
-    rightArm.position.set(
-        BARBELL_CONFIG.centralBar.length / 2, // Centered at the right end of the barbell
-        0,
-        0
-    );
-    barbell.add(rightArm);
+    // Add plates to the barbell
+    adjustPlatesToBarbell(1, plateMaterial); // Start with one plate on each side, pass plateMaterial
 
     // Set initial position of the barbell
     barbell.position.set(
@@ -669,12 +646,8 @@ function createBarbellVisual() {
         BARBELL_CONFIG.position.initialPosition.z
     );
 
-    // Add the barbell to the scene
     scene.add(barbell);
-
-    console.log("Perpendicular debugging arms added to the barbell.");
 }
-
 
 
 // Variables for tracking plate additions and gap width
@@ -700,8 +673,7 @@ plateSlider.addEventListener("input", (e) => {
     }
 });
 
-// Adjust plates dynamically
-function adjustPlatesToBarbell(newPlateCount) {
+function adjustPlatesToBarbell(newPlateCount, plateMaterial) {
     const baseOffset = BARBELL_CONFIG.centralBar.length / 2 - 0.9; // Initial offset
 
     // Remove all current plates
@@ -718,7 +690,7 @@ function adjustPlatesToBarbell(newPlateCount) {
             BARBELL_CONFIG.plate.thickness,
             BARBELL_CONFIG.plate.segments
         );
-        const leftPlate = new THREE.Mesh(leftPlateGeometry, barMaterial);
+        const leftPlate = new THREE.Mesh(leftPlateGeometry, plateMaterial);
         leftPlate.rotation.z = Math.PI / 2;
         leftPlate.position.set(-plateOffset, 0, 0);
         leftPlate.isPlate = true; // Mark as a plate for easy filtering
@@ -731,12 +703,8 @@ function adjustPlatesToBarbell(newPlateCount) {
         rightPlate.isPlate = true; // Mark as a plate for easy filtering
         barbell.add(rightPlate);
     }
-
-    // Update barbell's physics properties
-    //const newPlateMass = newPlateCount * 2 * BARBELL_CONFIG.plate.mass; // Total mass of new plates
-    //setBarbellMass(BARBELL_CONFIG.centralBar.mass + newPlateMass);
-    //console.log(`Plates adjusted. Total plates per side: ${newPlateCount}`);
 }
+
 
 
 function calculateBarbellLoad() {
@@ -980,7 +948,7 @@ function updateSpring(deltaTime) {
     }
 }
 
-
+// Center crosshair between targets
 function setupStabilityVisuals() {
     const overlay = document.getElementById('stabilityOverlay');
     const target1 = document.createElement('div');
@@ -1024,6 +992,8 @@ function setupStabilityVisuals() {
     crosshair.style.borderRadius = "50%";
     crosshair.style.top = `${(TARGET_1_POSITION.y + TARGET_2_POSITION.y) / 2}px`;
     crosshair.style.left = `${(TARGET_1_POSITION.x + TARGET_2_POSITION.x) / 2}px`;
+
+    console.log("Stability visuals initialized.");
 }
 
 
@@ -1115,7 +1085,7 @@ function finalizePowerScore() {
 }
 
 function calculateBarbellTiltAngle() {
-    if (!player || !barbell) return 0;
+    if (!player || !barbell) return;
 
     // Get the current crosshair position
     const crosshair = document.getElementById('crosshair');
@@ -1132,7 +1102,7 @@ function calculateBarbellTiltAngle() {
         Math.pow(currentTop - TARGET_2_POSITION.y, 2)
     );
 
-    // Calculate proximity difference for tilt
+    // Calculate tilt angle based on proximity to targets
     const proximityDifference = distanceToTarget2 - distanceToTarget1;
     const maxTiltAngle = Math.PI / 12; // Maximum tilt in radians (15 degrees)
     const tiltAngle = THREE.MathUtils.clamp(
@@ -1141,21 +1111,22 @@ function calculateBarbellTiltAngle() {
         maxTiltAngle
     );
 
-    // Align tilt with player's local Y-axis
-    const playerUp = new THREE.Vector3(0, 1, 0); // Local Y-axis
-    const tiltAxis = new THREE.Vector3(1, 0, 0); // Default tilt axis (local X-axis)
-    tiltAxis.applyQuaternion(player.quaternion); // Rotate with player's orientation
+    // Align tilt with player's local X-axis (side-to-side axis)
+    const tiltAxis = new THREE.Vector3(1, 0, 0); // Local X-axis of the player
+    tiltAxis.applyQuaternion(player.quaternion); // Rotate tilt axis based on player's orientation
 
-    // Create a quaternion for the tilt
+    // Apply tilt to the barbell
     const tiltQuaternion = new THREE.Quaternion();
     tiltQuaternion.setFromAxisAngle(tiltAxis, tiltAngle);
-
-    // Apply the tilt quaternion to the barbell
     barbell.quaternion.copy(tiltQuaternion);
 
-    console.log(`Calculated tilt angle: ${THREE.MathUtils.radToDeg(tiltAngle)}° along player-local Y-axis.`);
-    return tiltAngle;
+    console.log(
+        `Calculated tilt: ${THREE.MathUtils.radToDeg(tiltAngle)}°, ` +
+        `Proximity Difference: ${proximityDifference.toFixed(2)}, ` +
+        `Distances - Target1: ${distanceToTarget1.toFixed(2)}, Target2: ${distanceToTarget2.toFixed(2)}`
+    );
 }
+
 
 
 function updateStabilityMechanic(deltaTime) {
@@ -1783,8 +1754,6 @@ function updateBarbellPosition() {
         barbell.quaternion.set(rotation.x(), rotation.y(), rotation.z(), rotation.w());
     }
 }
-
-
 
 // Reference the action button
 const actionButton = document.getElementById('actionButton');
