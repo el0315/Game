@@ -981,57 +981,55 @@ let crosshairY = (TARGET_1_POSITION.y + TARGET_2_POSITION.y) / 2;
 
 function setupStabilityVisuals() {
     const overlay = document.getElementById('stabilityOverlay');
+    const target1 = document.createElement('div');
+    const target2 = document.createElement('div');
     const crosshair = document.getElementById('crosshair');
 
     if (!overlay || !crosshair) {
-        console.error("Stability overlay or crosshair elements not found!");
+        console.error("Stability overlay elements not found!");
         return;
     }
 
-    // Remove existing targets and reset crosshair position
-    document.getElementById('target1')?.remove();
-    document.getElementById('target2')?.remove();
-
-    // Create and configure target 1 (left target)
-    const target1 = document.createElement('div');
+    // Configure target 1 (left target)
     target1.id = "target1";
     target1.style.position = "absolute";
     target1.style.width = "30px";
     target1.style.height = "30px";
     target1.style.backgroundColor = "rgba(255, 0, 0, 0.8)";
     target1.style.borderRadius = "50%";
-    target1.style.zIndex = "2";
     target1.style.top = `${TARGET_1_POSITION.y}px`;
     target1.style.left = `${TARGET_1_POSITION.x}px`;
-    target1.style.display = "block";
 
-    // Create and configure target 2 (right target)
-    const target2 = document.createElement('div');
+    // Configure target 2 (right target)
     target2.id = "target2";
     target2.style.position = "absolute";
     target2.style.width = "30px";
     target2.style.height = "30px";
     target2.style.backgroundColor = "rgba(0, 0, 255, 0.8)";
     target2.style.borderRadius = "50%";
-    target2.style.zIndex = "2";
     target2.style.top = `${TARGET_2_POSITION.y}px`;
     target2.style.left = `${TARGET_2_POSITION.x}px`;
-    target2.style.display = "block";
 
     // Add targets to the overlay
     overlay.appendChild(target1);
     overlay.appendChild(target2);
 
-    // Set crosshair initial position between targets
+    // Place crosshair exactly between targets
+    const initialX = (TARGET_1_POSITION.x + TARGET_2_POSITION.x) / 2;
+    const initialY = (TARGET_1_POSITION.y + TARGET_2_POSITION.y) / 2;
+    currentLeft = initialX; // Set global variable
+    currentTop = initialY;  // Set global variable
+
+    // Position crosshair at the center
     crosshair.style.position = "absolute";
     crosshair.style.width = "15px";
     crosshair.style.height = "15px";
     crosshair.style.backgroundColor = "rgba(0, 255, 0, 0.8)";
     crosshair.style.borderRadius = "50%";
-    crosshair.style.zIndex = "3";
-    crosshair.style.top = `${crosshairY}px`; // Use global variables
-    crosshair.style.left = `${crosshairX}px`;
-    crosshair.style.display = "block"; // Ensure visible
+    crosshair.style.top = `${initialY}px`;
+    crosshair.style.left = `${initialX}px`;
+
+    console.log(`Crosshair initialized at (${initialX}, ${initialY})`);
 }
 
 
@@ -1088,18 +1086,29 @@ function startStabilityMechanic() {
     if (!isStabilityActive && !squatDepthReached) {
         console.log("Stability mechanic started.");
         isStabilityActive = true;
-        
-        showStabilityVisuals(); // Ensure visuals are shown
-        setupStabilityVisuals(); // Set up the crosshair and target
+
+        // Ensure visuals are shown
+        showStabilityVisuals();
+        setupStabilityVisuals();
 
         // Reset tracking variables at the start of the mechanic
         cumulativeDistance = 0;
         distanceMeasurements = 0;
         averageDistance = 0;
 
+        // Explicitly reset barbell tilt to 0
+        barbell.rotation.z = 0;
+        const transform = new Ammo.btTransform();
+        barbellBody.getMotionState().getWorldTransform(transform);
+        transform.setRotation(new Ammo.btQuaternion(0, 0, 0, 1)); // Reset tilt
+        barbellBody.setWorldTransform(transform);
+        barbellBody.getMotionState().setWorldTransform(transform);
+
         console.log("Tracking variables reset for new stability mechanic session.");
     }
 }
+
+
 
 
 function endStabilityMechanic() {
@@ -1123,6 +1132,11 @@ function finalizePowerScore() {
 }
 
 function calculateBarbellTiltAngle() {
+    if (!isStabilityActive) {
+        console.log("Stability mechanic is not active, setting tilt to 0.");
+        return 0;
+    }
+
     const distanceToTarget1 = Math.sqrt(
         Math.pow(currentLeft - TARGET_1_POSITION.x, 2) +
         Math.pow(currentTop - TARGET_1_POSITION.y, 2)
@@ -1132,59 +1146,47 @@ function calculateBarbellTiltAngle() {
         Math.pow(currentTop - TARGET_2_POSITION.y, 2)
     );
 
-    // Calculate proximity difference
     const proximityDifference = distanceToTarget2 - distanceToTarget1;
-
-    // Map proximity difference to a rotation angle (-15° to +15°)
-    const maxTiltAngle = 15; // Maximum tilt in degrees
+    const maxTiltAngle = 45;
     const tiltAngle = THREE.MathUtils.clamp(
         (proximityDifference / MAX_DISTANCE) * maxTiltAngle,
         -maxTiltAngle,
         maxTiltAngle
     );
 
-    console.log(`Calculated Tilt Angle: ${tiltAngle}`);
+    console.log(`Proximity Difference: ${proximityDifference}, Tilt Angle: ${tiltAngle}`);
     return tiltAngle;
 }
 
-function updateStabilityMechanic(deltaTime) {
-    if (!isStabilityActive) return;
 
-    const crosshair = document.getElementById('crosshair');
-    if (!crosshair) {
-        console.error("Crosshair element not found.");
+
+
+function updateStabilityMechanic(deltaTime) {
+    if (!isStabilityActive || !barbellConstraint) {
         return;
     }
 
     // Update crosshair position based on joystick input
     if (joystickMoveAngle !== null) {
-        const movementX = Math.cos(joystickMoveAngle) * 75 * deltaTime; // Adjust sensitivity
+        const movementX = Math.cos(joystickMoveAngle) * 75 * deltaTime;
         const movementY = Math.sin(joystickMoveAngle) * 75 * deltaTime;
 
-        crosshairX = Math.max(0, Math.min(window.innerWidth, crosshairX + movementX));
-        crosshairY = Math.max(0, Math.min(window.innerHeight, crosshairY + movementY));
+        currentLeft = Math.max(0, Math.min(window.innerWidth, currentLeft + movementX));
+        currentTop = Math.max(0, Math.min(window.innerHeight, currentTop + movementY));
 
-        crosshair.style.left = `${crosshairX}px`;
-        crosshair.style.top = `${crosshairY}px`;
+        const crosshair = document.getElementById('crosshair');
+        if (crosshair) {
+            crosshair.style.left = `${currentLeft}px`;
+            crosshair.style.top = `${currentTop}px`;
+        }
     }
 
-    // Calculate distances to both targets
-    const distanceToTarget1 = Math.sqrt(
-        Math.pow(crosshairX - TARGET_1_POSITION.x, 2) +
-        Math.pow(crosshairY - TARGET_1_POSITION.y, 2)
-    );
-    const distanceToTarget2 = Math.sqrt(
-        Math.pow(crosshairX - TARGET_2_POSITION.x, 2) +
-        Math.pow(crosshairY - TARGET_2_POSITION.y, 2)
-    );
-
-    // Update power score
-    averageDistance = (distanceToTarget1 + distanceToTarget2) / 2;
-    powerScore = Math.round(
-        Math.max(0, Math.min(100, 100 * (1 - averageDistance / MAX_DISTANCE)))
-    );
-
-    updatePowerScoreDisplay(powerScore);
+    // Apply tilt to the barbell
+    const tiltAngle = calculateBarbellTiltAngle();
+    if (barbell) {
+        barbell.rotation.z = THREE.MathUtils.degToRad(tiltAngle);
+        console.log(`Applied Tilt Angle: ${tiltAngle}`);
+    }
 }
 
 
@@ -1727,7 +1729,7 @@ function updateBarbellPosition() {
         const playerTopY = player.position.y + (currentHeight / 2) + (BARBELL_CONFIG.centralBar.radius);
         barbell.position.set(player.position.x, playerTopY, player.position.z);
 
-        // **Apply tilt only if the stability mechanic is active**
+        // Apply tilt only if the stability mechanic is active
         if (isStabilityActive) {
             const tiltAngle = calculateBarbellTiltAngle();
             barbell.rotation.z = THREE.MathUtils.degToRad(tiltAngle); // Apply tilt
@@ -2019,6 +2021,15 @@ function attachBarbellToPlayer() {
     originalBarbellLoad = barbellLoad; // Store for reset
     console.log(`Barbell attached. Load: ${barbellLoad}`);
 
+    // Reset barbell rotation to ensure no initial tilt
+    barbell.rotation.set(0, 0, 0); 
+    const transform = new Ammo.btTransform();
+    transform.setIdentity();
+    transform.setOrigin(new Ammo.btVector3(barbell.position.x, barbell.position.y, barbell.position.z));
+    transform.setRotation(new Ammo.btQuaternion(0, 0, 0, 1)); // Reset rotation
+    barbellBody.setWorldTransform(transform);
+    barbellBody.getMotionState().setWorldTransform(transform);
+
     // Create a constraint to attach the barbell to the player
     const frameInA = new Ammo.btTransform();
     frameInA.setIdentity();
@@ -2046,13 +2057,10 @@ function attachBarbellToPlayer() {
     // Add the constraint to the physics world
     physicsWorld.addConstraint(barbellConstraint, true);
 
-    // **Force Barbell Level**: Set rotation to zero tilt
-    barbell.rotation.set(0, 0, 0); // No tilt
-    barbellBody.setWorldTransform(new Ammo.btTransform());
-    barbellBody.getMotionState().setWorldTransform(new Ammo.btTransform());
-
-    console.log("Barbell attached and set level.");
+    // Lock the camera
+    lockCamera();
 }
+
 
 
 // Define cooldown duration (e.g., 3 seconds for actionButton)
