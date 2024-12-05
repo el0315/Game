@@ -1716,7 +1716,6 @@ function updatePlayerPosition() {
     player.position.y = origin.y() - heightReduction / 2;   // Adjust vertical position
 }
 
-
 function updateBarbellPosition() {
     if (!barbellBody) {
         console.warn("barbellBody is undefined in updateBarbellPosition.");
@@ -1728,9 +1727,13 @@ function updateBarbellPosition() {
         const playerTopY = player.position.y + (currentHeight / 2) + (BARBELL_CONFIG.centralBar.radius);
         barbell.position.set(player.position.x, playerTopY, player.position.z);
 
-        // Calculate tilt angle and apply to the barbell
-        const tiltAngle = calculateBarbellTiltAngle();
-        barbell.rotation.z = THREE.MathUtils.degToRad(tiltAngle); // Apply tilt
+        // **Apply tilt only if the stability mechanic is active**
+        if (isStabilityActive) {
+            const tiltAngle = calculateBarbellTiltAngle();
+            barbell.rotation.z = THREE.MathUtils.degToRad(tiltAngle); // Apply tilt
+        } else {
+            barbell.rotation.set(0, 0, 0); // Keep level if no stability mechanic
+        }
 
         // Update physics body
         const transform = new Ammo.btTransform();
@@ -2043,12 +2046,13 @@ function attachBarbellToPlayer() {
     // Add the constraint to the physics world
     physicsWorld.addConstraint(barbellConstraint, true);
 
-    // **Lock the camera to a frontal view**
-    lockCamera();
+    // **Force Barbell Level**: Set rotation to zero tilt
+    barbell.rotation.set(0, 0, 0); // No tilt
+    barbellBody.setWorldTransform(new Ammo.btTransform());
+    barbellBody.getMotionState().setWorldTransform(new Ammo.btTransform());
+
+    console.log("Barbell attached and set level.");
 }
-
-
-
 
 
 // Define cooldown duration (e.g., 3 seconds for actionButton)
