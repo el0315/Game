@@ -226,15 +226,20 @@ function initializePlayerStrength() {
 // ==============================
 
 function loadAmmoAndStartGame() {
+    showLoadingScreen(); // Show loading screen before initialization
+
     Ammo().then(() => {
         console.log("Ammo.js loaded successfully.");
         initializePhysics();
         initializeScene();
         initializePlayerStrength();
         setupEventListeners();
-        animate();
+
+        hideLoadingScreen(); // Hide loading screen after initialization
+        animate(); // Start the game loop
     }).catch((error) => {
         console.error("Failed to load Ammo.js:", error);
+        hideLoadingScreen(); // Ensure the loading screen is hidden even on failure
     });
 }
 
@@ -308,6 +313,21 @@ function checkCollisions() {
 // ==============================
 // Initialize Scene
 // ==============================
+
+function showLoadingScreen() {
+    const loadingScreen = document.getElementById('loadingScreen');
+    if (loadingScreen) {
+        loadingScreen.style.display = 'flex'; // Show loading screen
+    }
+}
+
+function hideLoadingScreen() {
+    const loadingScreen = document.getElementById('loadingScreen');
+    if (loadingScreen) {
+        loadingScreen.style.display = 'none'; // Hide loading screen
+    }
+}
+
 
 function initializeScene() {
     // Create the scene
