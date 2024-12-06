@@ -1,7 +1,5 @@
 // script.js
 
-// Ensure that Three.js and Ammo.js are loaded via script tags in index.html
-
 // ==============================
 // Global Configuration
 // ==============================
@@ -37,6 +35,8 @@ const BARBELL_CONFIG = {
     releaseForce: 10000  // Force applied to barbell on release (in Newtons)
 };
 
+
+
 let PLATE_WEIGHT = 15; // Default value, can be adjusted dynamically
 
 let currentLeft = 0; // Initial crosshair position
@@ -69,6 +69,13 @@ const rotationSpeed = 0.005;
 const TARGET_1_POSITION = { x: 100, y: 300 }; // Left target position
 const TARGET_2_POSITION = { x: window.innerWidth - 100, y: 300 }; // Right target position
 
+// Configurable target distance values
+const TARGET_DISTANCE_CONFIG = {
+    initial: TARGET_2_POSITION.x - TARGET_1_POSITION.x, // Initial distance between targets
+    min: 20, // Minimum distance between targets
+    max: TARGET_2_POSITION.x - TARGET_1_POSITION.x // Maximum distance between targets
+};
+
 
 // Tracking variables for average distance calculation
 let cumulativeDistance = 0;    // Sum of all distance measurements
@@ -76,7 +83,7 @@ let distanceMeasurements = 0;  // Number of measurements taken
 let averageDistance = 0;       // Calculated average distance
 
 // Define maximum distance for scoring
-const MAX_DISTANCE = 500; // in pixels
+const MAX_DISTANCE = 200; // in pixels
 // Initialize power score
 let powerScore = 50; // Start at mid-point; adjust as needed
 
@@ -831,7 +838,7 @@ const SPRING_CONFIG = {
     damping: 50,           // Damping factor (higher = less oscillation)
     minHeight: PLAYER_CONFIG.height * 0.2, // Minimum player height
     maxHeight: PLAYER_CONFIG.height,       // Maximum player height
-    additionalForce: 1000, // Additional force applied when pressing the button
+    additionalForce: 945, // Additional force applied when pressing the button
 };
 
 // Fixed spring parameters for descent phase
@@ -981,56 +988,72 @@ let crosshairY = (TARGET_1_POSITION.y + TARGET_2_POSITION.y) / 2;
 
 function setupStabilityVisuals() {
     const overlay = document.getElementById('stabilityOverlay');
-    const target1 = document.createElement('div');
-    const target2 = document.createElement('div');
-    const crosshair = document.getElementById('crosshair');
-
-    if (!overlay || !crosshair) {
-        console.error("Stability overlay elements not found!");
+    if (!overlay) {
+        console.error("Stability overlay element not found!");
         return;
     }
 
-    // Configure target 1 (left target)
-    target1.id = "target1";
-    target1.style.position = "absolute";
-    target1.style.width = "30px";
-    target1.style.height = "30px";
-    target1.style.backgroundColor = "rgba(255, 0, 0, 0.8)";
-    target1.style.borderRadius = "50%";
-    target1.style.top = `${TARGET_1_POSITION.y}px`;
-    target1.style.left = `${TARGET_1_POSITION.x}px`;
+    // Check if targets already exist
+    if (!document.getElementById('target1')) {
+        const target1 = document.createElement('div');
+        target1.id = "target1";
+        target1.style.position = "absolute";
+        target1.style.width = "30px";
+        target1.style.height = "30px";
+        target1.style.backgroundColor = "rgba(255, 0, 0, 0.8)";
+        target1.style.borderRadius = "50%";
+        target1.style.top = `${TARGET_1_POSITION.y}px`;
+        target1.style.left = `${TARGET_1_POSITION.x}px`;
+        overlay.appendChild(target1);
+    }
 
-    // Configure target 2 (right target)
-    target2.id = "target2";
-    target2.style.position = "absolute";
-    target2.style.width = "30px";
-    target2.style.height = "30px";
-    target2.style.backgroundColor = "rgba(0, 0, 255, 0.8)";
-    target2.style.borderRadius = "50%";
-    target2.style.top = `${TARGET_2_POSITION.y}px`;
-    target2.style.left = `${TARGET_2_POSITION.x}px`;
+    if (!document.getElementById('target2')) {
+        const target2 = document.createElement('div');
+        target2.id = "target2";
+        target2.style.position = "absolute";
+        target2.style.width = "30px";
+        target2.style.height = "30px";
+        target2.style.backgroundColor = "rgba(0, 0, 255, 0.8)";
+        target2.style.borderRadius = "50%";
+        target2.style.top = `${TARGET_2_POSITION.y}px`;
+        target2.style.left = `${TARGET_2_POSITION.x}px`;
+        overlay.appendChild(target2);
+    }
 
-    // Add targets to the overlay
-    overlay.appendChild(target1);
-    overlay.appendChild(target2);
+    const crosshair = document.getElementById('crosshair');
+    if (crosshair) {
+        const initialX = (TARGET_1_POSITION.x + TARGET_2_POSITION.x) / 2;
+        const initialY = (TARGET_1_POSITION.y + TARGET_2_POSITION.y) / 2;
+        currentLeft = initialX;
+        currentTop = initialY;
 
-    // Place crosshair exactly between targets
-    const initialX = (TARGET_1_POSITION.x + TARGET_2_POSITION.x) / 2;
-    const initialY = (TARGET_1_POSITION.y + TARGET_2_POSITION.y) / 2;
-    currentLeft = initialX; // Set global variable
-    currentTop = initialY;  // Set global variable
+        crosshair.style.position = "absolute";
+        crosshair.style.width = "15px";
+        crosshair.style.height = "15px";
+        crosshair.style.backgroundColor = "rgba(0, 255, 0, 0.8)";
+        crosshair.style.borderRadius = "50%";
+        crosshair.style.top = `${initialY}px`;
+        crosshair.style.left = `${initialX}px`;
+    }
 
-    // Position crosshair at the center
-    crosshair.style.position = "absolute";
-    crosshair.style.width = "15px";
-    crosshair.style.height = "15px";
-    crosshair.style.backgroundColor = "rgba(0, 255, 0, 0.8)";
-    crosshair.style.borderRadius = "50%";
-    crosshair.style.top = `${initialY}px`;
-    crosshair.style.left = `${initialX}px`;
-
-    console.log(`Crosshair initialized at (${initialX}, ${initialY})`);
+    console.log(`Stability visuals initialized. Crosshair at (${currentLeft}, ${currentTop})`);
 }
+
+function resetTargetPositions() {
+    const target1 = document.getElementById('target1');
+    const target2 = document.getElementById('target2');
+    if (target1) {
+        target1.style.left = `${TARGET_1_POSITION.x}px`;
+        target1.style.top = `${TARGET_1_POSITION.y}px`;
+    }
+    if (target2) {
+        target2.style.left = `${TARGET_2_POSITION.x}px`;
+        target2.style.top = `${TARGET_2_POSITION.y}px`;
+    }
+    console.log("Target positions reset.");
+}
+
+
 
 
 // Function to show stability visuals and power score
@@ -1087,20 +1110,22 @@ function startStabilityMechanic() {
         console.log("Stability mechanic started.");
         isStabilityActive = true;
 
-        // Ensure visuals are shown
+        // Reset targets to avoid duplicates
+        resetTargetPositions();
+
         showStabilityVisuals();
         setupStabilityVisuals();
 
-        // Reset tracking variables at the start of the mechanic
+        // Reset tracking variables
         cumulativeDistance = 0;
         distanceMeasurements = 0;
         averageDistance = 0;
 
-        // Explicitly reset barbell tilt to 0
+        // Reset barbell tilt
         barbell.rotation.z = 0;
         const transform = new Ammo.btTransform();
         barbellBody.getMotionState().getWorldTransform(transform);
-        transform.setRotation(new Ammo.btQuaternion(0, 0, 0, 1)); // Reset tilt
+        transform.setRotation(new Ammo.btQuaternion(0, 0, 0, 1));
         barbellBody.setWorldTransform(transform);
         barbellBody.getMotionState().setWorldTransform(transform);
 
@@ -1108,6 +1133,28 @@ function startStabilityMechanic() {
     }
 }
 
+function updateTargetPositions() {
+    const heightFraction = (currentHeight - SPRING_CONFIG.minHeight) / (SPRING_CONFIG.maxHeight - SPRING_CONFIG.minHeight);
+    const currentDistance = THREE.MathUtils.lerp(
+        TARGET_DISTANCE_CONFIG.min,
+        TARGET_DISTANCE_CONFIG.max,
+        heightFraction
+    );
+
+    const centerX = (TARGET_1_POSITION.x + TARGET_2_POSITION.x) / 2;
+
+    // Update target positions symmetrically around the center
+    TARGET_1_POSITION.x = centerX - currentDistance / 2;
+    TARGET_2_POSITION.x = centerX + currentDistance / 2;
+
+    // Update target DOM elements
+    const target1 = document.getElementById('target1');
+    const target2 = document.getElementById('target2');
+    if (target1) target1.style.left = `${TARGET_1_POSITION.x}px`;
+    if (target2) target2.style.left = `${TARGET_2_POSITION.x}px`;
+
+    console.log(`Targets updated: Distance=${currentDistance}, Target1=${TARGET_1_POSITION.x}, Target2=${TARGET_2_POSITION.x}`);
+}
 
 
 
@@ -1132,10 +1179,7 @@ function finalizePowerScore() {
 }
 
 function calculateBarbellTiltAngle() {
-    if (!isStabilityActive) {
-        console.log("Stability mechanic is not active, setting tilt to 0.");
-        return 0;
-    }
+    if (!isStabilityActive) return 0;
 
     const distanceToTarget1 = Math.sqrt(
         Math.pow(currentLeft - TARGET_1_POSITION.x, 2) +
@@ -1147,18 +1191,19 @@ function calculateBarbellTiltAngle() {
     );
 
     const proximityDifference = distanceToTarget2 - distanceToTarget1;
-    const maxTiltAngle = 45;
-    const tiltAngle = THREE.MathUtils.clamp(
-        (proximityDifference / MAX_DISTANCE) * maxTiltAngle,
+
+    // Scale tilt sensitivity based on target distance
+    const targetDistance = TARGET_2_POSITION.x - TARGET_1_POSITION.x;
+    const maxTiltAngle = 45; // Maximum tilt angle in degrees
+    const scaledTiltAngle = THREE.MathUtils.clamp(
+        (proximityDifference / targetDistance) * maxTiltAngle,
         -maxTiltAngle,
         maxTiltAngle
     );
 
-    console.log(`Proximity Difference: ${proximityDifference}, Tilt Angle: ${tiltAngle}`);
-    return tiltAngle;
+    console.log(`Proximity Difference: ${proximityDifference}, Scaled Tilt Angle: ${scaledTiltAngle}`);
+    return scaledTiltAngle;
 }
-
-
 
 
 function updateStabilityMechanic(deltaTime) {
@@ -1181,12 +1226,35 @@ function updateStabilityMechanic(deltaTime) {
         }
     }
 
-    // Apply tilt to the barbell
+    // Calculate proximity to targets
+    const distanceToTarget1 = Math.sqrt(
+        Math.pow(currentLeft - TARGET_1_POSITION.x, 2) +
+        Math.pow(currentTop - TARGET_1_POSITION.y, 2)
+    );
+    const distanceToTarget2 = Math.sqrt(
+        Math.pow(currentLeft - TARGET_2_POSITION.x, 2) +
+        Math.pow(currentTop - TARGET_2_POSITION.y, 2)
+    );
+
+    const averageDistance = (distanceToTarget1 + distanceToTarget2) / 2;
+
+    // Update stability score (higher score for closer proximity to the center)
+    powerScore = Math.round(
+        Math.max(0, Math.min(100, 100 * (1 - averageDistance / MAX_DISTANCE)))
+    );
+
+    // Update power score display
+    updatePowerScoreDisplay(powerScore);
+
+    // Calculate and apply barbell tilt
     const tiltAngle = calculateBarbellTiltAngle();
     if (barbell) {
         barbell.rotation.z = THREE.MathUtils.degToRad(tiltAngle);
-        console.log(`Applied Tilt Angle: ${tiltAngle}`);
     }
+
+    console.log(
+        `Crosshair Position: (${currentLeft}, ${currentTop}), Power Score: ${powerScore}`
+    );
 }
 
 
@@ -2427,7 +2495,9 @@ function animate() {
     // Check collisions and proximity
     checkCollisions();
     checkProximityToBarbell();
-    // Update Stability Mechanic
+    
+    // Update target positions dynamically
+    updateTargetPositions();
     // Update Stability Mechanic only if barbell is attached
     if (barbellConstraint) {
         updateStabilityMechanic(deltaTime);
