@@ -580,7 +580,7 @@ function createPlayer() {
     arm1.position.set(radius + armRadius, height / 4, 0); // Adjust X and Y for proper placement
 
     // Attach the first arm to the player
-    player.add(arm1);
+    //player.add(arm1);
 
     // Second arm (Green)
     const arm2 = new THREE.Mesh(armGeometry, greenMaterial);
@@ -594,7 +594,7 @@ function createPlayer() {
     arm2.position.set(0, height / 4, radius + armRadius); // Adjust Z for proper placement
 
     // Attach the second arm to the player
-    player.add(arm2);
+    //player.add(arm2);
 
     // Add the player to the scene
     scene.add(player);
