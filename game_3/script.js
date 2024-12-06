@@ -1251,6 +1251,10 @@ function finalizePowerScore() {
     SPRING_CONFIG.stiffness = 100 + powerScore;
     console.log(`Final spring stiffness set to: ${SPRING_CONFIG.stiffness}`);
 }
+let currentTiltAngle = 0; // Stores the current tilt angle
+let targetTiltAngle = 0; // Stores the target tilt angle
+let tiltTransitionSpeed = 5; // Speed of the transition (adjustable)
+
 function calculateBarbellTiltAngle() {
     if (!isStabilityActive) return 0;
 
@@ -1269,12 +1273,26 @@ function calculateBarbellTiltAngle() {
     // Maximum tilt angle
     const maxTiltAngle = 20; // Maximum tilt in degrees
 
-    // Calculate tilt based on proximity, ensuring an initial tilt
+    // Calculate the target tilt angle based on distance
     const tiltFactor = Math.min(1, distanceToActiveTarget / MAX_DISTANCE); // Closer -> smaller tilt
-    const tiltAngle = maxTiltAngle * tiltFactor;
+    targetTiltAngle = maxTiltAngle * tiltFactor * (isTarget1On ? -1 : 1); // Negative for left, positive for right
 
-    console.log(`Tilt Angle: ${isTarget1On ? -tiltAngle : tiltAngle}`);
-    return isTarget1On ? -tiltAngle : tiltAngle; // Negative for left, positive for right
+    return currentTiltAngle; // Return the interpolated tilt angle
+}
+
+function updateBarbellTilt(deltaTime) {
+    // Smoothly interpolate the current tilt angle towards the target tilt angle
+    const tiltDelta = targetTiltAngle - currentTiltAngle;
+    if (Math.abs(tiltDelta) > 0.01) {
+        currentTiltAngle += tiltDelta * deltaTime * tiltTransitionSpeed;
+    } else {
+        currentTiltAngle = targetTiltAngle; // Snap to the target if close enough
+    }
+
+    // Apply the tilt to the barbell
+    if (barbell) {
+        barbell.rotation.z = THREE.MathUtils.degToRad(currentTiltAngle);
+    }
 }
 
 
@@ -1283,7 +1301,7 @@ function updateCrosshairPosition(deltaTime) {
     if (!crosshair || joystickMoveAngle === null) return;
 
     // Define the crosshair's movement speed
-    const crosshairSpeed = 200; // Pixels per second
+    const crosshairSpeed = 300; // Pixels per second
 
     // Calculate the movement delta
     const dx = Math.cos(joystickMoveAngle) * crosshairSpeed * deltaTime;
@@ -2563,6 +2581,7 @@ function animate() {
     // Update spring system
     updateSpring(deltaTime);
     updateCrosshairPosition(deltaTime);
+    updateBarbellTilt(deltaTime); // Smoothly transition the tilt
 
     
     // Update player and barbell positions
