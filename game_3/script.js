@@ -1149,6 +1149,9 @@ function startStabilityMechanic() {
         showStabilityVisuals();
         setupStabilityVisuals();
 
+        // Reset tilt angle for the barbell
+        currentTiltAngle = 0; // Reset to neutral
+
         // Show the power score display
         if (powerScoreDisplay) {
             powerScoreDisplay.classList.remove('hidden');
@@ -1158,8 +1161,6 @@ function startStabilityMechanic() {
         console.log("Tracking variables reset for stability mechanic.");
     }
 }
-
-
 
 
 function toggleTarget(targetId, isOn) {
@@ -1207,7 +1208,7 @@ function endStabilityMechanic() {
 
 let currentTiltAngle = 0; // Stores the current tilt angle
 let targetTiltAngle = 0; // Stores the target tilt angle
-let tiltTransitionSpeed = 5; // Speed of the transition (adjustable)
+let tiltTransitionSpeed = 2; // Speed of the transition (adjustable)
 
 function calculateBarbellTiltAngle() {
     if (!isStabilityActive) return 0;
