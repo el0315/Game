@@ -65,7 +65,7 @@ const rotationSpeed = 0.005;
 // ==============================
 // Stability Mechanic Setup
 // ==============================
-
+let stabilityBonus = 0; // Tracks the stability score
 const TARGET_1_POSITION = { x: 100, y: 300 }; // Left target position
 const TARGET_2_POSITION = { x: window.innerWidth - 100, y: 300 }; // Right target position
 
@@ -114,20 +114,11 @@ function isCrosshairCollidingWithTarget(target) {
     );
 }
 
-
-// Tracking variables for average distance calculation
-let cumulativeDistance = 0;    // Sum of all distance measurements
-let distanceMeasurements = 0;  // Number of measurements taken
-let averageDistance = 0;       // Calculated average distance
-
 // Define maximum distance for scoring
 const MAX_DISTANCE = 200; // in pixels
-// Initialize power score
-let powerScore = 50; // Start at mid-point; adjust as needed
 
 // Stability Mechanic State
 let isStabilityActive = false; // Tracks whether the stability mechanic is active
-
 
 // Removed plateRadius and plateThickness as they are now part of BARBELL_CONFIG
 
@@ -1030,6 +1021,12 @@ function setupStabilityVisuals() {
         console.error("Stability overlay element not found!");
         return;
     }
+    if (powerScoreDisplay) {
+        powerScoreDisplay.textContent = `Stability Bonus: ${stabilityBonus}`;
+        powerScoreDisplay.classList.add('hidden'); // Start hidden
+    } else {
+        console.error("Power score display element not found!");
+    }    
 
     // Ensure targets are created if they don't already exist
     if (!document.getElementById('target1')) {
@@ -1094,10 +1091,6 @@ function showStabilityVisuals() {
         overlay.style.display = 'flex';
         target.style.display = 'block';
         crosshair.style.display = 'block';
-        powerScoreDisplay.classList.remove('hidden');
-        powerScoreDisplay.classList.add('show');
-        powerScoreDisplay.textContent = `Stability Bonus: ${powerScore.toFixed(2)}`;
-        console.log("Stability visuals and Power Score shown.");
     }
 }
 
@@ -1119,13 +1112,6 @@ function hideStabilityVisuals() {
     }
 }
 
-// Function to update the power score display
-function updatePowerScoreDisplay(score) {
-    const powerScoreDisplay = document.getElementById("powerScoreDisplay");
-    if (powerScoreDisplay) {
-        powerScoreDisplay.textContent = `Stability Bonus: ${score}`; // Display as integer
-    }
-}
 
 function resetTargetPositions() {
     const target1 = document.getElementById('target1');
@@ -1141,39 +1127,6 @@ function resetTargetPositions() {
     console.log("Target positions reset.");
 }
 
-function calculateAverageDistance(target1, target2) {
-    const crosshair = document.getElementById('crosshair');
-    if (!crosshair || !target1 || !target2) return 0;
-
-    // Get positions of the crosshair and targets
-    const crosshairRect = crosshair.getBoundingClientRect();
-    const target1Rect = target1.getBoundingClientRect();
-    const target2Rect = target2.getBoundingClientRect();
-
-    // Calculate the center of the crosshair
-    const crosshairCenterX = crosshairRect.left + crosshairRect.width / 2;
-    const crosshairCenterY = crosshairRect.top + crosshairRect.height / 2;
-
-    // Calculate the centers of the targets
-    const target1CenterX = target1Rect.left + target1Rect.width / 2;
-    const target1CenterY = target1Rect.top + target1Rect.height / 2;
-    const target2CenterX = target2Rect.left + target2Rect.width / 2;
-    const target2CenterY = target2Rect.top + target2Rect.height / 2;
-
-    // Calculate distances
-    const distanceToTarget1 = Math.sqrt(
-        Math.pow(crosshairCenterX - target1CenterX, 2) +
-        Math.pow(crosshairCenterY - target1CenterY, 2)
-    );
-
-    const distanceToTarget2 = Math.sqrt(
-        Math.pow(crosshairCenterX - target2CenterX, 2) +
-        Math.pow(crosshairCenterY - target2CenterY, 2)
-    );
-
-    // Return the average of the two distances
-    return (distanceToTarget1 + distanceToTarget2) / 2;
-}
 
 function startStabilityMechanic() {
     if (!barbellConstraint) {
@@ -1185,26 +1138,28 @@ function startStabilityMechanic() {
         console.log("Stability mechanic started.");
         isStabilityActive = true;
 
+        // Reset stability bonus
+        stabilityBonus = 0;
+        if (powerScoreDisplay) {
+            powerScoreDisplay.textContent = `Stability Bonus: ${stabilityBonus}`;
+        }
+
         // Reset targets and visuals
         resetTargetPositions();
         showStabilityVisuals();
         setupStabilityVisuals();
 
-        // Reset tracking variables
-        cumulativeDistance = 0;
-        distanceMeasurements = 0;
-        averageDistance = 0;
-
-        // Ensure barbell is level
-        const transform = new Ammo.btTransform();
-        barbellBody.getMotionState().getWorldTransform(transform);
-        transform.setRotation(new Ammo.btQuaternion(0, 0, 0, 1));
-        barbellBody.setWorldTransform(transform);
-        barbellBody.getMotionState().setWorldTransform(transform);
+        // Show the power score display
+        if (powerScoreDisplay) {
+            powerScoreDisplay.classList.remove('hidden');
+            powerScoreDisplay.classList.add('show');
+        }
 
         console.log("Tracking variables reset for stability mechanic.");
     }
 }
+
+
 
 
 function toggleTarget(targetId, isOn) {
@@ -1239,18 +1194,17 @@ function endStabilityMechanic() {
         hideStabilityVisuals(); // Ensure visuals are hidden
 
         // Use the final average distance to determine the outcome
-        console.log(`Final Average Distance: ${averageDistance.toFixed(2)}px`);
-        console.log(`Final Stability Bonus: ${powerScore}`);
+        console.log(`Final Stability Bonus: ${stabilityBonus}px`);
 
-        finalizePowerScore();
-        // Additional end-of-mechanic logic as needed
+        // Update spring stiffness based on stability bonus
+        const baseStiffness = 100; // Default base stiffness
+        SPRING_CONFIG.stiffness = baseStiffness + stabilityBonus;
+
+        console.log(`New Spring Stiffness: ${SPRING_CONFIG.stiffness}`);
     }
 }
 
-function finalizePowerScore() {
-    SPRING_CONFIG.stiffness = 100 + powerScore;
-    console.log(`Final spring stiffness set to: ${SPRING_CONFIG.stiffness}`);
-}
+
 let currentTiltAngle = 0; // Stores the current tilt angle
 let targetTiltAngle = 0; // Stores the target tilt angle
 let tiltTransitionSpeed = 5; // Speed of the transition (adjustable)
@@ -1320,7 +1274,6 @@ function updateCrosshairPosition(deltaTime) {
     crosshair.style.top = `${currentTop}px`;
 }
 
-
 function updateStabilityMechanic(deltaTime) {
     if (!isStabilityActive || !barbellConstraint) return;
 
@@ -1331,29 +1284,36 @@ function updateStabilityMechanic(deltaTime) {
     if (isCrosshairCollidingWithTarget(target1) && target1.classList.contains('target-on')) {
         setTargetState(target1, false);
         setTargetState(target2, true); // Turn the right target "on"
-        console.log("Crosshair collided with Target 1. Switched to Target 2.");
+        stabilityBonus += 15; // Add 15 to stability bonus
+        console.log("Crosshair collided with Target 1. Switched to Target 2. Stability Bonus:", stabilityBonus);
+
+        // Update the power score display
+        if (powerScoreDisplay) {
+            powerScoreDisplay.textContent = `Stability Bonus: ${stabilityBonus}`;
+        }
     }
 
     // Detect collision with right target
     if (isCrosshairCollidingWithTarget(target2) && target2.classList.contains('target-on')) {
         setTargetState(target2, false);
         setTargetState(target1, true); // Turn the left target "on"
-        console.log("Crosshair collided with Target 2. Switched to Target 1.");
+        stabilityBonus += 15; // Add 15 to stability bonus
+        console.log("Crosshair collided with Target 2. Switched to Target 1. Stability Bonus:", stabilityBonus);
+
+        // Update the power score display
+        if (powerScoreDisplay) {
+            powerScoreDisplay.textContent = `Stability Bonus: ${stabilityBonus}`;
+        }
     }
 
-    // Calculate proximity and tilt
+    // Smooth tilt transition logic remains unchanged
     const tiltAngle = calculateBarbellTiltAngle();
     if (barbell) {
         barbell.rotation.z = THREE.MathUtils.degToRad(tiltAngle);
     }
-
-    // Update stability visuals (e.g., power score)
-    const averageDistance = calculateAverageDistance(target1, target2);
-    powerScore = Math.round(
-        Math.max(0, Math.min(100, 100 * (1 - averageDistance / MAX_DISTANCE)))
-    );
-    updatePowerScoreDisplay(powerScore);
 }
+
+
 
 
 
