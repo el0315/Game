@@ -56,7 +56,7 @@ const CAMERA_LOCK_CONFIG = {
 };
 
 let scene, camera, renderer;
-let player, ground, barbell;
+let player, ground, barbell, chalk;
 let physicsWorld, playerBody, groundBody, barbellBody;
 let yaw = 0, pitch = 0;
 let joystickMoveAngle = null, movementTouchId = null, rotationTouchId = null, lastTouchX = 0, lastTouchY = 0;
@@ -370,6 +370,8 @@ function initializeScene() {
     createBarbellVisual();
     createSquatRack();
     createChalkBowl();
+    console.log("Chalk Object:", chalk); // Should not be undefined
+
     // Call the function after initializing the squat rack
     createPlatform();
     // Add walls to the gym environment
@@ -804,7 +806,7 @@ function createChalkBowl() {
     // Create the stand
     const standGeometry = new THREE.BoxGeometry(0.3, 4, 0.3);
     const stand = new THREE.Mesh(standGeometry, standMaterial);
-    stand.position.set(5, 1, 10); // Adjust position as needed
+    stand.position.set(5, 1, 10);
     stand.castShadow = true;
     stand.receiveShadow = true;
 
@@ -815,24 +817,21 @@ function createChalkBowl() {
     outerBowl.position.set(5, 3.88, 10); // Position the bowl on top of the stand
     outerBowl.castShadow = true;
 
-
-    // Create the chalk layer as a block
-    const chalkGeometry = new THREE.BoxGeometry(0.5, 0.3, 0.5); // Slightly smaller than the bowl's diameter
-    const chalk = new THREE.Mesh(chalkGeometry, chalkMaterial);
+    // Assign to global chalk variable
+    chalk = new THREE.Mesh(
+        new THREE.BoxGeometry(0.5, 0.3, 0.5), // Slightly smaller than the bowl's diameter
+        chalkMaterial
+    );
     chalk.position.set(5, 3.3, 10); // Slightly below the bowl's rim
     chalk.castShadow = false;
 
-
-
-    // Add the stand, outer bowl, inner bowl, and chalk to the scene
+    // Add the stand, outer bowl, and chalk to the scene
     scene.add(stand);
     scene.add(outerBowl);
     scene.add(chalk);
-    addChalkDustTexture();
     addChalkBowlPhysics();
-
-    console.log("Chalk bowl with filled chalk layer added to the scene.");
 }
+
 
 function addChalkBowlPhysics() {
     // Dimensions of the stand and bowl
@@ -874,6 +873,87 @@ function addChalkBowlPhysics() {
     console.log("Physics added for chalk bowl.");
 }
 
+let chalkInteractionInProgress = false; // Prevent overlapping animations
+
+// Add a flag to track chalk interaction state
+let canInteractWithChalk = true;
+
+function checkProximityToChalkBowl() {
+    
+    if (!player || !chalk || chalkInteractionInProgress) return;
+
+    // Chalk block's position (should match the bowl's position)
+    const chalkBowlPosition = chalk.position;
+
+    // Calculate the distance between the player and the chalk bowl
+    const distanceToChalkBowl = player.position.distanceTo(chalkBowlPosition);
+
+ 
+
+    if (distanceToChalkBowl <= CHALK_BOWL_PROXIMITY_THRESHOLD) {
+        if (canInteractWithChalk) {
+           // console.log("Player is near the chalk bowl and can interact.");
+            animateChalkBlock();
+            canInteractWithChalk = false; // Disable further interactions until the player leaves
+        }
+    } else {
+        // Reset the interaction flag when the player leaves the proximity
+        if (!canInteractWithChalk) {
+            console.log("Player left the chalk bowl proximity. Interaction reset.");
+        }
+        canInteractWithChalk = true;
+    }
+}
+
+function animateChalkBlock() {
+    chalkInteractionInProgress = true; // Lock interaction during animation
+
+    // Save the original chalk position
+    const originalPosition = chalk.position.clone();
+
+    // Define a variable to track the animation progress
+    let animationProgress = 0;
+
+    // Use a function to update the chalk position dynamically
+    function updateChalkPosition() {
+        if (!chalkInteractionInProgress) return;
+
+        // Dynamically calculate the target position near the player's hand
+        const targetPosition = new THREE.Vector3(
+            player.position.x,
+            player.position.y + PLAYER_CONFIG.height / 2, // Adjust to player's hand height
+            player.position.z - 0.5 // Slightly in front of the player
+        );
+
+        // Smoothly interpolate the chalk's position toward the target
+        chalk.position.lerp(targetPosition, animationProgress);
+
+        // Gradually increase the animation progress
+        animationProgress += 0.03;
+
+        // Stop the animation when it reaches the target position
+        if (animationProgress >= 1) {
+            chalkInteractionInProgress = false; // Unlock interaction
+
+            // Return the chalk block to its original position
+            setTimeout(() => {
+                new TWEEN.Tween(chalk.position)
+                    .to({ x: originalPosition.x, y: originalPosition.y, z: originalPosition.z }, 1000)
+                    .easing(TWEEN.Easing.Quadratic.Out)
+                    .onComplete(() => {
+                        console.log("Chalk block returned to the bowl.");
+                    })
+                    .start();
+            }, 500); // Delay before returning
+        } else {
+            // Continue updating the position
+            requestAnimationFrame(updateChalkPosition);
+        }
+    }
+
+    // Start the dynamic chalk animation
+    updateChalkPosition();
+}
 
 
 function addChalkDustTexture() {
@@ -2623,6 +2703,8 @@ function onReleaseButtonPress(e) {
 }
 
 const PROXIMITY_THRESHOLD = 10; // Distance to trigger action
+const CHALK_BOWL_PROXIMITY_THRESHOLD = 5; // Adjust as needed
+
 
 function checkProximityToBarbell() {
     if (!player || !barbell) return;
@@ -2944,6 +3026,8 @@ function animate() {
     // Check collisions and proximity
     checkCollisions();
     checkProximityToBarbell();
+    checkProximityToChalkBowl();
+    
 
     // Update Stability Mechanic only if barbell is attached
     if (barbellConstraint) {
