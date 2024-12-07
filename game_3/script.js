@@ -721,13 +721,34 @@ let squatRackSpotlight; // Global reference for the spotlight
 function updateSpotlightColor(color) {
     if (squatRackSpotlight) {
         squatRackSpotlight.color.set(color);
+
         if (color === 'red') {
-            squatRackSpotlight.intensity = 2.5; // Increase intensity for red
+            updateSpotlightIntensity(10, 1500); // Smoothly increase intensity for "No Lift"
         } else {
-            squatRackSpotlight.intensity = 1.5; // Default intensity for other colors
+            updateSpotlightIntensity(1.5, 1); // Smoothly reset intensity for other colors
         }
     }
 }
+
+
+function updateSpotlightIntensity(targetIntensity, duration = 1000) {
+    if (!squatRackSpotlight) return;
+
+    const initialIntensity = { value: squatRackSpotlight.intensity };
+    const target = { value: targetIntensity };
+
+    new TWEEN.Tween(initialIntensity)
+        .to(target, duration)
+        .easing(TWEEN.Easing.Quadratic.Out)
+        .onUpdate(() => {
+            squatRackSpotlight.intensity = initialIntensity.value;
+        })
+        .onComplete(() => {
+            console.log(`Spotlight intensity updated to ${targetIntensity}`);
+        })
+        .start();
+}
+
 
 
 
@@ -1754,7 +1775,6 @@ function checkLockout() {
     }
 }
 
-
 function showLiftFeedback(message, isGoodLift) {
     const liftFeedback = document.getElementById("liftFeedback");
     if (!liftFeedback) {
@@ -1766,10 +1786,21 @@ function showLiftFeedback(message, isGoodLift) {
 
     if (isGoodLift) {
         liftFeedback.style.backgroundColor = "rgba(0, 128, 0, 0.7)"; // Green for good lift
-        updateSpotlightColor('white'); // Reset to white for good lift
+
+        // Update spotlight to bright white for "Good Lift"
+        if (squatRackSpotlight) {
+            squatRackSpotlight.color.set("white"); // Set color to white
+            updateSpotlightIntensity(10, 1500); // Smoothly increase intensity to 10
+        }
+
     } else {
         liftFeedback.style.backgroundColor = "rgba(128, 0, 0, 0.7)"; // Red for no lift
-        updateSpotlightColor('red'); // Set spotlight to red for no lift
+
+        // Update spotlight to red for "No Lift"
+        if (squatRackSpotlight) {
+            squatRackSpotlight.color.set("red"); // Set color to red
+            updateSpotlightIntensity(10, 1500); // Smoothly increase intensity to 10
+        }
     }
 
     liftFeedback.classList.remove("hidden");
@@ -1782,7 +1813,12 @@ function showLiftFeedback(message, isGoodLift) {
     setTimeout(() => {
         liftFeedback.classList.remove("show");
         liftFeedback.classList.add("hidden");
-        updateSpotlightColor('white'); // Reset to white after feedback
+
+        // Reset spotlight to default settings after feedback
+        if (squatRackSpotlight) {
+            squatRackSpotlight.color.set("white"); // Reset color to white
+            updateSpotlightIntensity(1.5, 1); // Smoothly reset intensity to 1.5
+        }
     }, 3000);
 }
 
