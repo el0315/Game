@@ -370,7 +370,7 @@ function initializeScene() {
     createBarbellVisual();
     createSquatRack();
     createChalkBowl();
-    console.log("Chalk Object:", chalk); // Should not be undefined
+    addChalkDustTexture();
 
     // Call the function after initializing the squat rack
     createPlatform();
@@ -879,7 +879,7 @@ let chalkInteractionInProgress = false; // Prevent overlapping animations
 let canInteractWithChalk = true;
 
 // Add a cooldown duration (in milliseconds) and a timestamp for the last interaction
-const CHALK_INTERACTION_COOLDOWN = 2000; // 2 seconds cooldown
+const CHALK_INTERACTION_COOLDOWN = 3000; // 2 seconds cooldown
 let lastChalkInteractionTime = 0; // Initialize to 0
 
 function checkProximityToChalkBowl() {
@@ -964,6 +964,7 @@ function moveChalkToPlayer(originalPosition, liftHeight) {
 
     // Start the dynamic animation
     updateChalkPosition();
+    
 }
 
 function returnChalkToBowl(originalPosition, liftHeight) {
