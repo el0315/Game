@@ -99,14 +99,13 @@ html, body {
     touch-action: none; /* Prevent default touch actions */
 }
 
-
 #loadingScreen {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 1);
     color: white;
     display: flex;
     justify-content: center;
@@ -579,6 +578,95 @@ html, body {
     background-color: rgba(50, 50, 50, 0.9); /* Darker black on hover */
     box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5); /* Stronger shadow for hover effect */
 }
+/* Fullscreen overlay on the right half */
+#swipeIndicatorOverlay {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 50vw; /* Right half of the screen */
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.3); /* Semi-transparent black */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000; /* On top of everything */
+    color: white;
+    font-family: Arial, sans-serif;
+    font-size: 1.5em;
+    text-align: center;
+}
+
+/* Adjust the "Swipe to Rotate" text */
+#swipeText {
+    margin-bottom: 20px;
+    font-size: 1.5em;
+    font-weight: bold;
+    opacity: 0.8;
+}
+
+/* Arrow container remains centered in the overlay */
+#arrowContainer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px; /* Space between arrows */
+}
+
+/* Arrows styling remains unchanged */
+.swipeArrow {
+    width: 40px;
+    height: 40px;
+    border: solid white;
+    border-width: 0 6px 6px 0; /* Create arrowhead */
+    transform: rotate(45deg);
+    opacity: 0.8;
+}
+
+/* Left Arrow */
+.leftArrow {
+    transform: rotate(135deg); /* Point left */
+    animation: swipeLeftAnimation 1.5s infinite ease-in-out;
+}
+
+/* Right Arrow */
+.rightArrow {
+    transform: rotate(-45deg); /* Point right */
+    animation: swipeRightAnimation 1.5s infinite ease-in-out;
+}
+
+/* Left Arrow Animation */
+@keyframes swipeLeftAnimation {
+    0% {
+        transform: rotate(135deg) translateX(0);
+        opacity: 1;
+    }
+    50% {
+        transform: rotate(135deg) translateX(-20px);
+        opacity: 0.5;
+    }
+    100% {
+        transform: rotate(135deg) translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Right Arrow Animation */
+@keyframes swipeRightAnimation {
+    0% {
+        transform: rotate(-45deg) translateX(0);
+        opacity: 1;
+    }
+    50% {
+        transform: rotate(-45deg) translateX(20px);
+        opacity: 0.5;
+    }
+    100% {
+        transform: rotate(-45deg) translateX(0);
+        opacity: 1;
+    }
+}
+
 
 /* =========================
    Settings Button Styling
