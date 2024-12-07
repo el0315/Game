@@ -523,7 +523,7 @@ function setupLighting() {
     ];
 
     pointLightPositions.forEach((pos, index) => {
-        const pointLight = new THREE.PointLight(0xffffff, 1, 100);
+        const pointLight = new THREE.PointLight(0xffffff, 0.5, 100);
         pointLight.position.set(pos.x, pos.y, pos.z);
 
         if (index < 2) {
@@ -544,9 +544,9 @@ function setupLighting() {
 
 function createGround() {
     const groundMaterial = new THREE.MeshStandardMaterial({
-        color: 0x333333, // Charcoal color
-        roughness: 0.7,  // Slightly less rough for some reflectivity
-        metalness: 0.2,  // Low metalness for subtle reflections
+        color: 0x2D2D2D, // Charcoal color
+        roughness: 0.8,  // Slightly less rough for some reflectivity
+        metalness: 0.1,  // Low metalness for subtle reflections
     });
     ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), groundMaterial);
     ground.rotation.x = -Math.PI / 2;
@@ -565,7 +565,7 @@ function createPlayer() {
     const playerMaterial = new THREE.MeshStandardMaterial({
         color: 0x4682B4, // Steel Blue
         transparent: true,
-        opacity: 0.4, // Adjust opacity for slight transparency
+        opacity: 0.9, // Adjust opacity for slight transparency
     });
 
     // Create the cylinder mesh for the player's body
@@ -820,7 +820,7 @@ function createChalkBowl() {
     const chalkGeometry = new THREE.BoxGeometry(0.5, 0.3, 0.5); // Slightly smaller than the bowl's diameter
     const chalk = new THREE.Mesh(chalkGeometry, chalkMaterial);
     chalk.position.set(5, 3.3, 10); // Slightly below the bowl's rim
-    chalk.castShadow = true;
+    chalk.castShadow = false;
 
 
 
@@ -828,8 +828,73 @@ function createChalkBowl() {
     scene.add(stand);
     scene.add(outerBowl);
     scene.add(chalk);
+    addChalkDustTexture();
 
     console.log("Chalk bowl with filled chalk layer added to the scene.");
+}
+
+function addChalkDustTexture() {
+    // Create a canvas to generate a radial gradient texture
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const context = canvas.getContext('2d');
+
+    // Create a radial gradient with varying opacity
+    const gradient = context.createRadialGradient(
+        canvas.width / 2,
+        canvas.height / 2,
+        0,
+        canvas.width / 2,
+        canvas.height / 2,
+        canvas.width / 2
+    );
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.2)'); // Slight opacity at the center
+    gradient.addColorStop(0.3, 'rgba(255, 255, 255, 0.4)'); // Increase opacity outward
+    gradient.addColorStop(0.6, 'rgba(255, 255, 255, 0.3)'); // Start to decrease opacity
+    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)'); // Fully transparent at the edges
+
+    // Fill the canvas with the gradient
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Add noise to break the uniform appearance
+    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+    const pixels = imageData.data;
+
+    for (let i = 0; i < pixels.length; i += 4) {
+        const randomFactor = Math.random() * 0.2; // Adjust randomness level
+        pixels[i] *= 1 - randomFactor; // Red channel
+        pixels[i + 1] *= 1 - randomFactor; // Green channel
+        pixels[i + 2] *= 1 - randomFactor; // Blue channel
+    }
+
+    context.putImageData(imageData, 0, 0);
+
+    // Create a texture from the canvas
+    const dustTexture = new THREE.CanvasTexture(canvas);
+
+    // Create a material using the gradient texture for opacity
+    const chalkDustMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFFFFFF, // Base color
+        transparent: true,
+        opacity: 1, // Overall opacity
+        map: dustTexture, // Apply the gradient texture
+        side: THREE.DoubleSide, // Ensure it's visible from both sides
+    });
+
+    // Create a circular plane for chalk dust
+    const dustGeometry = new THREE.CircleGeometry(2, 64); // Radius of 2, 64 segments for smooth edges
+    const dust = new THREE.Mesh(dustGeometry, chalkDustMaterial);
+
+    dust.rotation.x = -Math.PI / 2; // Rotate to lie flat on the ground
+    dust.position.set(5, 0.1, 10); // Position at the base of the stand
+    dust.receiveShadow = true;
+
+    // Add the dust plane to the scene
+    scene.add(dust);
+
+    console.log("Chalk dust with opacity gradient added around the base of the chalk bowl.");
 }
 
 
