@@ -1785,7 +1785,9 @@ function showLiftFeedback(message, isGoodLift) {
     liftFeedback.textContent = message;
 
     if (isGoodLift) {
-        liftFeedback.style.backgroundColor = "rgba(0, 128, 0, 0.7)"; // Green for good lift
+        liftFeedback.style.backgroundColor = "rgba(255, 255, 255, 0.5)"; // White for good lift
+        liftFeedback.style.color = "white"; // Keep the text white
+        liftFeedback.style.textShadow = "2px 2px 4px rgba(0, 0, 0, 0.8)"; // Black shadow for readability
 
         // Update spotlight to bright white for "Good Lift"
         if (squatRackSpotlight) {
@@ -1795,6 +1797,8 @@ function showLiftFeedback(message, isGoodLift) {
 
     } else {
         liftFeedback.style.backgroundColor = "rgba(128, 0, 0, 0.7)"; // Red for no lift
+        liftFeedback.style.color = "white"; // Keep the text white
+        liftFeedback.style.textShadow = "2px 2px 4px rgba(0, 0, 0, 0.8)"; // Black shadow for readability
 
         // Update spotlight to red for "No Lift"
         if (squatRackSpotlight) {
@@ -1821,6 +1825,7 @@ function showLiftFeedback(message, isGoodLift) {
         }
     }, 3000);
 }
+
 
 
 function setupLockoutButton() {
