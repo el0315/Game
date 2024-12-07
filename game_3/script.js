@@ -61,7 +61,7 @@ let physicsWorld, playerBody, groundBody, barbellBody;
 let yaw = 0, pitch = 0;
 let joystickMoveAngle = null, movementTouchId = null, rotationTouchId = null, lastTouchX = 0, lastTouchY = 0;
 const playerRadius = 0.5;
-const playerSpeed = 10; // Constant speed for player movement
+const playerSpeed = 13; // Constant speed for player movement
 const rotationSpeed = 0.005;
 
 // ==============================
@@ -505,19 +505,18 @@ function setupLighting() {
     scene.add(ambientLight);
 
     // Spotlight for the squat rack
-    const spotlight = new THREE.SpotLight(0xffffff, 1.5); // Brighter spotlight
-    spotlight.position.set(0, 15, 10); // Above and slightly in front
-    spotlight.angle = Math.PI / 6; // Narrow angle
-    spotlight.penumbra = 1; // Softer edge for the spotlight
-    spotlight.castShadow = true;
-    spotlight.shadow.mapSize.width = 2048; // Higher resolution shadows
-    spotlight.shadow.mapSize.height = 2048;
-    scene.add(spotlight);
+    squatRackSpotlight = new THREE.SpotLight(0xffffff, 1.5); // Brighter spotlight
+    squatRackSpotlight.position.set(0, 15, 10); // Above and slightly in front
+    squatRackSpotlight.angle = Math.PI / 6; // Narrow angle
+    squatRackSpotlight.penumbra = 1; // Softer edge for the spotlight
+    squatRackSpotlight.castShadow = true;
+    squatRackSpotlight.shadow.mapSize.width = 2048; // Higher resolution shadows
+    squatRackSpotlight.shadow.mapSize.height = 2048;
+    scene.add(squatRackSpotlight);
 
     // Overhead PointLights to simulate gym ceiling lights
     const pointLightPositions = [
         { x: 10, y: 20, z: 10 },
-       // { x: -10, y: 20, z: -10 },
         { x: 10, y: 20, z: -10 },
         { x: -10, y: 20, z: 10 }
     ];
@@ -525,31 +524,18 @@ function setupLighting() {
     pointLightPositions.forEach((pos, index) => {
         const pointLight = new THREE.PointLight(0xffffff, 1, 100);
         pointLight.position.set(pos.x, pos.y, pos.z);
-        
-        if (index < 2) { // Only first two lights cast shadows for performance
+
+        if (index < 2) {
             pointLight.castShadow = true;
-            
-            // Moderate shadow map size for better quality without too much performance hit
-            pointLight.shadow.mapSize.width = 1024; // Reduced from 2048
-            pointLight.shadow.mapSize.height = 1024; // Reduced from 2048
-            
-            // Adjust shadow camera parameters
-            pointLight.shadow.camera.near = 1;
-            pointLight.shadow.camera.far = 50;
-            pointLight.shadow.bias = -0.00005; // Reduced from -0.0001
-            
-            // Adjust shadow radius for subtle softness
-            pointLight.shadow.radius = 2; // Reduced from 4
+            pointLight.shadow.mapSize.width = 1024;
+            pointLight.shadow.mapSize.height = 1024;
         } else {
-            pointLight.castShadow = false; // Disable shadows for other lights
+            pointLight.castShadow = false;
         }
         scene.add(pointLight);
-
-        // Spotlight for the squat rack
-
-
     });
 }
+
 
 // ==============================
 // Create Ground
@@ -728,6 +714,22 @@ function createSquatRack() {
     // Add physics bodies for the rack components
     createRackPhysics(leftRack, rightRack);
 }
+
+let squatRackSpotlight; // Global reference for the spotlight
+
+// Function to update squat rack spotlight color
+function updateSpotlightColor(color) {
+    if (squatRackSpotlight) {
+        squatRackSpotlight.color.set(color);
+        if (color === 'red') {
+            squatRackSpotlight.intensity = 2.5; // Increase intensity for red
+        } else {
+            squatRackSpotlight.intensity = 1.5; // Default intensity for other colors
+        }
+    }
+}
+
+
 
 function createRackPhysics(leftRack, rightRack) {
     const rackShape = new Ammo.btBoxShape(new Ammo.btVector3(0.25, 5, 0.25)); // Half dimensions for collision
@@ -1180,6 +1182,7 @@ function updateSpring(deltaTime) {
                 releaseBarbell();
                 showLiftFeedback("No Lift. Try Again!", false);
                 console.log("No Lift: Timer expired.");
+                updateSpotlightColor('red'); // Set spotlight to red
 
                 // Stop the timer
                 if (liftTimer) clearInterval(liftTimer);
@@ -1615,7 +1618,7 @@ if (applyForceButton) {
                         // Release the barbell and show feedback
                         releaseBarbell(); 
                         showLiftFeedback("No Lift. Too Weak!", false);
-
+                        updateSpotlightColor('red'); // Set spotlight to red
                         // Stop the lift timer if it's running
                         if (liftTimer) {
                             clearInterval(liftTimer);
@@ -1644,6 +1647,7 @@ if (applyForceButton) {
                     // Player did not reach the minimum squat depth
                     liftStatus = "No Lift";
                     showLiftFeedback("No Lift. Insufficient Depth!", false);
+                    updateSpotlightColor('red'); // Set spotlight to red
                     releaseBarbell(e);
 
                     // Stop the timer if it's a "No Lift"
@@ -1751,7 +1755,6 @@ function checkLockout() {
 }
 
 
-
 function showLiftFeedback(message, isGoodLift) {
     const liftFeedback = document.getElementById("liftFeedback");
     if (!liftFeedback) {
@@ -1763,8 +1766,10 @@ function showLiftFeedback(message, isGoodLift) {
 
     if (isGoodLift) {
         liftFeedback.style.backgroundColor = "rgba(0, 128, 0, 0.7)"; // Green for good lift
+        updateSpotlightColor('white'); // Reset to white for good lift
     } else {
         liftFeedback.style.backgroundColor = "rgba(128, 0, 0, 0.7)"; // Red for no lift
+        updateSpotlightColor('red'); // Set spotlight to red for no lift
     }
 
     liftFeedback.classList.remove("hidden");
@@ -1777,6 +1782,7 @@ function showLiftFeedback(message, isGoodLift) {
     setTimeout(() => {
         liftFeedback.classList.remove("show");
         liftFeedback.classList.add("hidden");
+        updateSpotlightColor('white'); // Reset to white after feedback
     }, 3000);
 }
 
