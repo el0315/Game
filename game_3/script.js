@@ -960,7 +960,7 @@ function moveChalkToPlayer(originalPosition, liftHeight) {
     // Define the target position near the player's hand
     const targetPosition = new THREE.Vector3(
         player.position.x,
-        player.position.y + PLAYER_CONFIG.height / 2, // Adjust to player's hand height
+        player.position.y + PLAYER_CONFIG.height / 2 + 0.2, // Adjust to player's hand height
         player.position.z - 0.5 // Slightly in front of the player
     );
 
