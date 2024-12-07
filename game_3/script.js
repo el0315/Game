@@ -829,9 +829,52 @@ function createChalkBowl() {
     scene.add(outerBowl);
     scene.add(chalk);
     addChalkDustTexture();
+    addChalkBowlPhysics();
 
     console.log("Chalk bowl with filled chalk layer added to the scene.");
 }
+
+function addChalkBowlPhysics() {
+    // Dimensions of the stand and bowl
+    const standWidth = 0.3;
+    const standHeight = 4;
+    const bowlRadius = 0.9;
+
+    // Create a physics shape for the stand (a box)
+    const standShape = new Ammo.btBoxShape(new Ammo.btVector3(standWidth / 2, standHeight / 2, standWidth / 2));
+    const standTransform = new Ammo.btTransform();
+    standTransform.setIdentity();
+    standTransform.setOrigin(new Ammo.btVector3(5, 1 + standHeight / 2, 10)); // Position at the stand's location
+
+    const standMotionState = new Ammo.btDefaultMotionState(standTransform);
+    const standMass = 0; // Static object
+    const standLocalInertia = new Ammo.btVector3(0, 0, 0);
+    const standRbInfo = new Ammo.btRigidBodyConstructionInfo(standMass, standMotionState, standShape, standLocalInertia);
+    const standBody = new Ammo.btRigidBody(standRbInfo);
+
+    // Add the stand's physics body to the world
+    physicsWorld.addRigidBody(standBody);
+
+    // Create a physics shape for the bowl (approximated as a box)
+    const bowlHeight = 0.5; // Approximate height of the bowl
+    const bowlShape = new Ammo.btBoxShape(new Ammo.btVector3(bowlRadius, bowlHeight / 2, bowlRadius));
+    const bowlTransform = new Ammo.btTransform();
+    bowlTransform.setIdentity();
+    bowlTransform.setOrigin(new Ammo.btVector3(5, 3.5 + bowlHeight / 2, 10)); // Position at the bowl's location
+
+    const bowlMotionState = new Ammo.btDefaultMotionState(bowlTransform);
+    const bowlMass = 0; // Static object
+    const bowlLocalInertia = new Ammo.btVector3(0, 0, 0);
+    const bowlRbInfo = new Ammo.btRigidBodyConstructionInfo(bowlMass, bowlMotionState, bowlShape, bowlLocalInertia);
+    const bowlBody = new Ammo.btRigidBody(bowlRbInfo);
+
+    // Add the bowl's physics body to the world
+    physicsWorld.addRigidBody(bowlBody);
+
+    console.log("Physics added for chalk bowl.");
+}
+
+
 
 function addChalkDustTexture() {
     // Create a canvas to generate a radial gradient texture
