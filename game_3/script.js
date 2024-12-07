@@ -369,6 +369,8 @@ function initializeScene() {
     // Create the barbell mesh and add it to the scene
     createBarbellVisual();
     createSquatRack();
+    // Call the function after initializing the squat rack
+    createPlatform();
     // Add walls to the gym environment
     addWalls();
 
@@ -758,10 +760,66 @@ function createRackPhysics(leftRack, rightRack) {
 }
 
 
-
 // ==============================
 // Create Barbell Visual
 // ==============================
+
+function createPlatform() {
+    // Create a canvas to generate the gradient texture
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+
+    // Set canvas dimensions
+    canvas.width = 512;
+    canvas.height = 512;
+
+    // Create a linear gradient (vertical gradient for wood grain)
+    const gradient = context.createLinearGradient(0, 0, canvas.width, canvas.height);
+    gradient.addColorStop(0.3, '#8B4513'); // Dark SaddleBrown
+    gradient.addColorStop(0.6, '#A0522D'); // Lighter brown
+    gradient.addColorStop(1, '#D2691E'); // Even lighter brown
+
+    // Fill the canvas with the gradient
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Create a texture from the canvas
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(1, 1);
+
+    // Create the material using the generated texture
+    const platformMaterial = new THREE.MeshStandardMaterial({
+        map: texture,
+        roughness: 0.3, // Semi-glossy finish
+        metalness: 0.1, // Subtle reflectiveness
+    });
+
+    // Create the platform geometry
+    const platformSize = 10; // Adjust size as needed
+    const platformThickness = 0.05; // Very thin to make it flat on the ground
+    const platformGeometry = new THREE.BoxGeometry(platformSize, platformThickness, platformSize);
+
+    // Create the platform mesh
+    const platform = new THREE.Mesh(platformGeometry, platformMaterial);
+    platform.receiveShadow = true;
+
+    // Position the platform directly under the squat rack
+    platform.position.set(
+        BARBELL_CONFIG.position.initialPosition.x, // Align with barbell X-position
+        0, // Slightly above the ground level to avoid Z-fighting
+        BARBELL_CONFIG.position.initialPosition.z  // Align with barbell Z-position
+    );
+
+    // Add the platform to the scene
+    scene.add(platform);
+
+    console.log("Gradient wood platform added under the squat rack.");
+}
+
+
+
 
 // Global Material for the Barbell and Plates
 let barMaterial;
