@@ -369,6 +369,7 @@ function initializeScene() {
     // Create the barbell mesh and add it to the scene
     createBarbellVisual();
     createSquatRack();
+    createChalkBowl();
     // Call the function after initializing the squat rack
     createPlatform();
     // Add walls to the gym environment
@@ -750,8 +751,6 @@ function updateSpotlightIntensity(targetIntensity, duration = 1000) {
 }
 
 
-
-
 function createRackPhysics(leftRack, rightRack) {
     const rackShape = new Ammo.btBoxShape(new Ammo.btVector3(0.25, 5, 0.25)); // Half dimensions for collision
 
@@ -780,6 +779,57 @@ function createRackPhysics(leftRack, rightRack) {
     const rightRackRbInfo = new Ammo.btRigidBodyConstructionInfo(0, rightRackMotionState, rackShape);
     rightRackBody = new Ammo.btRigidBody(rightRackRbInfo);
     physicsWorld.addRigidBody(rightRackBody);
+}
+
+function createChalkBowl() {
+    const standMaterial = new THREE.MeshStandardMaterial({
+        color: 0xA9A9A9, // Gray for the stand
+        roughness: 0.7,
+        metalness: 0.3,
+    });
+
+    const bowlMaterial = new THREE.MeshStandardMaterial({
+        color: 0xA9A9A9, // Light gray for the bowl
+        roughness: 1,
+        metalness: 0.1,
+        side: THREE.DoubleSide, // Render both inner and outer surfaces
+    });
+
+    const chalkMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFFFFFF, // White for the chalk
+        roughness: 0.8,
+        metalness: 0.0,
+    });
+
+    // Create the stand
+    const standGeometry = new THREE.BoxGeometry(0.3, 4, 0.3);
+    const stand = new THREE.Mesh(standGeometry, standMaterial);
+    stand.position.set(5, 1, 10); // Adjust position as needed
+    stand.castShadow = true;
+    stand.receiveShadow = true;
+
+    // Create the outer bowl
+    const outerBowlGeometry = new THREE.SphereGeometry(0.9, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2); // Hemisphere
+    const outerBowl = new THREE.Mesh(outerBowlGeometry, bowlMaterial);
+    outerBowl.rotation.x = Math.PI; // Rotate to make it open upward
+    outerBowl.position.set(5, 3.88, 10); // Position the bowl on top of the stand
+    outerBowl.castShadow = true;
+
+
+    // Create the chalk layer as a block
+    const chalkGeometry = new THREE.BoxGeometry(0.5, 0.3, 0.5); // Slightly smaller than the bowl's diameter
+    const chalk = new THREE.Mesh(chalkGeometry, chalkMaterial);
+    chalk.position.set(5, 3.3, 10); // Slightly below the bowl's rim
+    chalk.castShadow = true;
+
+
+
+    // Add the stand, outer bowl, inner bowl, and chalk to the scene
+    scene.add(stand);
+    scene.add(outerBowl);
+    scene.add(chalk);
+
+    console.log("Chalk bowl with filled chalk layer added to the scene.");
 }
 
 
@@ -1889,9 +1939,9 @@ function performLockoutTap() {
 function addWalls() {
     // Wall material
     const wallMaterial = new THREE.MeshStandardMaterial({
-        color: 0xcccccc, // Light gray walls
-        roughness: 0.8,
-        metalness: 0.2,
+        color: 0xE2FFFB, // slight teal
+        roughness: 0.9,
+        metalness: 0.1,
     });
 
     // Dimensions for walls
