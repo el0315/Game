@@ -376,7 +376,8 @@ function initializeScene() {
     createPlatform();
     // Add walls to the gym environment
     addWalls();
-
+    // Initialize the indicator at game start
+    setupSwipeIndicator();
     // Set viewport height for mobile responsiveness
     setVh();
 
@@ -385,6 +386,27 @@ function initializeScene() {
     window.addEventListener('orientationchange', onWindowResize, false);
 
 }
+
+
+function setupSwipeIndicator() {
+    const overlay = document.getElementById('swipeIndicatorOverlay');
+
+    // Dismiss overlay on first interaction
+    function dismissOverlay() {
+        overlay.style.transition = 'opacity 0.5s ease';
+        overlay.style.opacity = '0';
+        setTimeout(() => {
+            overlay.style.display = 'none';
+        }, 500); // Match the transition duration
+        document.removeEventListener('touchstart', dismissOverlay);
+        document.removeEventListener('mousedown', dismissOverlay);
+    }
+
+    document.addEventListener('touchstart', dismissOverlay, { once: true });
+    document.addEventListener('mousedown', dismissOverlay, { once: true });
+}
+
+
 
 
 
