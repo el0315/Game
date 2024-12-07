@@ -35,6 +35,8 @@ const BARBELL_CONFIG = {
     releaseForce: 10000  // Force applied to barbell on release (in Newtons)
 };
 
+let leftRackBody, rightRackBody; // Add these to global variables
+
 
 
 let PLATE_WEIGHT = 15; // Default value, can be adjusted dynamically
@@ -225,7 +227,7 @@ function initializePlayerStrength() {
 // Initialize the Game
 // ==============================
 
-function loadAmmoAndStartGame() {
+loadAmmoAndStartGame = function() {
     showLoadingScreen(); // Show loading screen before initialization
 
     Ammo().then(() => {
@@ -241,7 +243,7 @@ function loadAmmoAndStartGame() {
         console.error("Failed to load Ammo.js:", error);
         hideLoadingScreen(); // Ensure the loading screen is hidden even on failure
     });
-}
+};
 
 // ==============================
 // Initialize Physics
@@ -296,18 +298,19 @@ function checkCollisions() {
         const body0 = contactManifold.getBody0();
         const body1 = contactManifold.getBody1();
 
-        // Check if collision is between player and barbell
-        if ((body0 === playerBody && body1 === barbellBody) || (body1 === playerBody && body0 === barbellBody)) {
-            // Only proceed if the barbell is not already attached
-            if (!barbellConstraint) {
-                // You can include logic here if needed
-                // For example, prevent the barbell from passing through the player
+        // Check if the barbell is colliding with the squat rack
+        if (!barbellConstraint) { // Barbell is not attached
+            if ((body0 === barbellBody || body1 === barbellBody) &&
+                (body0 === leftRackBody || body1 === leftRackBody || 
+                 body0 === rightRackBody || body1 === rightRackBody)) {
+                // Prevent the barbell from passing through
+                console.log("Barbell collided with the squat rack.");
+                barbellBody.setLinearVelocity(new Ammo.btVector3(0, 0, 0)); // Stop the barbell's movement
+                barbellBody.setAngularVelocity(new Ammo.btVector3(0, 0, 0)); // Stop rotation
             }
-            return;
         }
     }
 }
-
 
 
 // ==============================
@@ -369,7 +372,7 @@ function initializeScene() {
 
     // Create the barbell mesh and add it to the scene
     createBarbellVisual();
-
+    createSquatRack();
     // Add walls to the gym environment
     addWalls();
 
@@ -503,6 +506,16 @@ function setupLighting() {
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.1); // Increased intensity from 0.6 to 0.8
     scene.add(ambientLight);
 
+    // Spotlight for the squat rack
+    const spotlight = new THREE.SpotLight(0xffffff, 1.5); // Brighter spotlight
+    spotlight.position.set(0, 15, 10); // Above and slightly in front
+    spotlight.angle = Math.PI / 6; // Narrow angle
+    spotlight.penumbra = 1; // Softer edge for the spotlight
+    spotlight.castShadow = true;
+    spotlight.shadow.mapSize.width = 2048; // Higher resolution shadows
+    spotlight.shadow.mapSize.height = 2048;
+    scene.add(spotlight);
+
     // Overhead PointLights to simulate gym ceiling lights
     const pointLightPositions = [
         { x: 10, y: 20, z: 10 },
@@ -533,6 +546,10 @@ function setupLighting() {
             pointLight.castShadow = false; // Disable shadows for other lights
         }
         scene.add(pointLight);
+
+        // Spotlight for the squat rack
+
+
     });
 }
 
@@ -653,6 +670,62 @@ function createPlayerPhysics() {
     // Add the player body to the physics world
     physicsWorld.addRigidBody(playerBody);
 }
+
+
+// ==============================
+// Create Squat Rack
+// ==============================
+
+function createSquatRack() {
+    // Shiny red-orange material
+    const rackMaterial = new THREE.MeshStandardMaterial({
+        color: 0xeb0e0e, // Lighter red-orange (closer to light salmon)
+        roughness: 0.1,  // Low roughness for shininess
+        metalness: 0.8,  // High reflectivity
+        emissive: 0xeb0e0e, // Slight red-orange emissive glow
+        emissiveIntensity: 0.2, // Subtle glow effect
+    });
+
+    // Rack dimensions
+    const rackWidth = 0.5;
+    const rackHeight = 10;
+    const rackDepth = 0.5;
+
+    // Position of the racks
+    const rackOffsetX = 2; // Distance from the barbell's center
+    const rackYPosition = BARBELL_CONFIG.position.initialPosition.y - rackHeight / 2; // Align with barbell's height
+
+    // Left Rack
+    const leftRack = new THREE.Mesh(
+        new THREE.BoxGeometry(rackWidth, rackHeight, rackDepth),
+        rackMaterial
+    );
+    leftRack.position.set(
+        BARBELL_CONFIG.position.initialPosition.x - rackOffsetX,
+        rackYPosition,
+        BARBELL_CONFIG.position.initialPosition.z
+    );
+    leftRack.castShadow = true; // Enable casting shadows
+    leftRack.receiveShadow = true; // Enable receiving shadows
+    scene.add(leftRack);
+
+    // Right Rack
+    const rightRack = new THREE.Mesh(
+        new THREE.BoxGeometry(rackWidth, rackHeight, rackDepth),
+        rackMaterial
+    );
+    rightRack.position.set(
+        BARBELL_CONFIG.position.initialPosition.x + rackOffsetX,
+        rackYPosition,
+        BARBELL_CONFIG.position.initialPosition.z
+    );
+    rightRack.castShadow = true; // Enable casting shadows
+    rightRack.receiveShadow = true; // Enable receiving shadows
+    scene.add(rightRack);
+
+    console.log("Shiny red-orange squat rack with shadows created.");
+}
+
 
 
 // ==============================
@@ -2006,10 +2079,10 @@ function resetBarbellPosition() {
         console.warn("No barbell constraint found to remove.");
     }
 
-    // Define the target reset position
+    // Define the reset position to align the barbell with the rack
     const resetPosition = {
         x: BARBELL_CONFIG.position.initialPosition.x,
-        y: BARBELL_CONFIG.position.initialPosition.y,
+        y: BARBELL_CONFIG.position.initialPosition.y - BARBELL_CONFIG.centralBar.radius + 0.1, // Ensure it rests on the rack
         z: BARBELL_CONFIG.position.initialPosition.z,
     };
 
@@ -2074,6 +2147,8 @@ function resetBarbellPosition() {
     unlockCamera();
     console.log("Barbell reset initiated. Tween animation in progress.");
 }
+
+
 
 function releaseBarbell(e = null) {
     if (e) {
