@@ -911,49 +911,76 @@ function animateChalkBlock() {
     // Save the original chalk position
     const originalPosition = chalk.position.clone();
 
-    // Define a variable to track the animation progress
-    let animationProgress = 0;
+    // Define the lift height to clear the rim of the bowl
+    const liftHeight = originalPosition.y + 1; // Adjust as needed for the bowl's height
 
-    // Use a function to update the chalk position dynamically
+    // First Phase: Vertical Lift
+    new TWEEN.Tween(chalk.position)
+        .to({ x: originalPosition.x, y: liftHeight, z: originalPosition.z }, 300) // Lift duration
+        .easing(TWEEN.Easing.Quadratic.Out)
+        .onComplete(() => {
+            // Second Phase: Move Toward the Player
+            moveChalkToPlayer(originalPosition, liftHeight);
+        })
+        .start();
+}
+
+function moveChalkToPlayer(originalPosition, liftHeight) {
+    // Define the target position near the player's hand
+    const targetPosition = new THREE.Vector3(
+        player.position.x,
+        player.position.y + PLAYER_CONFIG.height / 2, // Adjust to player's hand height
+        player.position.z - 0.5 // Slightly in front of the player
+    );
+
+    // Use a real-time animation loop to dynamically update the position
     function updateChalkPosition() {
         if (!chalkInteractionInProgress) return;
 
-        // Dynamically calculate the target position near the player's hand
-        const targetPosition = new THREE.Vector3(
-            player.position.x,
-            player.position.y + PLAYER_CONFIG.height / 2, // Adjust to player's hand height
-            player.position.z - 0.5 // Slightly in front of the player
-        );
-
         // Smoothly interpolate the chalk's position toward the target
-        chalk.position.lerp(targetPosition, animationProgress);
+        chalk.position.lerp(targetPosition, 0.1); // Adjust interpolation speed as needed
 
-        // Gradually increase the animation progress
-        animationProgress += 0.03;
-
-        // Stop the animation when it reaches the target position
-        if (animationProgress >= 1) {
-            chalkInteractionInProgress = false; // Unlock interaction
+        // Check if the chalk has reached the target
+        if (chalk.position.distanceTo(targetPosition) < 0.05) {
+            // Mark interaction as complete and return the chalk
+            chalkInteractionInProgress = false;
 
             // Return the chalk block to its original position
-            setTimeout(() => {
-                new TWEEN.Tween(chalk.position)
-                    .to({ x: originalPosition.x, y: originalPosition.y, z: originalPosition.z }, 1000)
-                    .easing(TWEEN.Easing.Quadratic.Out)
-                    .onComplete(() => {
-                        console.log("Chalk block returned to the bowl.");
-                    })
-                    .start();
-            }, 500); // Delay before returning
+            returnChalkToBowl(originalPosition, liftHeight);
         } else {
             // Continue updating the position
             requestAnimationFrame(updateChalkPosition);
         }
     }
 
-    // Start the dynamic chalk animation
+    // Start the dynamic animation
     updateChalkPosition();
 }
+
+function returnChalkToBowl(originalPosition, liftHeight) {
+    // First Phase: Move Chalk Vertically Up Before Descending
+    const intermediatePosition = new THREE.Vector3(
+        originalPosition.x,
+        liftHeight,
+        originalPosition.z
+    );
+
+    new TWEEN.Tween(chalk.position)
+        .to({ x: intermediatePosition.x, y: intermediatePosition.y, z: intermediatePosition.z }, 500) // Lift duration
+        .easing(TWEEN.Easing.Quadratic.Out)
+        .onComplete(() => {
+            // Second Phase: Descend into the Bowl
+            new TWEEN.Tween(chalk.position)
+                .to({ x: originalPosition.x, y: originalPosition.y, z: originalPosition.z }, 200) // Descend duration
+                .easing(TWEEN.Easing.Quadratic.Out)
+                .onComplete(() => {
+                    console.log("Chalk block returned to the bowl.");
+                })
+                .start();
+        })
+        .start();
+}
+
 
 
 function addChalkDustTexture() {
