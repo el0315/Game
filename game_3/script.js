@@ -878,8 +878,11 @@ let chalkInteractionInProgress = false; // Prevent overlapping animations
 // Add a flag to track chalk interaction state
 let canInteractWithChalk = true;
 
+// Add a cooldown duration (in milliseconds) and a timestamp for the last interaction
+const CHALK_INTERACTION_COOLDOWN = 2000; // 2 seconds cooldown
+let lastChalkInteractionTime = 0; // Initialize to 0
+
 function checkProximityToChalkBowl() {
-    
     if (!player || !chalk || chalkInteractionInProgress) return;
 
     // Chalk block's position (should match the bowl's position)
@@ -888,15 +891,20 @@ function checkProximityToChalkBowl() {
     // Calculate the distance between the player and the chalk bowl
     const distanceToChalkBowl = player.position.distanceTo(chalkBowlPosition);
 
- 
+    // Get the current time
+    const currentTime = Date.now();
 
-    if (distanceToChalkBowl <= CHALK_BOWL_PROXIMITY_THRESHOLD) {
-        if (canInteractWithChalk) {
-           // console.log("Player is near the chalk bowl and can interact.");
-            animateChalkBlock();
-            canInteractWithChalk = false; // Disable further interactions until the player leaves
-        }
-    } else {
+    // Check if the player is within the proximity threshold and cooldown has elapsed
+    if (
+        distanceToChalkBowl <= CHALK_BOWL_PROXIMITY_THRESHOLD &&
+        canInteractWithChalk &&
+        currentTime - lastChalkInteractionTime > CHALK_INTERACTION_COOLDOWN
+    ) {
+        console.log("Player is near the chalk bowl and can interact.");
+        animateChalkBlock();
+        canInteractWithChalk = false; // Disable further interactions until the player leaves
+        lastChalkInteractionTime = currentTime; // Update the last interaction time
+    } else if (distanceToChalkBowl > CHALK_BOWL_PROXIMITY_THRESHOLD) {
         // Reset the interaction flag when the player leaves the proximity
         if (!canInteractWithChalk) {
             console.log("Player left the chalk bowl proximity. Interaction reset.");
@@ -904,6 +912,7 @@ function checkProximityToChalkBowl() {
         canInteractWithChalk = true;
     }
 }
+
 
 function animateChalkBlock() {
     chalkInteractionInProgress = true; // Lock interaction during animation
