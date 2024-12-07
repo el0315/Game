@@ -298,16 +298,12 @@ function checkCollisions() {
         const body0 = contactManifold.getBody0();
         const body1 = contactManifold.getBody1();
 
-        // Check if the barbell is colliding with the squat rack
-        if (!barbellConstraint) { // Barbell is not attached
-            if ((body0 === barbellBody || body1 === barbellBody) &&
-                (body0 === leftRackBody || body1 === leftRackBody || 
-                 body0 === rightRackBody || body1 === rightRackBody)) {
-                // Prevent the barbell from passing through
-                console.log("Barbell collided with the squat rack.");
-                barbellBody.setLinearVelocity(new Ammo.btVector3(0, 0, 0)); // Stop the barbell's movement
-                barbellBody.setAngularVelocity(new Ammo.btVector3(0, 0, 0)); // Stop rotation
-            }
+        if ((body0 === barbellBody || body1 === barbellBody) &&
+            (body0 === leftRackBody || body1 === leftRackBody ||
+             body0 === rightRackBody || body1 === rightRackBody)) {
+            console.log("Barbell collided with the squat rack.");
+            barbellBody.setLinearVelocity(new Ammo.btVector3(0, 0, 0)); // Stop the barbell
+            barbellBody.setAngularVelocity(new Ammo.btVector3(0, 0, 0)); // Stop rotation
         }
     }
 }
@@ -677,53 +673,88 @@ function createPlayerPhysics() {
 // ==============================
 
 function createSquatRack() {
-    // Shiny red-orange material
+    // Create a group for the squat rack
+    const rackGroup = new THREE.Group();
+    rackGroup.name = "squatRack";
+
+    // Material for the rack
     const rackMaterial = new THREE.MeshStandardMaterial({
-        color: 0xeb0e0e, // Lighter red-orange (closer to light salmon)
-        roughness: 0.1,  // Low roughness for shininess
-        metalness: 0.8,  // High reflectivity
-        emissive: 0xeb0e0e, // Slight red-orange emissive glow
-        emissiveIntensity: 0.2, // Subtle glow effect
+        color: 0xeb0e0e, // Red color
+        roughness: 0.1,
+        metalness: 0.8,
     });
 
     // Rack dimensions
     const rackWidth = 0.5;
     const rackHeight = 10;
     const rackDepth = 0.5;
-
-    // Position of the racks
     const rackOffsetX = 2; // Distance from the barbell's center
-    const rackYPosition = BARBELL_CONFIG.position.initialPosition.y - rackHeight / 2; // Align with barbell's height
 
-    // Left Rack
+    // Create left rack
     const leftRack = new THREE.Mesh(
         new THREE.BoxGeometry(rackWidth, rackHeight, rackDepth),
         rackMaterial
     );
     leftRack.position.set(
         BARBELL_CONFIG.position.initialPosition.x - rackOffsetX,
-        rackYPosition,
+        BARBELL_CONFIG.position.initialPosition.y - rackHeight / 2,
         BARBELL_CONFIG.position.initialPosition.z
     );
-    leftRack.castShadow = true; // Enable casting shadows
-    leftRack.receiveShadow = true; // Enable receiving shadows
-    scene.add(leftRack);
+    leftRack.castShadow = true;
+    leftRack.receiveShadow = true;
 
-    // Right Rack
+    // Create right rack
     const rightRack = new THREE.Mesh(
         new THREE.BoxGeometry(rackWidth, rackHeight, rackDepth),
         rackMaterial
     );
     rightRack.position.set(
         BARBELL_CONFIG.position.initialPosition.x + rackOffsetX,
-        rackYPosition,
+        BARBELL_CONFIG.position.initialPosition.y - rackHeight / 2,
         BARBELL_CONFIG.position.initialPosition.z
     );
-    rightRack.castShadow = true; // Enable casting shadows
-    rightRack.receiveShadow = true; // Enable receiving shadows
-    scene.add(rightRack);
+    rightRack.castShadow = true;
+    rightRack.receiveShadow = true;
 
-    console.log("Shiny red-orange squat rack with shadows created.");
+    // Add both racks to the group
+    rackGroup.add(leftRack);
+    rackGroup.add(rightRack);
+
+    // Add the group to the scene
+    scene.add(rackGroup);
+
+    // Add physics bodies for the rack components
+    createRackPhysics(leftRack, rightRack);
+}
+
+function createRackPhysics(leftRack, rightRack) {
+    const rackShape = new Ammo.btBoxShape(new Ammo.btVector3(0.25, 5, 0.25)); // Half dimensions for collision
+
+    // Left Rack
+    const leftRackTransform = new Ammo.btTransform();
+    leftRackTransform.setIdentity();
+    leftRackTransform.setOrigin(new Ammo.btVector3(
+        leftRack.position.x,
+        leftRack.position.y,
+        leftRack.position.z
+    ));
+    const leftRackMotionState = new Ammo.btDefaultMotionState(leftRackTransform);
+    const leftRackRbInfo = new Ammo.btRigidBodyConstructionInfo(0, leftRackMotionState, rackShape);
+    leftRackBody = new Ammo.btRigidBody(leftRackRbInfo);
+    physicsWorld.addRigidBody(leftRackBody);
+
+    // Right Rack
+    const rightRackTransform = new Ammo.btTransform();
+    rightRackTransform.setIdentity();
+    rightRackTransform.setOrigin(new Ammo.btVector3(
+        rightRack.position.x,
+        rightRack.position.y,
+        rightRack.position.z
+    ));
+    const rightRackMotionState = new Ammo.btDefaultMotionState(rightRackTransform);
+    const rightRackRbInfo = new Ammo.btRigidBodyConstructionInfo(0, rightRackMotionState, rackShape);
+    rightRackBody = new Ammo.btRigidBody(rightRackRbInfo);
+    physicsWorld.addRigidBody(rightRackBody);
 }
 
 
@@ -800,7 +831,6 @@ function createBarbellVisual() {
     // Add the barbell to the scene
     scene.add(barbell);
 }
-
 
 // Variables for tracking plate additions and gap width
 let currentPlatesPerSide = 1; // Default: 1 plate per side
