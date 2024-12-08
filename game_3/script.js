@@ -2808,7 +2808,7 @@ function onReleaseButtonPress(e) {
     
 }
 
-const PROXIMITY_THRESHOLD = 5; // Distance to trigger action
+const PROXIMITY_THRESHOLD = 6; // Distance to trigger action
 const CHALK_BOWL_PROXIMITY_THRESHOLD = 5; // Adjust as needed
 
 
