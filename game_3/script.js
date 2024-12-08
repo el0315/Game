@@ -372,7 +372,8 @@ function initializeScene() {
     // Create the barbell mesh and add it to the scene
     createBarbellVisual();
     createSquatRack();
-    createBench();
+    // Toggle bench based on checkbox state
+    toggleBench();
     createChalkBowl();
     addChalkDustTexture();
 
@@ -522,6 +523,7 @@ strengthSlider.addEventListener("input", () => {
 springStrengthSlider.addEventListener('touchstart', (e) => {
     e.stopPropagation();
 }, { passive: false });
+
 
 
 // ==============================
@@ -858,7 +860,15 @@ function createChalkBowl() {
     addChalkBowlPhysics();
 }
 
+
+let bench = null; // Reference to the bench mesh
+let benchBody = null; // Reference to the bench physics body
+
+const benchToggle = document.getElementById('benchToggle'); // Reference to the checkbox
+
 function createBench() {
+    if (bench) return; // Prevent creating multiple benches
+
     // Bench dimensions
     const benchWidth = 2;    // Width of the bench
     const benchHeight = 0.2; // Height of the bench
@@ -866,14 +876,14 @@ function createBench() {
 
     // Bench material
     const benchMaterial = new THREE.MeshStandardMaterial({
-        color: 0xeb0e0e, // red
+        color: 0xeb0e0e, // Red
         roughness: 0.6,
         metalness: 0.6,
     });
 
     // Bench mesh
     const benchGeometry = new THREE.BoxGeometry(benchWidth, benchHeight, benchDepth);
-    const bench = new THREE.Mesh(benchGeometry, benchMaterial);
+    bench = new THREE.Mesh(benchGeometry, benchMaterial);
     bench.position.set(0, benchHeight / 2 + 1, 0.5); // Position the bench above the ground
     bench.castShadow = true;
     bench.receiveShadow = true;
@@ -891,7 +901,7 @@ function createBench() {
     const benchMass = 0; // Static object
     const benchLocalInertia = new Ammo.btVector3(0, 0, 0);
     const benchRbInfo = new Ammo.btRigidBodyConstructionInfo(benchMass, benchMotionState, benchShape, benchLocalInertia);
-    const benchBody = new Ammo.btRigidBody(benchRbInfo);
+    benchBody = new Ammo.btRigidBody(benchRbInfo);
 
     // Add the bench to the physics world
     physicsWorld.addRigidBody(benchBody);
@@ -899,8 +909,34 @@ function createBench() {
     console.log("Bench added to the game.");
 }
 
+function removeBench() {
+    if (bench) {
+        // Remove the bench mesh from the scene
+        scene.remove(bench);
+        bench.geometry.dispose();
+        bench.material.dispose();
+        bench = null;
 
+        // Remove the bench physics body from the physics world
+        if (benchBody) {
+            physicsWorld.removeRigidBody(benchBody);
+            Ammo.destroy(benchBody); // Clean up Ammo.js memory
+            benchBody = null;
+        }
 
+        console.log("Bench removed from the game.");
+    }
+}
+
+function toggleBench() {
+    if (benchToggle.checked) {
+        createBench(); // Add the bench if checked
+    } else {
+        removeBench(); // Remove the bench if unchecked
+    }
+}
+
+benchToggle.addEventListener('change', toggleBench);
 
 
 function addChalkBowlPhysics() {
@@ -1829,7 +1865,6 @@ function startStabilityMechanic() {
         console.log("Tracking variables reset for stability mechanic.");
     }
 }
-
 
 function toggleTarget(targetId, isOn) {
     const target = document.getElementById(targetId);
