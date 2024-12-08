@@ -2376,15 +2376,9 @@ function updatePlayerPosition(deltaTime) {
     const origin = transform.getOrigin();
 
     // Update player mesh position and scale
-    player.position.set(origin.x(), origin.y(), origin.z());
-    const heightReduction = originalHeight - currentHeight;
-
-    // Apply bobbing effect to the player's top
     player.scale.set(1, (currentHeight + bobOffset) / originalHeight, 1);
-    player.position.y = origin.y() - heightReduction / 2; // Keep bottom fixed
+    player.position.set(origin.x(), origin.y() + bobOffset / 2, origin.z()); // Adjust position to keep the bottom fixed
 }
-
-
 
 function updateBarbellPosition() {
     if (!barbellBody) {
