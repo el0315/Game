@@ -3100,24 +3100,104 @@ function checkProximityToBench() {
     }
 }
 
+let playerBenchConstraint = null;
+
 function layOnBench() {
     isPlayerOnBench = true;
 
     // Adjust player position and rotation to simulate lying down
-    player.position.set(bench.position.x, bench.position.y + 0.5, bench.position.z); // Adjust height
-    player.rotation.set(-Math.PI / 2, 0, 0); // Lay flat
+    player.position.set(bench.position.x, bench.position.y + 0.5, bench.position.z); 
+    player.rotation.set(-Math.PI / 2, 0, 0);
+
+    // Update player's physics body transform
+    const transform = new Ammo.btTransform();
+    transform.setIdentity();
+    transform.setOrigin(new Ammo.btVector3(player.position.x, player.position.y, player.position.z));
+    const quat = new THREE.Quaternion();
+    quat.setFromEuler(player.rotation);
+    transform.setRotation(new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w));
+    playerBody.setWorldTransform(transform);
+    playerBody.getMotionState().setWorldTransform(transform);
+
+    // Now attach the player to the bench using a constraint:
+    attachPlayerToBench();
+
     console.log("Player is now laying on the bench.");
 }
 
 function standUpFromBench() {
     isPlayerOnBench = false;
 
+    // Remove the player-bench constraint if it exists
+    if (playerBenchConstraint) {
+        physicsWorld.removeConstraint(playerBenchConstraint);
+        Ammo.destroy(playerBenchConstraint);
+        playerBenchConstraint = null;
+    }
+
     // Reset player position and rotation to standing
-    player.position.set(player.position.x, player.position.y + 1, player.position.z); // Adjust height back
-    player.rotation.set(0, 0, 0); // Stand upright
+    player.position.set(player.position.x, player.position.y + 1, player.position.z);
+    player.rotation.set(0, 0, 0);
+
+    // Update player's physics body transform
+    const transform = new Ammo.btTransform();
+    transform.setIdentity();
+    transform.setOrigin(new Ammo.btVector3(player.position.x, player.position.y, player.position.z));
+    const quat = new THREE.Quaternion();
+    quat.setFromEuler(player.rotation);
+    transform.setRotation(new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w));
+    playerBody.setWorldTransform(transform);
+    playerBody.getMotionState().setWorldTransform(transform);
+
     console.log("Player is now standing up.");
 }
 
+function attachPlayerToBench() {
+    if (!playerBody || !benchBody) {
+        console.error("Cannot attach player to bench: missing playerBody or benchBody.");
+        return;
+    }
+
+    // Define frames for the constraint
+    // Frame in player's local coordinates
+    const frameInPlayer = new Ammo.btTransform();
+    frameInPlayer.setIdentity();
+    // Assume player's current center is the reference point
+    frameInPlayer.getOrigin().setValue(0, 0, 0); 
+
+    // Frame in bench's local coordinates
+    const frameInBench = new Ammo.btTransform();
+    frameInBench.setIdentity();
+    // Align player's position with the bench in the bench's local frame
+    // This would depend on how your bench is oriented in the world
+    // If the player is already aligned with the bench, just set 0,0,0 for simplicity
+    frameInBench.getOrigin().setValue(0, 0.5, 0); // Adjust as needed
+
+    // Create a 6DoF constraint
+    playerBenchConstraint = new Ammo.btGeneric6DofConstraint(
+        benchBody,
+        playerBody,
+        frameInBench,
+        frameInPlayer,
+        true
+    );
+
+    // Lock all linear and angular movement:
+    const zeroVec = new Ammo.btVector3(0, 0, 0);
+
+    // For linear degrees of freedom
+    playerBenchConstraint.setLinearLowerLimit(zeroVec);
+    playerBenchConstraint.setLinearUpperLimit(zeroVec);
+
+    // For angular degrees of freedom
+    playerBenchConstraint.setAngularLowerLimit(zeroVec);
+    playerBenchConstraint.setAngularUpperLimit(zeroVec);
+
+    // Add the constraint to the physics world
+    physicsWorld.addConstraint(playerBenchConstraint, true);
+
+    console.log("Player is now attached to the bench.");
+}
 
 
 
