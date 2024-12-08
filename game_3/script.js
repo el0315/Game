@@ -538,8 +538,8 @@ function setupLighting() {
     squatRackSpotlight.angle = Math.PI / 6; // Narrow angle
     squatRackSpotlight.penumbra = 1; // Softer edge for the spotlight
     squatRackSpotlight.castShadow = true;
-    squatRackSpotlight.shadow.mapSize.width = 2048; // Higher resolution shadows
-    squatRackSpotlight.shadow.mapSize.height = 2048;
+    squatRackSpotlight.shadow.mapSize.width = 1024; // Higher resolution shadows
+    squatRackSpotlight.shadow.mapSize.height = 1024;
     scene.add(squatRackSpotlight);
 
     // Overhead PointLights to simulate gym ceiling lights
