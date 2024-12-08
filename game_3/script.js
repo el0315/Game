@@ -2326,11 +2326,10 @@ function updatePlayerPosition(deltaTime) {
     // Ensure the player body is always active
     playerBody.activate(true);
 
-    // Skip joystick-based movement if the barbell is attached
-    if (barbellConstraint) {
-        console.log("Barbell is attached. Player movement disabled.");
-    } else if (joystickMoveAngle !== null) {
-        // Joystick is active, calculate movement direction
+    // Calculate the bobbing offset for movement
+    let bobOffset = 0; // Default bob offset is zero
+    if (joystickMoveAngle !== null) {
+        // Joystick-based movement
         moveDirection.set(Math.cos(joystickMoveAngle), 0, Math.sin(joystickMoveAngle));
 
         // Apply player rotation to movement direction
@@ -2338,47 +2337,57 @@ function updatePlayerPosition(deltaTime) {
         quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
         moveDirection.applyQuaternion(quaternion);
 
-        // Normalize to ensure consistent speed
+        // Normalize for consistent speed
         moveDirection.normalize();
 
         // Set player's horizontal velocity to constant speed in the desired direction
         const desiredVelocity = new Ammo.btVector3(
             moveDirection.x * playerSpeed,
-            playerBody.getLinearVelocity().y(), // Preserve vertical velocity (compression)
+            playerBody.getLinearVelocity().y(), // Preserve vertical velocity
             moveDirection.z * playerSpeed
         );
         playerBody.setLinearVelocity(desiredVelocity);
 
-        // Update bobbing effect when moving
+        // Increment bob time when the player moves
         walkBobTime += deltaTime * walkBobSpeed;
+
+        // Calculate the bobbing offset
+        bobOffset = Math.sin(walkBobTime) * walkBobAmplitude;
     } else {
         // Joystick is inactive, ensure the player stops horizontally
         const currentVelocity = playerBody.getLinearVelocity();
         if (currentVelocity.length() > 0.1) {
-            // Stop movement only if the player is still moving
             playerBody.setLinearVelocity(new Ammo.btVector3(
-                0, // Stop movement on X-axis
-                currentVelocity.y(), // Preserve vertical velocity (compression)
-                0  // Stop movement on Z-axis
+                0, // Stop X movement
+                currentVelocity.y(), // Preserve vertical velocity
+                0  // Stop Z movement
             ));
         }
 
-        // Reset bobbing effect when not moving
+        // Reset bobbing when stationary
         walkBobTime = 0;
     }
 
-    // Calculate the bobbing height offset
-    const bobOffset = Math.sin(walkBobTime) * walkBobAmplitude;
+    // Combine bobbing offset and compression factor
+    const compressionFactor = currentHeight / originalHeight;
 
-    // Update player's position based on physics simulation
+    // Apply combined scaling and adjust for fixed bottom
+    player.scale.set(1, compressionFactor + bobOffset / originalHeight, 1);
+
+    // Adjust Y-position of the player visually to ensure the bottom remains fixed
     const transform = new Ammo.btTransform();
     playerBody.getMotionState().getWorldTransform(transform);
     const origin = transform.getOrigin();
+    const fixedBottomOffset = (1 - compressionFactor) * originalHeight / 2;
 
-    // Update player mesh position and scale
-    player.scale.set(1, (currentHeight + bobOffset) / originalHeight, 1);
-    player.position.set(origin.x(), origin.y() + bobOffset / 2, origin.z()); // Adjust position to keep the bottom fixed
+    // Update player position (base stays fixed)
+    player.position.set(
+        origin.x(),
+        origin.y() - fixedBottomOffset, // Adjust to compensate for compression
+        origin.z()
+    );
 }
+
 
 function updateBarbellPosition() {
     if (!barbellBody) {
