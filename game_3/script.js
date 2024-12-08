@@ -904,7 +904,7 @@ let chalkInteractionInProgress = false; // Prevent overlapping animations
 let canInteractWithChalk = true;
 
 // Add a cooldown duration (in milliseconds) and a timestamp for the last interaction
-const CHALK_INTERACTION_COOLDOWN = 3000; // 2 seconds cooldown
+const CHALK_INTERACTION_COOLDOWN = 2000;
 let lastChalkInteractionTime = 0; // Initialize to 0
 const chalkButton = document.getElementById("chalkButton");
 
@@ -2356,7 +2356,7 @@ function updatePlayerPosition(deltaTime) {
 
     // Calculate the bobbing offset for movement
     let bobOffset = 0; // Default bob offset is zero
-    if (joystickMoveAngle !== null) {
+    if (joystickMoveAngle !== null && !barbellConstraint) {
         // Joystick-based movement
         moveDirection.set(Math.cos(joystickMoveAngle), 0, Math.sin(joystickMoveAngle));
 
