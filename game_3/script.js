@@ -828,7 +828,7 @@ function createChalkBowl() {
     // Create the stand
     const standGeometry = new THREE.BoxGeometry(0.3, 4, 0.3);
     const stand = new THREE.Mesh(standGeometry, standMaterial);
-    stand.position.set(5, 1, 10);
+    stand.position.set(5, 1, 15);
     stand.castShadow = true;
     stand.receiveShadow = true;
 
@@ -836,7 +836,7 @@ function createChalkBowl() {
     const outerBowlGeometry = new THREE.SphereGeometry(0.9, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2); // Hemisphere
     const outerBowl = new THREE.Mesh(outerBowlGeometry, bowlMaterial);
     outerBowl.rotation.x = Math.PI; // Rotate to make it open upward
-    outerBowl.position.set(5, 3.88, 10); // Position the bowl on top of the stand
+    outerBowl.position.set(5, 3.88, 15); // Position the bowl on top of the stand
     outerBowl.castShadow = true;
 
     // Assign to global chalk variable
@@ -844,7 +844,7 @@ function createChalkBowl() {
         new THREE.BoxGeometry(0.5, 0.3, 0.5), // Slightly smaller than the bowl's diameter
         chalkMaterial
     );
-    chalk.position.set(5, 3.3, 10); // Slightly below the bowl's rim
+    chalk.position.set(5, 3.3, 15); // Slightly below the bowl's rim
     chalk.castShadow = false;
 
     // Add the stand, outer bowl, and chalk to the scene
@@ -865,7 +865,7 @@ function addChalkBowlPhysics() {
     const standShape = new Ammo.btBoxShape(new Ammo.btVector3(standWidth / 2, standHeight / 2, standWidth / 2));
     const standTransform = new Ammo.btTransform();
     standTransform.setIdentity();
-    standTransform.setOrigin(new Ammo.btVector3(5, 1 + standHeight / 2, 10)); // Position at the stand's location
+    standTransform.setOrigin(new Ammo.btVector3(5, 1 + standHeight / 2, 15)); // Position at the stand's location
 
     const standMotionState = new Ammo.btDefaultMotionState(standTransform);
     const standMass = 0; // Static object
@@ -881,7 +881,7 @@ function addChalkBowlPhysics() {
     const bowlShape = new Ammo.btBoxShape(new Ammo.btVector3(bowlRadius, bowlHeight / 2, bowlRadius));
     const bowlTransform = new Ammo.btTransform();
     bowlTransform.setIdentity();
-    bowlTransform.setOrigin(new Ammo.btVector3(5, 3.5 + bowlHeight / 2, 10)); // Position at the bowl's location
+    bowlTransform.setOrigin(new Ammo.btVector3(5, 3.5 + bowlHeight / 2, 15)); // Position at the bowl's location
 
     const bowlMotionState = new Ammo.btDefaultMotionState(bowlTransform);
     const bowlMass = 0; // Static object
@@ -1070,7 +1070,7 @@ function addChalkDustTexture() {
     const dust = new THREE.Mesh(dustGeometry, chalkDustMaterial);
 
     dust.rotation.x = -Math.PI / 2; // Rotate to lie flat on the ground
-    dust.position.set(5, 0.1, 10); // Position at the base of the stand
+    dust.position.set(5, 0.1, 15); // Position at the base of the stand
     dust.receiveShadow = true;
 
     // Add the dust plane to the scene
@@ -2761,7 +2761,7 @@ function onReleaseButtonPress(e) {
     
 }
 
-const PROXIMITY_THRESHOLD = 10; // Distance to trigger action
+const PROXIMITY_THRESHOLD = 5; // Distance to trigger action
 const CHALK_BOWL_PROXIMITY_THRESHOLD = 5; // Adjust as needed
 
 
