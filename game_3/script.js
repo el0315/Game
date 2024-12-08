@@ -3082,7 +3082,7 @@ function checkProximityToBench() {
     // Show the action button if within proximity and not already on the bench
     if (distanceToBench <= BENCH_PROXIMITY_THRESHOLD && !isPlayerOnBench) {
         benchActionButton.style.display = 'block';
-        benchActionButton.innerText = "Bench";
+        benchActionButton.innerText = "Lay";
 
         // Add touch event listener for laying down
         benchActionButton.ontouchstart = layOnBench;
