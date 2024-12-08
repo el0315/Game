@@ -3134,22 +3134,34 @@ function standUpFromBench() {
         playerBenchConstraint = null;
     }
 
-    // Reset player position and rotation to standing
-    player.position.set(player.position.x, player.position.y + 1, player.position.z);
+    // Move the player away from the bench to avoid collisions
+    // For instance, move them 2 units along the +Z axis
+    const standUpOffset = 2; // Adjust this offset as needed
+    player.position.set(
+        player.position.x,
+        player.position.y + 1, // Stand up (raise by 1 unit)
+        player.position.z + standUpOffset
+    );
+
+    // Reset player rotation to standing upright
     player.rotation.set(0, 0, 0);
 
-    // Update player's physics body transform
+    // Update player's physics body transform to match the new position/orientation
     const transform = new Ammo.btTransform();
     transform.setIdentity();
     transform.setOrigin(new Ammo.btVector3(player.position.x, player.position.y, player.position.z));
+
     const quat = new THREE.Quaternion();
     quat.setFromEuler(player.rotation);
     transform.setRotation(new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w));
+
     playerBody.setWorldTransform(transform);
     playerBody.getMotionState().setWorldTransform(transform);
+    physicsWorld.updateSingleAabb(playerBody);
 
-    console.log("Player is now standing up.");
+    console.log("Player is now standing up and moved away from the bench.");
 }
+
 
 function attachPlayerToBench() {
     if (!playerBody || !benchBody) {
