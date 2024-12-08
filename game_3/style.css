@@ -822,6 +822,55 @@ html, body {
     background: #ff784e; /* Lighter shade on hover */
 }
 
+/* Ensure label and checkbox are aligned */
+
+.toggleLabel {
+    display: flex;
+    align-items: flex-start; /* Stops forcing them to center align */
+    gap: 10px; /* Adds space between the text and the checkbox */
+    font-size: 16px; /* Ensures font size matches the design */
+    color: #dddddd; /* Keeps the text color consistent */
+    margin-bottom: 10px; /* Space below the toggle label */
+}
+
+/* Style the checkbox */
+#benchToggle {
+    width: 24px; /* Checkbox size */
+    height: 24px;
+    appearance: none; /* Remove default checkbox styling */
+    background-color: #555; /* Default background */
+    border: 2px solid #ddd; /* Light border */
+    border-radius: 5px; /* Rounded corners for a modern look */
+    cursor: pointer;
+    transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.1s ease;
+    touch-action: manipulation; /* Prevent touch delay */
+    position: relative; /* Allows independent adjustment */
+    top: 5px; /* Use this to adjust the checkbox vertically */
+    left: 10px;
+}
+
+
+/* Active state */
+#benchToggle:active {
+    transform: scale(0.95); /* Slightly shrink for feedback */
+}
+
+/* Checked state */
+#benchToggle:checked {
+    background-color: #ff5722;
+    border-color: #ff784e;
+    box-shadow: 0 0 8px rgba(255, 87, 34, 0.5);
+}
+
+/* Focus state */
+#benchToggle:focus {
+    outline: none;
+    box-shadow: 0 0 10px rgba(255, 87, 34, 0.8);
+}
+
+
+
+
 /* Close Button */
 #closeSettingsButton {
     margin-top: 30px;
@@ -862,4 +911,3 @@ button.cooldown,
     pointer-events: none; /* Prevent any mouse or touch events */
     transition: opacity 0.3s ease;
 }
-
