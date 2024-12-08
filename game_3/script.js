@@ -698,7 +698,7 @@ function createSquatRack() {
 
     // Material for the rack
     const rackMaterial = new THREE.MeshStandardMaterial({
-        color: 0xeb0e0e, // Red color
+        color: 0x363434, // Red color
         roughness: 0.1,
         metalness: 0.8,
     });
@@ -1350,11 +1350,18 @@ let barMaterial;
 function createBarbellVisual() {
     barbell = new THREE.Group();
 
-    // Define the material globally so it can be reused
-    barMaterial = new THREE.MeshStandardMaterial({
+    // Define the material for the bar
+    const barMaterial = new THREE.MeshStandardMaterial({
         color: 0xC0C0C0, // Silver color for the barbell
         metalness: 0.9,
         roughness: 0.3,
+    });
+
+    // Define the material for the plates (adjustable color)
+    const plateMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFF0000, // Default plate color (black)
+        metalness: 0.6,
+        roughness: 0.4,
     });
 
     // Create the central bar (shaft + implied sleeves)
@@ -1380,7 +1387,7 @@ function createBarbellVisual() {
         BARBELL_CONFIG.plate.thickness,
         BARBELL_CONFIG.plate.segments
     );
-    const leftPlate = new THREE.Mesh(leftPlateGeometry, barMaterial);
+    const leftPlate = new THREE.Mesh(leftPlateGeometry, plateMaterial);
     leftPlate.rotation.z = Math.PI / 2;
     leftPlate.position.set(-BARBELL_CONFIG.centralBar.length / 2 + sleeveLength, 0, 0);
     leftPlate.castShadow = true;
@@ -1394,7 +1401,7 @@ function createBarbellVisual() {
         BARBELL_CONFIG.plate.thickness,
         BARBELL_CONFIG.plate.segments
     );
-    const rightPlate = new THREE.Mesh(rightPlateGeometry, barMaterial);
+    const rightPlate = new THREE.Mesh(rightPlateGeometry, plateMaterial);
     rightPlate.rotation.z = Math.PI / 2;
     rightPlate.position.set(BARBELL_CONFIG.centralBar.length / 2 - sleeveLength, 0, 0);
     rightPlate.castShadow = true;
@@ -1411,6 +1418,16 @@ function createBarbellVisual() {
     // Add the barbell to the scene
     scene.add(barbell);
 }
+
+// Function to update plate material color
+function updatePlateColor(color) {
+    barbell.children.forEach((child) => {
+        if (child.geometry.type === 'CylinderGeometry' && child.material !== barMaterial) {
+            child.material.color.set(color);
+        }
+    });
+}
+
 
 // Variables for tracking plate additions and gap width
 let currentPlatesPerSide = 1; // Default: 1 plate per side
