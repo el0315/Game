@@ -1024,7 +1024,7 @@ function returnChalkToBowl(originalPosition, liftHeight) {
         liftHeight,
         originalPosition.z
     );
-
+    createChalkCloud(chalk.position);
     new TWEEN.Tween(chalk.position)
         .to({ x: intermediatePosition.x, y: intermediatePosition.y, z: intermediatePosition.z }, 500) // Lift duration
         .easing(TWEEN.Easing.Quadratic.Out)
@@ -1041,6 +1041,62 @@ function returnChalkToBowl(originalPosition, liftHeight) {
         .start();
 }
 
+function createChalkCloud(position) {
+    // Create a group for the chalk cloud
+    const cloudGroup = new THREE.Group();
+
+    // Parameters for the cloud effect
+    const numParticles = 20; // Number of particles
+    const cloudRadius = 1; // Radius of the cloud area
+    const particleLifetime = 2000; // Lifetime of particles in milliseconds
+
+    // Create particles
+    for (let i = 0; i < numParticles; i++) {
+        // Create a simple white circle for the particle
+        const particleGeometry = new THREE.CircleGeometry(0.3, 16); // Adjust size and smoothness
+        const particleMaterial = new THREE.MeshBasicMaterial({
+            color: 0xFFFFFF, // White color
+            opacity: 0.8, // Slight transparency
+            transparent: true
+        });
+        const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+
+        // Randomize position within the cloud radius
+        const angle = Math.random() * Math.PI * 2;
+        const distance = Math.random() * cloudRadius;
+        const x = position.x + Math.cos(angle) * distance;
+        const y = position.y + Math.random() * cloudRadius * 0.5; // Add vertical variation
+        const z = position.z + Math.sin(angle) * distance;
+
+        particle.position.set(x, y, z);
+
+        // Add the particle to the cloud group
+        cloudGroup.add(particle);
+
+        // Animate the particle (fade out and rise slightly)
+        const initialPosition = { y: y, opacity: 0.8 };
+        const finalPosition = { y: y - 0.5, opacity: 0 };
+        new TWEEN.Tween(initialPosition)
+            .to(finalPosition, particleLifetime)
+            .onUpdate(() => {
+                particle.position.y = initialPosition.y;
+                particle.material.opacity = initialPosition.opacity;
+            })
+            .onComplete(() => {
+                // Remove the particle once animation is complete
+                cloudGroup.remove(particle);
+            })
+            .start();
+    }
+
+    // Add the cloud group to the scene
+    scene.add(cloudGroup);
+
+    // Remove the cloud group after the lifetime of the particles
+    setTimeout(() => {
+        scene.remove(cloudGroup);
+    }, particleLifetime);
+}
 
 
 function addChalkDustTexture() {
