@@ -548,6 +548,40 @@ html, body {
     transform: scale(0.95); /* Slightly shrink on touch for feedback */
 }
 
+/* Chalk Button Styling */
+#chalkButton {
+    position: absolute;
+    bottom: 50px; /* Positioned above other buttons */
+    left: 50%; /* Center horizontally */
+    transform: translateX(-50%);
+    padding: 15px 30px;
+    font-size: 16px;
+    font-weight: bold;
+    background-color: rgba(0, 0, 0, 0.4); /* Sleek black background */
+    color: white;
+    border: none;
+    border-radius: 50px; /* Rounded edges */
+    cursor: pointer;
+    display: none; /* Initially hidden */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+    transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+}
+
+#chalkButton:hover {
+    background-color: rgba(50, 50, 50, 0.9); /* Slightly darker black */
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5); /* Stronger shadow for hover effect */
+}
+
+#chalkButton:active {
+    transform: scale(0.95); /* Slightly shrink on touch for feedback */
+}
+
+#chalkButton.hidden {
+    display: none; /* Hide the button when not needed */
+}
+
+
 /* Apply Force Button Styling */
 #applyForceButton {
     position: absolute;
