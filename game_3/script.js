@@ -234,10 +234,12 @@ loadAmmoAndStartGame = function() {
         console.log("Ammo.js loaded successfully.");
         initializePhysics();
         initializeScene();
+        
         initializePlayerStrength();
         setupEventListeners();
-
-        hideLoadingScreen(); // Hide loading screen after initialization
+        addLogoToPlatform(() => {
+            hideLoadingScreen(); // Hide loading screen when the logo has fully loaded
+        });
         animate(); // Start the game loop
     }).catch((error) => {
         console.error("Failed to load Ammo.js:", error);
@@ -1340,29 +1342,60 @@ function createPlatform() {
     console.log("Gradient wood platform added under the squat rack.");
 }
 
+function addLogoToPlatform(onLogoLoaded) {
+    // Load the logo texture
+    const loader = new THREE.TextureLoader();
+    loader.load(
+        'logo.png', // Path to the logo file
+        (texture) => {
+            // Create a material with the loaded texture
+            const logoMaterial = new THREE.MeshBasicMaterial({
+                map: texture,
+                transparent: true, // Optional: for transparency if the logo has an alpha channel
+            });
 
+            // Create a plane geometry for the logo
+            const logoGeometry = new THREE.PlaneGeometry(10, 10); // Adjust width and height as needed
+
+            // Create the mesh
+            const logoMesh = new THREE.Mesh(logoGeometry, logoMaterial);
+
+            // Position the logo on the platform
+            logoMesh.position.set(0, 0.03, 0); // Slightly above the platform to prevent z-fighting
+            logoMesh.rotation.x = -Math.PI / 2; // Rotate to lie flat on the platform
+
+            // Add the logo to the scene or platform group
+            scene.add(logoMesh);
+
+            // Call the provided callback to indicate the logo has loaded
+            if (typeof onLogoLoaded === 'function') {
+                onLogoLoaded();
+            }
+        },
+        undefined, // onProgress
+        (err) => {
+            console.error('Error loading the logo texture:', err);
+        }
+    );
+}
 
 
 // Global Material for the Barbell and Plates
-let barMaterial;
+let barMaterial = new THREE.MeshStandardMaterial({
+    color: 0xC0C0C0, // Silver color for the barbell
+    metalness: 0.9,
+    roughness: 0.3,
+});
+
+let plateMaterial = new THREE.MeshStandardMaterial({
+    color: 0xFF0000, // Default plate color (red)
+    metalness: 0.6,
+    roughness: 0.4,
+});
 
 // Create Barbell Visual
 function createBarbellVisual() {
     barbell = new THREE.Group();
-
-    // Define the material for the bar
-    const barMaterial = new THREE.MeshStandardMaterial({
-        color: 0xC0C0C0, // Silver color for the barbell
-        metalness: 0.9,
-        roughness: 0.3,
-    });
-
-    // Define the material for the plates (adjustable color)
-    const plateMaterial = new THREE.MeshStandardMaterial({
-        color: 0xFF0000, // Default plate color (black)
-        metalness: 0.6,
-        roughness: 0.4,
-    });
 
     // Create the central bar (shaft + implied sleeves)
     const barGeometry = new THREE.CylinderGeometry(
@@ -1392,20 +1425,13 @@ function createBarbellVisual() {
     leftPlate.position.set(-BARBELL_CONFIG.centralBar.length / 2 + sleeveLength, 0, 0);
     leftPlate.castShadow = true;
     leftPlate.receiveShadow = true;
+    leftPlate.isPlate = true; // Mark as a plate for easy filtering
     barbell.add(leftPlate);
 
     // Right plate
-    const rightPlateGeometry = new THREE.CylinderGeometry(
-        BARBELL_CONFIG.plate.radius,
-        BARBELL_CONFIG.plate.radius,
-        BARBELL_CONFIG.plate.thickness,
-        BARBELL_CONFIG.plate.segments
-    );
-    const rightPlate = new THREE.Mesh(rightPlateGeometry, plateMaterial);
-    rightPlate.rotation.z = Math.PI / 2;
+    const rightPlate = leftPlate.clone();
     rightPlate.position.set(BARBELL_CONFIG.centralBar.length / 2 - sleeveLength, 0, 0);
-    rightPlate.castShadow = true;
-    rightPlate.receiveShadow = true;
+    rightPlate.isPlate = true; // Mark as a plate for easy filtering
     barbell.add(rightPlate);
 
     // Set initial position of the barbell
@@ -1418,6 +1444,7 @@ function createBarbellVisual() {
     // Add the barbell to the scene
     scene.add(barbell);
 }
+
 
 // Function to update plate material color
 function updatePlateColor(color) {
@@ -1470,7 +1497,7 @@ function adjustPlatesToBarbell(newPlateCount) {
             BARBELL_CONFIG.plate.thickness,
             BARBELL_CONFIG.plate.segments
         );
-        const leftPlate = new THREE.Mesh(leftPlateGeometry, barMaterial);
+        const leftPlate = new THREE.Mesh(leftPlateGeometry, plateMaterial);
         leftPlate.rotation.z = Math.PI / 2;
         leftPlate.position.set(-plateOffset, 0, 0);
         leftPlate.isPlate = true; // Mark as a plate for easy filtering
