@@ -372,6 +372,7 @@ function initializeScene() {
     // Create the barbell mesh and add it to the scene
     createBarbellVisual();
     createSquatRack();
+    createBench();
     createChalkBowl();
     addChalkDustTexture();
 
@@ -856,6 +857,50 @@ function createChalkBowl() {
     scene.add(chalk);
     addChalkBowlPhysics();
 }
+
+function createBench() {
+    // Bench dimensions
+    const benchWidth = 2;    // Width of the bench
+    const benchHeight = 0.2; // Height of the bench
+    const benchDepth = 5;    // Length of the bench
+
+    // Bench material
+    const benchMaterial = new THREE.MeshStandardMaterial({
+        color: 0xeb0e0e, // red
+        roughness: 0.6,
+        metalness: 0.6,
+    });
+
+    // Bench mesh
+    const benchGeometry = new THREE.BoxGeometry(benchWidth, benchHeight, benchDepth);
+    const bench = new THREE.Mesh(benchGeometry, benchMaterial);
+    bench.position.set(0, benchHeight / 2 + 1, 0.5); // Position the bench above the ground
+    bench.castShadow = true;
+    bench.receiveShadow = true;
+
+    // Add the bench to the scene
+    scene.add(bench);
+
+    // Bench physics
+    const benchShape = new Ammo.btBoxShape(new Ammo.btVector3(benchWidth / 2, benchHeight / 2, benchDepth / 2));
+    const benchTransform = new Ammo.btTransform();
+    benchTransform.setIdentity();
+    benchTransform.setOrigin(new Ammo.btVector3(0, benchHeight / 2 + 1, 0.5));
+
+    const benchMotionState = new Ammo.btDefaultMotionState(benchTransform);
+    const benchMass = 0; // Static object
+    const benchLocalInertia = new Ammo.btVector3(0, 0, 0);
+    const benchRbInfo = new Ammo.btRigidBodyConstructionInfo(benchMass, benchMotionState, benchShape, benchLocalInertia);
+    const benchBody = new Ammo.btRigidBody(benchRbInfo);
+
+    // Add the bench to the physics world
+    physicsWorld.addRigidBody(benchBody);
+
+    console.log("Bench added to the game.");
+}
+
+
+
 
 
 function addChalkBowlPhysics() {
