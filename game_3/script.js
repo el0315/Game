@@ -1369,7 +1369,7 @@ function addLogoToPlatform(onLogoLoaded) {
             const logoMesh = new THREE.Mesh(logoGeometry, logoMaterial);
 
             // Position the logo on the platform
-            logoMesh.position.set(0, 0.03, 0); // Slightly above the platform to prevent z-fighting
+            logoMesh.position.set(0, 0.05, 0); // Slightly above the platform to prevent z-fighting
             logoMesh.rotation.x = -Math.PI / 2; // Rotate to lie flat on the platform
 
             // Add the logo to the scene or platform group
