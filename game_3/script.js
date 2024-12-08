@@ -3104,62 +3104,125 @@ let playerBenchConstraint = null;
 function layOnBench() {
     isPlayerOnBench = true;
 
-    // Adjust player position and rotation to simulate lying down
-    player.position.set(bench.position.x, bench.position.y + 0.5, bench.position.z); 
-    player.rotation.set(-Math.PI / 2, 0, 0);
+    // Define start and target states for the tween
+    const startPosition = player.position.clone();
+    const startRotation = new THREE.Euler().setFromQuaternion(player.quaternion);
 
-    // Update player's physics body transform
-    const transform = new Ammo.btTransform();
-    transform.setIdentity();
-    transform.setOrigin(new Ammo.btVector3(player.position.x, player.position.y, player.position.z));
-    const quat = new THREE.Quaternion();
-    quat.setFromEuler(player.rotation);
-    transform.setRotation(new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w));
-    playerBody.setWorldTransform(transform);
-    playerBody.getMotionState().setWorldTransform(transform);
+    // Target position and rotation for lying down on the bench
+    const targetPosition = new THREE.Vector3(bench.position.x, bench.position.y + 0.5, bench.position.z);
+    const targetRotation = new THREE.Euler(-Math.PI / 2, 0, 0); // lying flat
 
-    // Now attach the player to the bench using a constraint:
-    attachPlayerToBench();
+    const duration = 1000; // 1 second, adjust as needed
 
-    console.log("Player is now laying on the bench.");
+    // Create an object to tween position & rotation (convert rotation to degrees or to a simple vector)
+    const tweenData = {
+        x: startPosition.x,
+        y: startPosition.y,
+        z: startPosition.z,
+        rx: startRotation.x,
+        ry: startRotation.y,
+        rz: startRotation.z
+    };
+
+    new TWEEN.Tween(tweenData)
+        .to({
+            x: targetPosition.x,
+            y: targetPosition.y,
+            z: targetPosition.z,
+            rx: targetRotation.x,
+            ry: targetRotation.y,
+            rz: targetRotation.z
+        }, duration)
+        .easing(TWEEN.Easing.Quadratic.Out)
+        .onUpdate(() => {
+            // Update the player mesh
+            player.position.set(tweenData.x, tweenData.y, tweenData.z);
+            player.rotation.set(tweenData.rx, tweenData.ry, tweenData.rz);
+
+            // Update physics transform
+            const transform = new Ammo.btTransform();
+            transform.setIdentity();
+            transform.setOrigin(new Ammo.btVector3(tweenData.x, tweenData.y, tweenData.z));
+
+            const quat = new THREE.Quaternion();
+            quat.setFromEuler(new THREE.Euler(tweenData.rx, tweenData.ry, tweenData.rz));
+            transform.setRotation(new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w));
+
+            playerBody.setWorldTransform(transform);
+            playerBody.getMotionState().setWorldTransform(transform);
+        })
+        .onComplete(() => {
+            // After the tween finishes, attach the player to the bench
+            attachPlayerToBench();
+            console.log("Player is now laying on the bench with smooth transition.");
+        })
+        .start();
 }
+
 
 function standUpFromBench() {
     isPlayerOnBench = false;
 
-    // Remove the player-bench constraint if it exists
+    // First, remove the constraint
     if (playerBenchConstraint) {
         physicsWorld.removeConstraint(playerBenchConstraint);
         Ammo.destroy(playerBenchConstraint);
         playerBenchConstraint = null;
     }
 
-    // Move the player away from the bench to avoid collisions
-    // For instance, move them 2 units along the +Z axis
-    const standUpOffset = 2; // Adjust this offset as needed
-    player.position.set(
-        player.position.x,
-        player.position.y + 1, // Stand up (raise by 1 unit)
-        player.position.z + standUpOffset
+    // Current player state
+    const startPosition = player.position.clone();
+    const startRotation = new THREE.Euler().setFromQuaternion(player.quaternion);
+
+    // Move player away from the bench to avoid collisions
+    const standUpOffset = 2; 
+    const targetPosition = new THREE.Vector3(
+        startPosition.x,
+        startPosition.y + 1, // stand up taller
+        startPosition.z + standUpOffset
     );
+    const targetRotation = new THREE.Euler(0, 0, 0); // upright
 
-    // Reset player rotation to standing upright
-    player.rotation.set(0, 0, 0);
+    const duration = 1000; // 1 second
 
-    // Update player's physics body transform to match the new position/orientation
-    const transform = new Ammo.btTransform();
-    transform.setIdentity();
-    transform.setOrigin(new Ammo.btVector3(player.position.x, player.position.y, player.position.z));
+    const tweenData = {
+        x: startPosition.x,
+        y: startPosition.y,
+        z: startPosition.z,
+        rx: startRotation.x,
+        ry: startRotation.y,
+        rz: startRotation.z
+    };
 
-    const quat = new THREE.Quaternion();
-    quat.setFromEuler(player.rotation);
-    transform.setRotation(new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w));
+    new TWEEN.Tween(tweenData)
+        .to({
+            x: targetPosition.x,
+            y: targetPosition.y,
+            z: targetPosition.z,
+            rx: targetRotation.x,
+            ry: targetRotation.y,
+            rz: targetRotation.z
+        }, duration)
+        .easing(TWEEN.Easing.Quadratic.Out)
+        .onUpdate(() => {
+            player.position.set(tweenData.x, tweenData.y, tweenData.z);
+            player.rotation.set(tweenData.rx, tweenData.ry, tweenData.rz);
 
-    playerBody.setWorldTransform(transform);
-    playerBody.getMotionState().setWorldTransform(transform);
-    physicsWorld.updateSingleAabb(playerBody);
+            const transform = new Ammo.btTransform();
+            transform.setIdentity();
+            transform.setOrigin(new Ammo.btVector3(tweenData.x, tweenData.y, tweenData.z));
 
-    console.log("Player is now standing up and moved away from the bench.");
+            const quat = new THREE.Quaternion();
+            quat.setFromEuler(new THREE.Euler(tweenData.rx, tweenData.ry, tweenData.rz));
+            transform.setRotation(new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w));
+
+            playerBody.setWorldTransform(transform);
+            playerBody.getMotionState().setWorldTransform(transform);
+        })
+        .onComplete(() => {
+            console.log("Player is now standing up smoothly and moved away from the bench.");
+        })
+        .start();
 }
 
 
