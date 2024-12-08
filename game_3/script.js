@@ -343,9 +343,12 @@ function initializeScene() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Use PCFSoftShadowMap for softer shadows
+    renderer.shadowMap.type = THREE.BasicShadowMap;
     renderer.shadowMap.bias = -0.00005; // Adjusted shadow bias
     renderer.outputEncoding = THREE.sRGBEncoding; // Improved color accuracy
+    renderer.shadowMap.width = 1024;
+    renderer.shadowMap.height = 1024;
+
 
     // Create and position the camera
     camera = new THREE.PerspectiveCamera(
@@ -2314,7 +2317,7 @@ function onWindowResize() {
 
 // Add these variables at the top of your script with other globals
 let walkBobTime = 0;        // Tracks time for the walking bob effect
-const walkBobSpeed = 8;     // How fast the bobbing occurs
+const walkBobSpeed = 15;     // How fast the bobbing occurs
 const walkBobAmplitude = 0.3; // How high the player bobs
 
 function updatePlayerPosition(deltaTime) {
