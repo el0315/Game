@@ -912,6 +912,7 @@ function createBench() {
 }
 
 function removeBench() {
+    standUpFromBench();
     if (bench) {
         // Remove the bench mesh from the scene
         scene.remove(bench);
@@ -1039,7 +1040,6 @@ function checkProximityToChalkBowl() {
 
     // Check if the player is within the proximity threshold
     if (distanceToChalkBowl <= CHALK_BOWL_PROXIMITY_THRESHOLD) {
-        console.log("Player is near the chalk bowl.");
 
         // Show the chalk button
         if (chalkButton) chalkButton.style.display = "block";
@@ -1048,7 +1048,6 @@ function checkProximityToChalkBowl() {
         canInteractWithChalk = true; // Allow button interaction to handle the logic
     } else {
         // Player is out of range, reset interaction state and hide the button
-        console.log("Player left the chalk bowl proximity.");
         canInteractWithChalk = false;
         if (chalkButton) chalkButton.style.display = "none";
     }
@@ -3083,7 +3082,7 @@ function checkProximityToBench() {
     // Show the action button if within proximity and not already on the bench
     if (distanceToBench <= BENCH_PROXIMITY_THRESHOLD && !isPlayerOnBench) {
         benchActionButton.style.display = 'block';
-        benchActionButton.innerText = "Lay on Bench";
+        benchActionButton.innerText = "Bench";
 
         // Add touch event listener for laying down
         benchActionButton.ontouchstart = layOnBench;
@@ -3198,7 +3197,6 @@ function attachPlayerToBench() {
 
     console.log("Player is now attached to the bench.");
 }
-
 
 
 // ==============================
