@@ -1034,32 +1034,67 @@ function returnChalkToBowl(originalPosition, liftHeight) {
                 .to({ x: originalPosition.x, y: originalPosition.y, z: originalPosition.z }, 200) // Descend duration
                 .easing(TWEEN.Easing.Quadratic.Out)
                 .onComplete(() => {
-                    console.log("Chalk block returned to the bowl.");
+                    console.log("Chalk block returned to the bowl.")
+                    
                 })
                 .start();
         })
         .start();
 }
 
-function createChalkCloud(position) {
-    // Create a group for the chalk cloud
-    const cloudGroup = new THREE.Group();
+function generateChalkTexture() {
+    const size = 128; // Size of the texture
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
 
-    // Parameters for the cloud effect
+    const context = canvas.getContext('2d');
+
+    // Create a radial gradient for the chalk cloud
+    const gradient = context.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.5)'); // Center is semi-transparent white
+    gradient.addColorStop(0.7, 'rgba(255, 255, 255, 0.2)'); // Edges are more transparent
+    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');     // Fully transparent at the outer edge
+
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, size, size);
+
+    // Add noise to make the texture look more like chalk dust
+    const imageData = context.getImageData(0, 0, size, size);
+    const data = imageData.data;
+
+    for (let i = 0; i < data.length; i += 4) {
+        const noise = Math.random() * 50 - 25; // Random noise offset
+        data[i] += noise;     // Red channel
+        data[i + 1] += noise; // Green channel
+        data[i + 2] += noise; // Blue channel
+    }
+
+    context.putImageData(imageData, 0, 0);
+
+    // Return a THREE.Texture from the canvas
+    return new THREE.CanvasTexture(canvas);
+}
+
+// Use this texture in the createChalkCloud function
+function createChalkCloud(position) {
+    const cloudGroup = new THREE.Group();
     const numParticles = 20; // Number of particles
     const cloudRadius = 1; // Radius of the cloud area
     const particleLifetime = 2000; // Lifetime of particles in milliseconds
 
-    // Create particles
+    const chalkTexture = generateChalkTexture();
+
     for (let i = 0; i < numParticles; i++) {
-        // Create a simple white circle for the particle
-        const particleGeometry = new THREE.CircleGeometry(0.3, 16); // Adjust size and smoothness
-        const particleMaterial = new THREE.MeshBasicMaterial({
-            color: 0xFFFFFF, // White color
-            opacity: 0.8, // Slight transparency
-            transparent: true
+        // Create a sprite material using the generated chalk texture
+        const spriteMaterial = new THREE.SpriteMaterial({
+            map: chalkTexture,
+            transparent: true,
+            opacity: 0.8 // Initial opacity
         });
-        const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+
+        // Create the sprite
+        const sprite = new THREE.Sprite(spriteMaterial);
 
         // Randomize position within the cloud radius
         const angle = Math.random() * Math.PI * 2;
@@ -1068,23 +1103,25 @@ function createChalkCloud(position) {
         const y = position.y + Math.random() * cloudRadius * 0.5; // Add vertical variation
         const z = position.z + Math.sin(angle) * distance;
 
-        particle.position.set(x, y, z);
+        sprite.position.set(x, y, z);
 
-        // Add the particle to the cloud group
-        cloudGroup.add(particle);
+        // Randomize size
+        sprite.scale.setScalar(Math.random() * 0.5 + 0.2); // Random size between 0.2 and 0.7
 
-        // Animate the particle (fade out and rise slightly)
+        // Add the sprite to the cloud group
+        cloudGroup.add(sprite);
+
+        // Animate the sprite (fade out and rise slightly)
         const initialPosition = { y: y, opacity: 0.8 };
-        const finalPosition = { y: y - 0.5, opacity: 0 };
+        const finalPosition = { y: y - 1, opacity: 0 };
         new TWEEN.Tween(initialPosition)
             .to(finalPosition, particleLifetime)
             .onUpdate(() => {
-                particle.position.y = initialPosition.y;
-                particle.material.opacity = initialPosition.opacity;
+                sprite.position.y = initialPosition.y;
+                sprite.material.opacity = initialPosition.opacity;
             })
             .onComplete(() => {
-                // Remove the particle once animation is complete
-                cloudGroup.remove(particle);
+                cloudGroup.remove(sprite); // Remove the sprite after its lifetime
             })
             .start();
     }
@@ -2471,7 +2508,6 @@ function updatePlayerPosition(deltaTime) {
         origin.z()
     );
 }
-
 
 function updateBarbellPosition() {
     if (!barbellBody) {
