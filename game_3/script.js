@@ -906,9 +906,39 @@ let canInteractWithChalk = true;
 // Add a cooldown duration (in milliseconds) and a timestamp for the last interaction
 const CHALK_INTERACTION_COOLDOWN = 3000; // 2 seconds cooldown
 let lastChalkInteractionTime = 0; // Initialize to 0
+const chalkButton = document.getElementById("chalkButton");
+
+chalkButton.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    const currentTime = Date.now();
+
+    if (canInteractWithChalk && currentTime - lastChalkInteractionTime > CHALK_INTERACTION_COOLDOWN) {
+        console.log("Chalk button pressed. Triggering animation...");
+        
+        // Trigger the animation
+        animateChalkBlock();
+
+        // Start cooldown
+        canInteractWithChalk = false;
+        lastChalkInteractionTime = currentTime;
+
+        // Add cooldown class to visually indicate the button is disabled
+        chalkButton.classList.add("cooldown");
+
+        // Remove cooldown class after the cooldown period
+        setTimeout(() => {
+            chalkButton.classList.remove("cooldown");
+            canInteractWithChalk = true; // Allow interaction again
+            console.log("Cooldown ended. Chalk button re-enabled.");
+        }, CHALK_INTERACTION_COOLDOWN);
+    } else {
+        console.log("Chalk interaction is on cooldown.");
+    }
+});
+
 
 function checkProximityToChalkBowl() {
-    if (!player || !chalk || chalkInteractionInProgress) return;
+    if (!player || !chalk) return;
 
     // Chalk block's position (should match the bowl's position)
     const chalkBowlPosition = chalk.position;
@@ -916,25 +946,20 @@ function checkProximityToChalkBowl() {
     // Calculate the distance between the player and the chalk bowl
     const distanceToChalkBowl = player.position.distanceTo(chalkBowlPosition);
 
-    // Get the current time
-    const currentTime = Date.now();
+    // Check if the player is within the proximity threshold
+    if (distanceToChalkBowl <= CHALK_BOWL_PROXIMITY_THRESHOLD) {
+        console.log("Player is near the chalk bowl.");
 
-    // Check if the player is within the proximity threshold and cooldown has elapsed
-    if (
-        distanceToChalkBowl <= CHALK_BOWL_PROXIMITY_THRESHOLD &&
-        canInteractWithChalk &&
-        currentTime - lastChalkInteractionTime > CHALK_INTERACTION_COOLDOWN
-    ) {
-        console.log("Player is near the chalk bowl and can interact.");
-        animateChalkBlock();
-        canInteractWithChalk = false; // Disable further interactions until the player leaves
-        lastChalkInteractionTime = currentTime; // Update the last interaction time
-    } else if (distanceToChalkBowl > CHALK_BOWL_PROXIMITY_THRESHOLD) {
-        // Reset the interaction flag when the player leaves the proximity
-        if (!canInteractWithChalk) {
-            console.log("Player left the chalk bowl proximity. Interaction reset.");
-        }
-        canInteractWithChalk = true;
+        // Show the chalk button
+        if (chalkButton) chalkButton.style.display = "block";
+
+        // Disable automatic animation trigger
+        canInteractWithChalk = true; // Allow button interaction to handle the logic
+    } else {
+        // Player is out of range, reset interaction state and hide the button
+        console.log("Player left the chalk bowl proximity.");
+        canInteractWithChalk = false;
+        if (chalkButton) chalkButton.style.display = "none";
     }
 }
 
