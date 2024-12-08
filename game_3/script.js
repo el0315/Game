@@ -3085,7 +3085,7 @@ function animate() {
     const deltaTime = 1 / 60;
 
     // Update physics world
-    physicsWorld.stepSimulation(deltaTime, 10);
+    physicsWorld.stepSimulation(deltaTime, 1);
 
     // Update spring system
     updateSpring(deltaTime);
