@@ -933,10 +933,18 @@ function removeBench() {
 function toggleBench() {
     if (benchToggle.checked) {
         createBench(); // Add the bench if checked
+        benchIsActive = true;
     } else {
         removeBench(); // Remove the bench if unchecked
+        benchIsActive = false;
+
+        // Hide the action button if the bench is toggled off
+        if (benchActionButton) {
+            benchActionButton.style.display = 'none';
+        }
     }
 }
+
 
 benchToggle.addEventListener('change', toggleBench);
 
@@ -3056,6 +3064,61 @@ function checkProximityToBarbell() {
     updateActionButtonVisibility()
 }
 
+// Constants for the bench proximity and alignment
+const BENCH_PROXIMITY_THRESHOLD = 5; // Adjust as needed for proximity
+let isPlayerOnBench = false; // Track if the player is on the bench
+const benchActionButton = document.getElementById('benchActionButton'); // Add this button to your HTML
+
+function checkProximityToBench() {
+    if (!player || !bench) return;
+
+    const distanceToBench = player.position.distanceTo(bench.position);
+
+    // Ensure the button is visible only when the bench is toggled on
+    if (!benchIsActive) {
+        benchActionButton.style.display = 'none';
+        return;
+    }
+
+    // Show the action button if within proximity and not already on the bench
+    if (distanceToBench <= BENCH_PROXIMITY_THRESHOLD && !isPlayerOnBench) {
+        benchActionButton.style.display = 'block';
+        benchActionButton.innerText = "Lay on Bench";
+
+        // Add touch event listener for laying down
+        benchActionButton.ontouchstart = layOnBench;
+    } else if (isPlayerOnBench) {
+        // Show "Stand Up" button if the player is already on the bench
+        benchActionButton.style.display = 'block';
+        benchActionButton.innerText = "Stand Up";
+
+        // Add touch event listener for standing up
+        benchActionButton.ontouchstart = standUpFromBench;
+    } else {
+        // Hide the button if out of range or not interacting
+        benchActionButton.style.display = 'none';
+    }
+}
+
+function layOnBench() {
+    isPlayerOnBench = true;
+
+    // Adjust player position and rotation to simulate lying down
+    player.position.set(bench.position.x, bench.position.y + 0.5, bench.position.z); // Adjust height
+    player.rotation.set(-Math.PI / 2, 0, 0); // Lay flat
+    console.log("Player is now laying on the bench.");
+}
+
+function standUpFromBench() {
+    isPlayerOnBench = false;
+
+    // Reset player position and rotation to standing
+    player.position.set(player.position.x, player.position.y + 1, player.position.z); // Adjust height back
+    player.rotation.set(0, 0, 0); // Stand upright
+    console.log("Player is now standing up.");
+}
+
+
 
 
 // ==============================
@@ -3348,6 +3411,7 @@ function animate() {
     // Check collisions and proximity
     checkCollisions();
     checkProximityToBarbell();
+    checkProximityToBench();
     checkProximityToChalkBowl();
     
 
