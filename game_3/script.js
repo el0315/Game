@@ -2312,7 +2312,12 @@ function onWindowResize() {
 // Update Functions
 // ==============================
 
-function updatePlayerPosition() {
+// Add these variables at the top of your script with other globals
+let walkBobTime = 0;        // Tracks time for the walking bob effect
+const walkBobSpeed = 8;     // How fast the bobbing occurs
+const walkBobAmplitude = 0.3; // How high the player bobs
+
+function updatePlayerPosition(deltaTime) {
     if (!playerBody) {
         console.warn("playerBody is undefined in updatePlayerPosition.");
         return;
@@ -2343,6 +2348,9 @@ function updatePlayerPosition() {
             moveDirection.z * playerSpeed
         );
         playerBody.setLinearVelocity(desiredVelocity);
+
+        // Update bobbing effect when moving
+        walkBobTime += deltaTime * walkBobSpeed;
     } else {
         // Joystick is inactive, ensure the player stops horizontally
         const currentVelocity = playerBody.getLinearVelocity();
@@ -2354,21 +2362,29 @@ function updatePlayerPosition() {
                 0  // Stop movement on Z-axis
             ));
         }
+
+        // Reset bobbing effect when not moving
+        walkBobTime = 0;
     }
+
+    // Calculate the bobbing height offset
+    const bobOffset = Math.sin(walkBobTime) * walkBobAmplitude;
 
     // Update player's position based on physics simulation
     const transform = new Ammo.btTransform();
     playerBody.getMotionState().getWorldTransform(transform);
     const origin = transform.getOrigin();
 
-    // Update player mesh position
+    // Update player mesh position and scale
     player.position.set(origin.x(), origin.y(), origin.z());
-
-    // Apply spring compression
     const heightReduction = originalHeight - currentHeight;
-    player.scale.set(1, currentHeight / originalHeight, 1); // Adjust Y-scale for compression
-    player.position.y = origin.y() - heightReduction / 2;   // Adjust vertical position
+
+    // Apply bobbing effect to the player's top
+    player.scale.set(1, (currentHeight + bobOffset) / originalHeight, 1);
+    player.position.y = origin.y() - heightReduction / 2; // Keep bottom fixed
 }
+
+
 
 function updateBarbellPosition() {
     if (!barbellBody) {
@@ -3075,7 +3091,7 @@ function animate() {
 
     
     // Update player and barbell positions
-    updatePlayerPosition();
+    updatePlayerPosition(deltaTime);
     updateBarbellPosition();
 
     // Update camera position
