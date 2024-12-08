@@ -870,7 +870,7 @@ function createBench() {
     if (bench) return; // Prevent creating multiple benches
 
     // Bench dimensions
-    const benchWidth = 2;    // Width of the bench
+    const benchWidth = 1.8;    // Width of the bench
     const benchHeight = 0.2; // Height of the bench
     const benchDepth = 5;    // Length of the bench
 
